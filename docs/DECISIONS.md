@@ -1,0 +1,28 @@
+# Technical Decisions
+
+## Accepted decisions
+
+| ID | Decision | Rationale |
+| --- | --- | --- |
+| D-001 | Base Sepolia only for MVP | Allows end-to-end testing without production funds. |
+| D-002 | Start from the official Megapot starter kit | Preserves known-good contract, wallet, and Data API patterns. |
+| D-003 | One ticket per MVP purchase | Keeps the first Planet eligibility and mint path simple. |
+| D-004 | Separate ticket purchase and Planet mint transactions | Megapot remains the ticket issuer; MegaPlanets owns its ERC-721. |
+| D-005 | Ticket ID is the Planet token ID | Makes provenance and duplicate protection easy to inspect. |
+| D-006 | Generator seed includes ticket ID | Identical picks in one drawing still produce unique planets. |
+| D-007 | IPFS metadata is immutable at mint | Keeps token metadata independent of application hosting. |
+| D-008 | Backend signs canonical metadata vouchers | Prevents users from substituting arbitrary GIFs or attributes. |
+| D-009 | Only `MEGAPLANETS_V1` purchases after launch qualify | Excludes legacy and third-party Megapot tickets. |
+| D-010 | Burned eligible tickets may mint later | The indexer preserves the eligible owner at burn time. |
+| D-011 | Daily points follow current Planet ownership | Transferable NFTs transfer future leaderboard earning power. |
+| D-012 | Vercel + Supabase + Pinata | Minimizes MVP infrastructure operations. |
+| D-013 | No upgradeable NFT proxy | Reduces contract complexity and trust surface. |
+
+## Deferred decisions
+
+- Final palette tables and additional noise modes.
+- Final points and rarity balancing.
+- Rules and artwork for 1/1 special editions.
+- Base mainnet launch configuration.
+- On-chain weekly reward distribution.
+- Base Account batching and gas sponsorship.

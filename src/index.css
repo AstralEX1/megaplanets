@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Bitram";
+  src: url("/fonts/Bitram.ttf") format("truetype");
+  font-display: swap;
+}
+
+@layer base {
+  /* Apply the locally bundled pixel typeface globally. */
+  html {
+    @apply font-sans;
+    color-scheme: dark;
+    image-rendering: pixelated;
+  }
+
+  body {
+    @apply min-h-screen bg-[#07091a] text-[#e8f7ff];
+    background-image:
+      radial-gradient(circle at 14% 12%, rgb(61 18 122 / 45%) 0 1px, transparent 2px),
+      radial-gradient(circle at 82% 20%, rgb(76 201 240 / 55%) 0 1px, transparent 2px),
+      radial-gradient(circle at 55% 78%, rgb(244 114 182 / 35%) 0 1px, transparent 2px),
+      linear-gradient(145deg, #080a22 0%, #111342 50%, #080a22 100%);
+    background-size:
+      89px 89px,
+      137px 137px,
+      211px 211px,
+      100% 100%;
+  }
+
+  /* Component-level monospace utilities from the starter kit otherwise
+     override the app font. Keep the game interface consistently pixelated. */
+  #root,
+  #root * {
+    font-family: "Bitram", ui-monospace, monospace;
+  }
+
+  /* Single, consistent focus ring across every interactive element. Tab through
+     the app and you should always see where focus is. The ring uses
+     `box-shadow`, so each element keeps its native border-radius (pills stay
+     round, cards stay rounded-2xl) — no `rounded-*` override here. */
+  :where(button, a, [role="button"], summary, input, select, textarea):focus-visible {
+    @apply outline-none ring-2 ring-brand-primary-400 ring-offset-2 ring-offset-[#07091a];
+  }
+}
+
+@layer components {
+  /* The repeating card chrome used across pages — extracted so a fork can
+     restyle every card by editing one place. */
+  .card {
+    @apply rounded-none border border-[#38406c] bg-[#111532]/90 shadow-[4px_4px_0_#04050e];
+    box-shadow:
+      4px 4px 0 #04050e,
+      inset 0 0 0 1px rgb(107 114 176 / 12%);
+  }
+  .card-pad {
+    @apply card p-4;
+  }
+  .card-pad-lg {
+    @apply card p-6;
+  }
+
+  .pixel-frame {
+    clip-path: polygon(
+      0 6px,
+      6px 6px,
+      6px 0,
+      calc(100% - 6px) 0,
+      calc(100% - 6px) 6px,
+      100% 6px,
+      100% calc(100% - 6px),
+      calc(100% - 6px) calc(100% - 6px),
+      calc(100% - 6px) 100%,
+      6px 100%,
+      6px calc(100% - 6px),
+      0 calc(100% - 6px)
+    );
+  }
+}

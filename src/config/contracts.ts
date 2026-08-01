@@ -1,0 +1,150 @@
+/**
+ * ---
+ * @skill      https://llms.megapot.io/contracts/reference
+ * @customize  Set VITE_REFERRER_ADDRESS in .env to your wallet — that's how
+ *             you earn USDC on every ticket sold and every winning claimed
+ *             through this app. The kit ships with a dead-address default
+ *             so it runs out of the box; the diagnostics warning at boot
+ *             (see config/diagnostics.ts) catches the unchanged default
+ *             in dev. Switch chains by changing VITE_CHAIN in .env
+ *             (mainnet | testnet).
+ * ---
+ *
+ * All Megapot contract addresses + chain-aware helpers. Single source of
+ * truth — every hook reads from here so a chain switch is one env var.
+ */
+
+import { type Address, getAddress, isAddress, stringToHex } from 'viem';
+import { base, baseSepolia } from 'viem/chains';
+
+export type ChainName = 'mainnet' | 'testnet';
+
+export const CHAIN: ChainName = (import.meta.env.VITE_CHAIN as ChainName | undefined) ?? 'testnet';
+
+export const VIEM_CHAIN = CHAIN === 'mainnet' ? base : baseSepolia;
+
+/**
+ * Block explorer for the active chain. Two prefixes are derived from a single
+ * base map so address and tx URLs stay in lockstep:
+ *   `${EXPLORER_ADDRESS_URL}${addr}` → e.g. https://basescan.org/address/0x...
+ *   `${EXPLORER_TX_URL}${hash}`      → e.g. https://basescan.org/tx/0x...
+ */
+const EXPLORER_BASE: Record<ChainName, string> = {
+  mainnet: 'https://basescan.org/',
+  testnet: 'https://sepolia.basescan.org/',
+};
+
+/** Chain-resolved explorer URL prefix for addresses. Append the address. */
+export const EXPLORER_ADDRESS_URL = `${EXPLORER_BASE[CHAIN]}address/`;
+
+/** Chain-resolved explorer URL prefix for transactions. Append the tx hash. */
+export const EXPLORER_TX_URL = `${EXPLORER_BASE[CHAIN]}tx/`;
+
+/** USDC has 6 decimals on every chain Megapot deploys to. */
+export const USDC_DECIMALS = 6;
+
+/**
+ * Per-drawing bonusball minimum. The protocol default is 1; per-drawing maxes
+ * (`ballMax`, `bonusballMax`) come from `Jackpot.getDrawingState`. Override
+ * here if a fork uses a different protocol configuration.
+ */
+export const BONUSBALL_MIN = 1;
+
+/**
+ * `bytes32` source identifier passed to ticket purchase calls (direct buys,
+ * batch orders, and subscriptions) for analytics attribution. Replace with
+ * your app identifier to filter your purchases out of on-chain analytics.
+ *
+ * Computed from a UTF-8 string padded to 32 bytes via `viem.stringToHex`.
+ */
+export const TICKET_SOURCE = stringToHex('MEGAPLANETS_V1', { size: 32 });
+
+/**
+ * Toggle the LP page and nav entry. Default `false` — most forks surface only
+ * the user-facing flows (Home / Play / Tickets / History). Set to `true` to
+ * expose `JackpotLPManager.lpDeposit` / `initiateWithdraw` / `finalizeWithdraw`
+ * to your users (typically operator-facing forks).
+ *
+ * The LP page module (`src/pages/LP.tsx`) and its hooks/components remain in
+ * the bundle either way — this is a runtime visibility toggle, not a
+ * build-time tree-shake. A fork that wants the bundle reduction can swap
+ * `src/App.tsx`'s LP import to `React.lazy` and wrap the case in `<Suspense>`.
+ */
+export const LP_ENABLED = false;
+
+/**
+ * Referral split weights — must sum to 1e18 (= 100%). Single referrer = `[1e18]`.
+ * Up to 5 entries; align order with `_referrers`.
+ */
+export const REFERRAL_SPLIT_FULL: readonly bigint[] = [1_000_000_000_000_000_000n];
+
+/**
+ * Wallet that earns referral fees on every ticket purchased and every
+ * winning claimed through this app. Read from `VITE_REFERRER_ADDRESS`
+ * in your `.env`; falls back to a dead address so a fresh fork runs
+ * end-to-end without any config (fees earned on the fallback are
+ * unrecoverable — change before shipping).
+ *
+ * Per-ticket fee + win-share rates are protocol-level and readable at
+ * runtime via `Jackpot.getDrawingState().referralFee` and
+ * `.referralWinShare` (both 1e18-scaled).
+ *
+ * @see https://llms.megapot.io/tasks/claim-referral-fees
+ */
+export const DEFAULT_REFERRER_ADDRESS: Address = '0xCfc1044C749fD40E07FE33938414Fa573993F857';
+
+const configuredReferrer = (import.meta.env.VITE_REFERRER_ADDRESS as string | undefined)?.trim();
+
+/**
+ * The project referrer is public configuration, never a signing credential.
+ * An invalid local override falls back to the approved project address rather
+ * than risking an unrecoverable dead-address referral assignment.
+ */
+export const REFERRER_ADDRESS: Address =
+  configuredReferrer && isAddress(configuredReferrer)
+    ? getAddress(configuredReferrer)
+    : DEFAULT_REFERRER_ADDRESS;
+
+const ADDRESSES = {
+  USDC: {
+    mainnet: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    testnet: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+  },
+  Jackpot: {
+    mainnet: '0x3bAe643002069dBCbcd62B1A4eb4C4A397d042a2',
+    testnet: '0x465dA3c859f193A3807386387bEE941B2A4c3279',
+  },
+  JackpotTicketNFT: {
+    mainnet: '0x48FfE35AbB9f4780a4f1775C2Ce1c46185b366e4',
+    testnet: '0x45084829ac63f9dC6a3D4981A46FA896f9180ECd',
+  },
+  BatchPurchaseFacilitator: {
+    mainnet: '0xBA343479D98a1Ed333899999D95a7343B808a76F',
+    testnet: '0x62A5D60F486D01a28071652a7951Aff1EA4c5b7c',
+  },
+  JackpotAutoSubscription: {
+    mainnet: '0x2694Bd48f3e6B4775943067DC842C93bf5F19DcD',
+    testnet: '0x6d589a1C65A937c25DA3F402C69F7C5d4FcbF053',
+  },
+  JackpotLPManager: {
+    mainnet: '0xE63E54DF82d894396B885CE498F828f2454d9dCf',
+    testnet: '0x36408921aB820305F109150003C0F90aE1CB1766',
+  },
+  GuaranteedMinimumPayoutCalculator: {
+    mainnet: '0x97a22361b6208aC8cd9afaea09D20feC47046CBD',
+    testnet: '0xE9542aC6FaDC47be2Bc42Fc075c1f481529D28cB',
+  },
+} as const satisfies Record<string, Record<ChainName, Address>>;
+
+export const USDC_ADDRESS = ADDRESSES.USDC[CHAIN] as Address;
+export const JACKPOT_ADDRESS = ADDRESSES.Jackpot[CHAIN] as Address;
+export const BATCH_PURCHASE_FACILITATOR_ADDRESS = ADDRESSES.BatchPurchaseFacilitator[
+  CHAIN
+] as Address;
+export const JACKPOT_AUTO_SUBSCRIPTION_ADDRESS = ADDRESSES.JackpotAutoSubscription[
+  CHAIN
+] as Address;
+export const JACKPOT_LP_MANAGER_ADDRESS = ADDRESSES.JackpotLPManager[CHAIN] as Address;
+export const PAYOUT_CALCULATOR_ADDRESS = ADDRESSES.GuaranteedMinimumPayoutCalculator[
+  CHAIN
+] as Address;
