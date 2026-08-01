@@ -1,0 +1,74 @@
+[
+  {
+    "name": "ticket-456",
+    "input": {
+      "ticketId": "456",
+      "drawingId": "123",
+      "normals": [
+        2,
+        7,
+        14,
+        22,
+        29
+      ],
+      "bonusBall": 9
+    },
+    "seed": "0x5fd7c2982bf2985ac18f959774957fed095d998b5517d61baae5b76cffb36c49",
+    "dailyPoints": "55",
+    "rarity": "Common",
+    "canonicalTraitsJson": "{\"generatorVersion\":1,\"paletteType\":\"earth\",\"paletteProfile\":2,\"paletteWeights\":[1,6,15,10,6,4],\"baseHue\":125,\"colors\":{\"background\":\"#262126\",\"planet\":[\"#5291d9\",\"#4daad1\",\"#42db5b\"],\"cloud\":[\"#e8ffe8\",\"#c2ccc4\"],\"satellite\":[\"#ff9e17\",\"#ff24c8\"],\"star\":[\"#fee6ff\",\"#645266\"]},\"noiseMode\":\"domain-warping\",\"diameter\":63,\"hasClouds\":false,\"cloudNoiseMode\":null,\"mainLapMs\":3097,\"cloudLapMs\":null,\"hasRing\":false,\"satellites\":[{\"diameter\":2,\"color\":\"#ff9e17\",\"speed\":1.388897,\"orbitX\":55,\"orbitY\":12,\"initialAngle\":73,\"rotation\":52},{\"diameter\":4,\"color\":\"#ff9e17\",\"speed\":1.405516,\"orbitX\":61,\"orbitY\":13,\"initialAngle\":261,\"rotation\":88}],\"starCount\":32,\"rarity\":\"Common\",\"dailyPoints\":\"55\",\"specialEditionId\":null}",
+    "traitsHash": "0x30a7ef64226a05c96a5d3c7e29ee0854acdb6e95846d86b3db218bac5f7e6528",
+    "firstFrameSha256": "0x551a61ff83b3fb66dcf934fa766ed2564a4bea36a1779e2965a9b4f9b343dc63",
+    "middleFrameSha256": "0x27b2f8ed5ec5a42e38e0e2f27ba8a38cf27129f2d9b150b35d9ae2d642cf6621",
+    "gifSha256": "0x63519f94c382f33dd89e6595394df2e69af7d791a56c94853f244cc9cba88be6",
+    "gifBytes": 657675
+  },
+  {
+    "name": "ticket-1001",
+    "input": {
+      "ticketId": "1001",
+      "drawingId": "500",
+      "normals": [
+        1,
+        8,
+        16,
+        24,
+        32
+      ],
+      "bonusBall": 1
+    },
+    "seed": "0x5210570b9402f79ec0ba99b51e60a00299303bb23591434c512b45a37ac38c55",
+    "dailyPoints": "99",
+    "rarity": "Common",
+    "canonicalTraitsJson": "{\"generatorVersion\":1,\"paletteType\":\"analogous\",\"paletteProfile\":0,\"paletteWeights\":[15,10,6,4,1,6],\"baseHue\":24,\"colors\":{\"background\":\"#212426\",\"planet\":[\"#f0a35b\",\"#c24e3c\",\"#962a30\"],\"cloud\":[\"#ffedde\",\"#ccc3c0\"],\"satellite\":[\"#1f22ff\",\"#28fcf9\"],\"star\":[\"#e6f7ff\",\"#525e66\"]},\"noiseMode\":\"simplex\",\"diameter\":51,\"hasClouds\":true,\"cloudNoiseMode\":\"simplex\",\"mainLapMs\":4052,\"cloudLapMs\":6529,\"hasRing\":false,\"satellites\":[{\"diameter\":5,\"color\":\"#28fcf9\",\"speed\":1.015357,\"orbitX\":40,\"orbitY\":8,\"initialAngle\":295,\"rotation\":-84}],\"starCount\":30,\"rarity\":\"Common\",\"dailyPoints\":\"99\",\"specialEditionId\":null}",
+    "traitsHash": "0x6e26394a02d4dda2c11d7f8774954fb283f8bdee97e705de50f9348c87d8d358",
+    "firstFrameSha256": "0x26d1a7f096a054f8048a1370545005413ee788d5341f26881a84741575bc50d3",
+    "middleFrameSha256": "0x32f25406d16965d69c54e624e83cea9c72d95ca3d7ce90c8f2625ebdc235d7c5",
+    "gifSha256": "0x5222d278b0ba36ff870b8b714848794cd36f3c55082995641e17b4e9e191903d",
+    "gifBytes": 617149
+  },
+  {
+    "name": "ticket-4242",
+    "input": {
+      "ticketId": "4242",
+      "drawingId": "42",
+      "normals": [
+        4,
+        8,
+        15,
+        16,
+        23
+      ],
+      "bonusBall": 12
+    },
+    "seed": "0x6538d5a6ac6e04019464d89a108fa24e1ac5edad07c77d37cb1402580d1e2bcc",
+    "dailyPoints": "9",
+    "rarity": "Common",
+    "canonicalTraitsJson": "{\"generatorVersion\":1,\"paletteType\":\"cavity\",\"paletteProfile\":5,\"paletteWeights\":[10,6,4,1,6,15],\"baseHue\":282,\"colors\":{\"background\":\"#232621\",\"planet\":[null,\"#a54ddb\",null],\"cloud\":[\"#f4e6ff\",\"#c4afcc\"],\"satellite\":[\"#28fc53\",\"#ddff1c\"],\"star\":[\"#efffe6\",\"#546652\"]},\"noiseMode\":\"domain-warping\",\"diameter\":52,\"hasClouds\":false,\"cloudNoiseMode\":null,\"mainLapMs\":3507,\"cloudLapMs\":null,\"hasRing\":false,\"satellites\":[{\"diameter\":4,\"color\":\"#28fc53\",\"speed\":1.221078,\"orbitX\":44,\"orbitY\":6,\"initialAngle\":64,\"rotation\":55},{\"diameter\":2,\"color\":\"#ddff1c\",\"speed\":0.729656,\"orbitX\":52,\"orbitY\":6,\"initialAngle\":49,\"rotation\":61},{\"diameter\":2,\"color\":\"#ddff1c\",\"speed\":0.832128,\"orbitX\":39,\"orbitY\":13,\"initialAngle\":77,\"rotation\":66},{\"diameter\":3,\"color\":\"#28fc53\",\"speed\":0.848741,\"orbitX\":47,\"orbitY\":11,\"initialAngle\":23,\"rotation\":44}],\"starCount\":36,\"rarity\":\"Common\",\"dailyPoints\":\"9\",\"specialEditionId\":null}",
+    "traitsHash": "0xdd77caabfbb3c21b63d3d242d2538db34a4b53927eb66ac7dda00ab0fb4beb7e",
+    "firstFrameSha256": "0xa13fd2c415ea4b2b8087c464bf9b77c7625dc534e6d07398cbafd9f32a67e1b1",
+    "middleFrameSha256": "0x96ba98c20c2f23f9ab3c661f4e99e62deb4edfff161eed90b0ca234b024ebfbd",
+    "gifSha256": "0x7d66c707be1f96a7cf591e790129ec07ac921a48837dc95c81ee21b5cb44f0b9",
+    "gifBytes": 510886
+  }
+]

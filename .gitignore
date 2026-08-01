@@ -33,6 +33,7 @@ pnpm-debug.log*
 lerna-debug.log*
 tsconfig.app.tsbuildinfo
 tsconfig.node.tsbuildinfo
+*.tsbuildinfo
 dist
 
 # local-only working notes

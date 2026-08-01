@@ -32,6 +32,9 @@ export const COPY = {
   connectToViewTickets: 'Connect your wallet to view your tickets and claim winnings.',
   unclaimedWinsHeading: 'Wins to claim',
 
+  // Planets page
+  connectToViewPlanets: 'Connect your wallet to view your deterministic Planets.',
+
   // LP page
   connectToProvideLiquidity: 'Connect your wallet to deposit or withdraw liquidity.',
 

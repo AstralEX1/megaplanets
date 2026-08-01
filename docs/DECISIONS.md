@@ -17,6 +17,10 @@
 | D-011 | Daily points follow current Planet ownership | Transferable NFTs transfer future leaderboard earning power. |
 | D-012 | Vercel + Supabase + Pinata | Minimizes MVP infrastructure operations. |
 | D-013 | No upgradeable NFT proxy | Reduces contract complexity and trust surface. |
+| D-014 | Generator v1 uses Keccak-256 of standard ABI encoding | Gives browser, backend, and Solidity tooling one unambiguous seed representation. |
+| D-015 | Generator random streams are namespaced | Artwork changes cannot accidentally change points or unrelated traits. |
+| D-016 | Planet media is a 512×512 pixel-art GIF | A 128×128 logical canvas preserves the source aesthetic while 4× scaling fits NFT media surfaces. |
+| D-017 | Stage 3 gallery reads local confirmed purchases only | Avoids treating unrelated wallet tickets as eligible before the Stage 5 indexer exists. |
 
 ## Deferred decisions
 

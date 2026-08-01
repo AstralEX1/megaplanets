@@ -26,9 +26,11 @@
 
 ## Planet identity
 
-The deterministic seed includes generator version, ticket ID, drawing ID, normal
-balls, and bonus ball. The bonus ball selects a palette through configurable weighted
-distributions. Generator details are implemented and versioned in Stage 3.
+Generator v1 uses `keccak256(abi.encode(uint16 version, uint256 ticketId, uint256
+drawingId, uint8[5] sortedNormals, uint8 bonusBall))`. Named deterministic streams
+derive every trait from that seed. The bonus ball selects a rotated weighted palette
+distribution, and the full seed selects a palette within it; it is not a direct
+bonus-ball-to-palette mapping. Media is a deterministic 512×512 animated GIF.
 
 ## Points and rarity
 

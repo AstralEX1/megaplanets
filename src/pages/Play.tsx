@@ -145,7 +145,8 @@ export function Play() {
               Ticket #{buy.purchasedTicket.ticketId.toString()} confirmed
             </p>
             <p className="mt-1 text-xs">
-              Saved locally for this wallet. Planet mint eligibility will be available in Stage 6.
+              Saved locally for this wallet. Its deterministic preview is available on the Planets
+              tab.
             </p>
           </div>
         )}

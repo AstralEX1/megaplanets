@@ -8,7 +8,7 @@
  * ---
  */
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import type { NavKey } from '@/components/layout/Nav';
 import { LP_ENABLED } from '@/config/contracts';
@@ -17,6 +17,10 @@ import { Home } from '@/pages/Home';
 import { LP } from '@/pages/LP';
 import { Play } from '@/pages/Play';
 import { Tickets } from '@/pages/Tickets';
+
+const Planets = lazy(() =>
+  import('@/pages/Planets').then((module) => ({ default: module.Planets })),
+);
 
 export default function App() {
   const [active, setActive] = useState<NavKey>('home');
@@ -32,6 +36,9 @@ export default function App() {
     case 'tickets':
       page = <Tickets onNavigate={setActive} />;
       break;
+    case 'planets':
+      page = <Planets onNavigate={setActive} />;
+      break;
     case 'lp':
       // Defensive fallback for programmatic `active='lp'` while LP is
       // disabled (the nav entry is filtered out, so the user can't get here
@@ -45,7 +52,9 @@ export default function App() {
 
   return (
     <Layout active={active} onSelect={setActive}>
-      {page}
+      <Suspense fallback={<div className="card-pad text-sm text-zinc-400">Loading…</div>}>
+        {page}
+      </Suspense>
     </Layout>
   );
 }

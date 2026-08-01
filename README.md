@@ -3,11 +3,11 @@
 MegaPlanets is a Base Sepolia MVP built on the Megapot protocol. A user buys a
 Megapot ticket, then uses that ticket to mint a deterministic collectible planet.
 
-This repository contains the Stage 2 ticket-purchase flow built from the official
-Megapot starter kit. A user can select numbers manually or quick-pick exactly one
-ticket, approve the exact USDC price, and buy through `Jackpot.buyTickets` on Base
-Sepolia. Planet generation, NFT minting, metadata, and leaderboard behavior are
-added in later checkpoints.
+This repository contains the Stage 3 checkpoint. A user can select numbers manually
+or quick-pick exactly one ticket, approve the exact USDC price, and buy through
+`Jackpot.buyTickets` on Base Sepolia. Confirmed MegaPlanets tickets can then be viewed
+as deterministic 512×512 animated pixel-art Planets. NFT minting, canonical IPFS
+metadata, and leaderboard behavior are added in later checkpoints.
 
 ## Requirements
 
@@ -47,8 +47,9 @@ pnpm build
 
 LP, subscriptions, batch orders, and multi-ticket purchases are excluded from the
 MegaPlanets checkout. The Play page deliberately permits exactly one ticket per
-transaction and stores the confirmed `TicketPurchased.userTicketId` locally for
-the connected wallet.
+transaction and stores the confirmed `TicketPurchased` data locally for the connected
+wallet. The Stage 3 Planets gallery reads only those local confirmations; the durable
+eligibility index arrives in Stage 5.
 
 ## License
 

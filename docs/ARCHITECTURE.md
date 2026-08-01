@@ -25,6 +25,20 @@ The NFT contract is non-upgradeable. A rotatable metadata signer may authorize o
 vouchers that bind the recipient, Megapot ticket ID, deterministic seed, traits hash,
 IPFS CID, special-edition ID, and expiration.
 
+## Deterministic generator boundary
+
+Stage 3 implements `packages/planet-generator` as a DOM-free TypeScript package shared
+by the browser and future metadata backend. Generator v1 hashes Solidity ABI-encoded
+`uint16 version`, `uint256 ticketId`, `uint256 drawingId`, sorted `uint8[5] normals`,
+and `uint8 bonusBall`. All palette, terrain, satellite, background, points, and rarity
+streams are derived by name from that seed.
+
+The package renders a 128×128 logical pixel scene and scales it to a 512×512, 48-frame
+GIF. The frontend loads the package only on the Planets tab and performs GIF encoding
+in a module worker. Until Stage 5 provides the eligibility index, that gallery is
+deliberately restricted to confirmed `MEGAPLANETS_V1` receipt data stored by the current
+browser for the connected wallet.
+
 ## Imported starter-kit architecture
 
 The kit splits reads between two sources and writes go on-chain. This doc
