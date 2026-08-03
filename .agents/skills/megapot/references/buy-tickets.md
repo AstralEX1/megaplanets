@@ -1,8 +1,8 @@
-# Buy one custom ticket
+# Buy custom tickets
 
 Source: https://llms.megapot.io/tasks/buy-tickets
 
-MegaPlanets Stage 2 uses `Jackpot.buyTickets` for one immediate custom ticket.
+MegaPlanets Stage 2 uses `Jackpot.buyTickets` for one to ten immediate custom tickets.
 
 ```solidity
 function buyTickets(
@@ -16,21 +16,23 @@ function buyTickets(
 
 Each ticket contains exactly five unique ascending normal balls and one non-zero
 bonus ball. Validate against the active drawing's `ballMax` and `bonusballMax`.
-The direct call supports at most ten tickets, but MegaPlanets intentionally limits
-the MVP UI to one.
+The direct call supports at most ten tickets. MegaPlanets keeps that protocol limit in
+its MVP UI and validates every ticket against the active drawing bounds.
 
 Purchase sequence:
 
 1. Read the active drawing ID and drawing state.
-2. Validate the ticket locally.
-3. Read USDC allowance and approve the exact ticket price when needed.
+2. Validate every ticket locally.
+3. Read USDC allowance and approve the exact total ticket price when needed.
 4. Simulate and submit `buyTickets` with the complete Jackpot ABI.
-5. Wait for the receipt and decode `TicketPurchased`.
-6. Persist the emitted `userTicketId`; do not infer it from counters.
+5. Wait for the receipt and decode every `TicketPurchased` event with the configured
+   source.
+6. Persist each emitted `userTicketId`, its ticket data, receipt transaction hash, and
+   log index; do not infer ticket IDs from counters.
 
-Quick-pick in MegaPlanets generates a valid complete ticket client-side and then
-uses the same direct purchase path. The protocol also provides
-`JackpotRandomTicketBuyer`, but mixing purchase paths is outside the single-ticket MVP.
+Quick-pick in MegaPlanets generates valid complete tickets client-side and then uses the
+same direct purchase path. The protocol also provides `JackpotRandomTicketBuyer`, but
+mixing purchase paths is outside the custom-ticket MVP.
 
 Key errors include `InvalidBonusball`, `InvalidNormalsCount`, `InvalidTicketCount`,
 `TicketPurchasesDisabled`, `JackpotLocked`, `TooManyReferrers`, and `EmergencyEnabled`.

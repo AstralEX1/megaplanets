@@ -5,10 +5,12 @@
 The imported frontend remains the integration baseline during Stage 1. The MVP adds
 three boundaries without rewriting the known-good Megapot hooks:
 
-1. `packages/planet-generator` owns deterministic traits, points, and GIF rendering.
-2. `contracts` owns one-ticket-one-planet enforcement and immutable metadata CIDs.
+1. `packages/planet-generator` owns versioned deterministic traits, minerals, and GIF
+   rendering.
+2. `contracts` owns one-ticket-one-planet enforcement, free individual/batch minting,
+   special-edition minting, and immutable metadata CIDs.
 3. `api` owns source eligibility, IPFS pinning, signed mint vouchers, event indexing,
-   daily ownership snapshots, and weekly allocation calculations.
+   daily holder snapshots, and weekly allocation calculations.
 
 Writes and live drawing state continue to use Base RPC. Historical Megapot data uses
 the Megapot Data API. Planet eligibility and leaderboard state use the MegaPlanets
@@ -17,27 +19,40 @@ indexer backed by Supabase. Frontend and API deployment targets Vercel.
 The Planet mint flow is intentionally separate from the Megapot purchase transaction:
 
 ```text
-buy ticket -> confirm TicketPurchased -> prepare canonical metadata -> sign voucher
--> user mints MegaPlanets ERC-721 -> index transfer -> daily snapshot
+buy one or more tickets -> confirm every TicketPurchased -> prepare canonical metadata
+-> sign one or more vouchers -> user mints MegaPlanets ERC-721 -> daily holder snapshot
 ```
 
-The NFT contract is non-upgradeable. A rotatable metadata signer may authorize only
-vouchers that bind the recipient, Megapot ticket ID, deterministic seed, traits hash,
-IPFS CID, special-edition ID, and expiration.
+The NFT contract is non-upgradeable and its normal mint functions are nonpayable: users
+pay Base gas only. A rotatable metadata signer may authorize only vouchers that bind the
+recipient, Megapot ticket ID, Season ID, origin transaction hash, deterministic seed,
+traits hash, IPFS CID, and expiration. Batch mint validates each voucher and live ticket
+owner atomically. Owner-only special-edition minting uses a separate token-ID namespace.
 
 ## Deterministic generator boundary
 
 Stage 3 implements `packages/planet-generator` as a DOM-free TypeScript package shared
-by the browser and future metadata backend. Generator v1 hashes Solidity ABI-encoded
-`uint16 version`, `uint256 ticketId`, `uint256 drawingId`, sorted `uint8[5] normals`,
-and `uint8 bonusBall`. All palette, terrain, satellite, background, points, and rarity
-streams are derived by name from that seed.
+by the browser and future metadata backend. Generator v1 and its fixtures are immutable.
+Generator v2 hashes Solidity ABI-encoded `uint16 generatorVersion`, `bytes32 seasonId`,
+`uint256 ticketId`, `uint256 drawingId`, sorted `uint8[5] normals`, `uint8 bonusBall`,
+and `bytes32 originTxHash`. All Type, terrain, satellite, background, name, minerals,
+and rarity streams are derived by name from that seed. The technical generator version
+does not appear as a public NFT metadata attribute.
 
-The package renders a 128×128 logical pixel scene and scales it to a 512×512, 48-frame
-GIF. The frontend loads the package only on the Planets tab and performs GIF encoding
-in a module worker. Until Stage 5 provides the eligibility index, that gallery is
-deliberately restricted to confirmed `MEGAPLANETS_V1` receipt data stored by the current
-browser for the connected wallet.
+The package renders a 128×128 logical pixel scene and scales it to a 512×512 animated
+GIF. The frontend loads the package only on the Planets tab and performs GIF encoding in
+a module worker. Until Stage 5 provides the eligibility index, previews are deliberately
+restricted to confirmed `MEGAPLANETS_V1` receipt data stored by the current browser.
+
+## Season scoring boundary
+
+At each configured daily UTC time, the API records a Base block, snapshots all current
+MegaPlanets holders and their tokens, reads immutable metadata from the pinned CID, and
+calculates each wallet's score from its Type holdings. The snapshot stores its block,
+holder/token rows, metadata values, multipliers, and totals. Transfers before the recorded
+block belong to the new owner; later transfers affect the next snapshot only. Weekly score
+is the sum of snapshot scores, and referral allocation uses integer USDC base units with a
+documented deterministic remainder rule.
 
 ## Imported starter-kit architecture
 
