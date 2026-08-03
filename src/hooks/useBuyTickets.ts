@@ -1,10 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import {
-  useAccount,
-  useSimulateContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi';
+import { useEffect, useState } from 'react';
+import { useAccount, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import {
   JACKPOT_ADDRESS,
   REFERRAL_SPLIT_FULL,
@@ -14,66 +9,85 @@ import {
 import {
   jackpotPurchaseAbi,
   type PurchasedTicket,
-  persistPurchasedTicket,
-  readPurchasedTicket,
+  persistPurchasedTickets,
+  readPurchasedTickets,
 } from '@/lib/purchaseReceipt';
-import type { CustomTicket } from '@/lib/tickets';
+import { buildDirectTickets, type CustomTicket, type TicketBounds } from '@/lib/tickets';
 
-/** One-ticket-only Megapot purchase flow used by the MVP. */
-export function useBuyTickets(ticket: CustomTicket | null) {
+/** Immediate Megapot checkout for one to ten custom and client quick-pick tickets. */
+export function useBuyTickets() {
   const { address } = useAccount();
+  const publicClient = usePublicClient();
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
-  const [purchasedTicket, setPurchasedTicket] = useState<PurchasedTicket | null>(null);
-
-  const args = useMemo(
-    () =>
-      address && ticket
-        ? ([
-            [{ normals: ticket.normals, bonusball: ticket.bonusball }],
-            address,
-            [REFERRER_ADDRESS],
-            [...REFERRAL_SPLIT_FULL],
-            TICKET_SOURCE,
-          ] as const)
-        : undefined,
-    [address, ticket],
-  );
-
-  const simulation = useSimulateContract({
-    address: JACKPOT_ADDRESS,
-    abi: jackpotPurchaseAbi,
-    functionName: 'buyTickets',
-    args,
-    query: { enabled: args !== undefined },
-  });
+  const [purchasedTickets, setPurchasedTickets] = useState<readonly PurchasedTicket[]>([]);
+  const [provenanceError, setProvenanceError] = useState<Error | null>(null);
+  const [submissionError, setSubmissionError] = useState<Error | null>(null);
+  const [isPreparing, setIsPreparing] = useState(false);
 
   useEffect(() => {
     if (!receipt.data || !address) return;
-    const parsed = readPurchasedTicket(receipt.data);
-    if (!parsed) return;
-    setPurchasedTicket(parsed);
-    persistPurchasedTicket(address, parsed);
+    try {
+      const parsed = readPurchasedTickets(receipt.data, address);
+      persistPurchasedTickets(address, parsed);
+      setPurchasedTickets(parsed);
+      setProvenanceError(null);
+    } catch (error) {
+      setPurchasedTickets([]);
+      setProvenanceError(error instanceof Error ? error : new Error('Ticket provenance failed.'));
+    }
   }, [receipt.data, address]);
 
-  const buy = () => {
-    if (!simulation.data?.request) return;
-    write.writeContract(simulation.data.request);
+  const buy = async (args: {
+    customTickets: readonly CustomTicket[];
+    count: number;
+    bounds: TicketBounds;
+  }) => {
+    if (!address || !publicClient || isPreparing) return;
+    setIsPreparing(true);
+    setProvenanceError(null);
+    setSubmissionError(null);
+    try {
+      const tickets = buildDirectTickets(args);
+      const simulation = await publicClient.simulateContract({
+        account: address,
+        address: JACKPOT_ADDRESS,
+        abi: jackpotPurchaseAbi,
+        functionName: 'buyTickets',
+        args: [
+          tickets.map((ticket) => ({ normals: ticket.normals, bonusball: ticket.bonusball })),
+          address,
+          [REFERRER_ADDRESS],
+          [...REFERRAL_SPLIT_FULL],
+          TICKET_SOURCE,
+        ],
+      });
+      write.writeContract(simulation.request);
+    } catch (error) {
+      setSubmissionError(
+        error instanceof Error ? error : new Error('Ticket purchase preparation failed.'),
+      );
+    } finally {
+      setIsPreparing(false);
+    }
   };
 
   return {
     buy,
-    purchasedTicket,
+    purchasedTickets,
     txHash: write.data,
     isWaitingSignature: write.isPending,
+    isPreparing,
     isMining: receipt.isLoading,
-    isPending: write.isPending || receipt.isLoading,
-    isSuccess: receipt.isSuccess,
-    isReady: simulation.data !== undefined,
-    error: write.error ?? receipt.error ?? simulation.error,
+    isPending: isPreparing || write.isPending || receipt.isLoading,
+    isSuccess: receipt.isSuccess && provenanceError === null,
+    isReady: address !== undefined && publicClient !== undefined && !isPreparing,
+    error: provenanceError ?? submissionError ?? write.error ?? receipt.error,
     reset: () => {
       write.reset();
-      setPurchasedTicket(null);
+      setPurchasedTickets([]);
+      setProvenanceError(null);
+      setSubmissionError(null);
     },
   };
 }

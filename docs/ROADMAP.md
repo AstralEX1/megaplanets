@@ -6,11 +6,13 @@ Each stage ends with a user-visible checkpoint. Work must not continue into the 
 
 Import the starter kit, install project guidance and the Megapot skill, configure Base documentation access, create subsystem boundaries, and verify the clean build.
 
-## Stage 2 — Batch Megapot purchase and provenance
+## Stage 2 — Direct and bulk Megapot purchase provenance
 
-Target Base Sepolia and support one to ten manual or quick-pick tickets per purchase. Read dynamic ticket bounds and price, approve the exact batch USDC amount, and preserve source/referrer attribution. Decode every canonical `TicketPurchased` event in the receipt and persist each ticket ID, drawing ID, numbers, origin transaction hash, and log index.
+Target Base Sepolia with two purchase paths: one to ten immediate manual or client quick-pick tickets through `Jackpot.buyTickets`, and 11 to 50 all-random tickets through `BatchPurchaseFacilitator`. Every bulk order passes its full quantity as `dynamicTicketCount` with an empty static-ticket array, so the Megapot keeper generates every ticket. Read dynamic bounds, ticket price, and bulk minimum dynamically; approve the exact amount to the contract that pulls USDC.
 
-Checkpoint: a confirmed batch purchase has independently reproducible ticket provenance for every emitted ticket.
+Decode every canonical `TicketPurchased` event and persist ticket ID, drawing ID, numbers, origin transaction hash, and log index. For bulk orders, provenance comes from each keeper execution transaction, never the initial order-creation transaction. Show active-order progress and cancellation.
+
+Checkpoint: confirmed immediate and keeper-executed purchases have independently reproducible provenance for every emitted ticket.
 
 ## Stage 3 — Deterministic Planet generator
 

@@ -19,7 +19,7 @@ indexer backed by Supabase. Frontend and API deployment targets Vercel.
 The Planet mint flow is intentionally separate from the Megapot purchase transaction:
 
 ```text
-buy one or more tickets -> confirm every TicketPurchased -> prepare canonical metadata
+buy immediate tickets or create an all-random keeper bulk order -> confirm every TicketPurchased -> prepare canonical metadata
 -> sign one or more vouchers -> user mints MegaPlanets ERC-721 -> daily holder snapshot
 ```
 
@@ -43,6 +43,12 @@ The package renders a 128×128 logical pixel scene and scales it to a 512×512 a
 GIF. The frontend loads the package only on the Planets tab and performs GIF encoding in
 a module worker. Until Stage 5 provides the eligibility index, previews are deliberately
 restricted to confirmed `MEGAPLANETS_V1` receipt data stored by the current browser.
+
+For an immediate `Jackpot.buyTickets` transaction, the ticket's origin transaction hash is
+the checkout receipt. For a keeper-executed bulk order, the initial
+`BatchOrderCreated` receipt is retained only for order UX; each Planet uses the transaction
+hash and log index of its actual `TicketPurchased` execution event. This avoids assigning one
+seed provenance value to tickets minted later in separate keeper transactions.
 
 ## Season scoring boundary
 

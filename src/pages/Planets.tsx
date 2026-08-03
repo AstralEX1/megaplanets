@@ -11,7 +11,10 @@ import type { NavKey } from '@/components/layout/Nav';
 import { PlanetThumbnail } from '@/components/planets/PlanetThumbnail';
 import { COPY } from '@/config/copy';
 import { PLANET_SEASON } from '@/config/planetSeason';
-import { readPersistedPurchasedTickets } from '@/lib/purchaseReceipt';
+import {
+  PURCHASED_TICKETS_UPDATED_EVENT,
+  readPersistedPurchasedTickets,
+} from '@/lib/purchaseReceipt';
 
 type GifState =
   | { status: 'idle' | 'loading'; url: null; error: null }
@@ -20,16 +23,25 @@ type GifState =
 
 export function Planets({ onNavigate }: { onNavigate: (key: NavKey) => void }) {
   const { address, isConnected } = useAccount();
-  const stored = useMemo(
-    () => (address ? readPersistedPurchasedTickets(address) : { tickets: [], invalidKeys: [] }),
-    [address],
-  );
+  const [, setStorageRevision] = useState(0);
+  useEffect(() => {
+    if (!address) return;
+    const onTicketsUpdated = (event: Event) => {
+      const account = (event as CustomEvent<{ account?: string }>).detail?.account;
+      if (account === address.toLowerCase()) setStorageRevision((revision) => revision + 1);
+    };
+    window.addEventListener(PURCHASED_TICKETS_UPDATED_EVENT, onTicketsUpdated);
+    return () => window.removeEventListener(PURCHASED_TICKETS_UPDATED_EVENT, onTicketsUpdated);
+  }, [address]);
+  const stored = address
+    ? readPersistedPurchasedTickets(address)
+    : { tickets: [], invalidKeys: [] };
   const gallery = useMemo(() => {
     const previews: PlanetPreview[] = [];
     let ignoredCount = 0;
     if (!PLANET_SEASON) return { previews, ignoredCount };
     for (const ticket of stored.tickets) {
-      if (!ticket.originTxHash) {
+      if (!ticket.originTxHash || ticket.logIndex === null) {
         ignoredCount += 1;
         continue;
       }

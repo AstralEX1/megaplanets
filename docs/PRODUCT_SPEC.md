@@ -58,7 +58,7 @@ Regular Planet metadata exposes these user-facing attributes in this order:
 
 `Season` has numeric value `1`. It also stores ticket ID, drawing ID, and origin transaction hash as audit provenance. Regular metadata sets `specialEditionId` to `null`. `Satellites` is always a number: for a ring, it is the count of rendered ring particles, while ring state remains an internal canonical renderer trait.
 
-`Type` is the user-facing term for the Planet palette. Season 1 will have exactly ten Types. The bonus ball selects a configurable weighted Type profile, then the seed selects the actual Type within that profile. A bonus ball never maps directly to one Type.
+`Type` is the user-facing term for the Planet palette. Season 1 has exactly ten Types. The bonus ball selects a cyclic Type profile in roster order (1 = Nebula through 10 = Oceanic; 11 repeats Nebula). The matching Type has a 55% mint weight; each other Type has 5%. The canonical seed makes the final weighted selection reproducible.
 
 Name, terrain, satellites, background, and other renderer traits use independent named streams from the same deterministic seed. Terrain remains renderer-internal rather than a public metadata attribute. Only Type affects collection scoring.
 

@@ -27,6 +27,7 @@ export const BULK_THRESHOLD = 10;
 export const MAX_CLAIM_BATCH = 50;
 
 export type CustomTicket = { normals: number[]; bonusball: number };
+export type TicketBounds = { ballMax: number; bonusballMax: number };
 export type PurchaseRoute = 'jackpot' | 'bulk' | 'subscribe';
 
 /**
@@ -46,6 +47,25 @@ export function pickPurchaseRoute(args: { count: number; recurring: boolean }): 
   if (args.recurring) return 'subscribe';
   if (args.count > BULK_THRESHOLD) return 'bulk';
   return 'jackpot';
+}
+
+/** Returns the contract-ready static/dynamic split for an 11+ keeper bulk order. */
+export function getBulkOrderShape(args: { count: number; staticTicketCount: number }) {
+  if (!Number.isSafeInteger(args.count) || args.count <= BULK_THRESHOLD) {
+    throw new RangeError(`Bulk orders require more than ${BULK_THRESHOLD} tickets.`);
+  }
+  if (
+    !Number.isSafeInteger(args.staticTicketCount) ||
+    args.staticTicketCount < 0 ||
+    args.staticTicketCount > MAX_CUSTOM_TICKETS ||
+    args.staticTicketCount > args.count
+  ) {
+    throw new RangeError(`Bulk orders support between 0 and ${MAX_CUSTOM_TICKETS} static tickets.`);
+  }
+  return {
+    dynamicCount: args.count - args.staticTicketCount,
+    staticTicketCount: args.staticTicketCount,
+  };
 }
 
 /**
@@ -73,6 +93,38 @@ export function randomTicket(args: { ballMax: number; bonusballMax: number }): C
   const bonusball =
     BONUSBALL_MIN + Math.floor(Math.random() * (args.bonusballMax - BONUSBALL_MIN + 1));
   return { normals: [...normals].sort((a, b) => a - b), bonusball };
+}
+
+/**
+ * Produces the complete explicit ticket list required by `Jackpot.buyTickets`.
+ * Users may configure up to `count` tickets; the remaining places are client-side
+ * quick-picks, matching the Megapot Starter Kit flow. Random picks are deliberately
+ * made only at submission time, so preview rows never claim to be the final draw.
+ */
+export function buildDirectTickets(args: {
+  customTickets: readonly CustomTicket[];
+  count: number;
+  bounds: TicketBounds;
+  random?: (bounds: TicketBounds) => CustomTicket;
+}): readonly CustomTicket[] {
+  if (!Number.isSafeInteger(args.count) || args.count < 1 || args.count > BULK_THRESHOLD) {
+    throw new RangeError(`Direct purchases require between 1 and ${BULK_THRESHOLD} tickets.`);
+  }
+  if (args.customTickets.length > args.count) {
+    throw new RangeError('Custom ticket count cannot exceed the purchase quantity.');
+  }
+  if (!args.customTickets.every((ticket) => isValidTicket(ticket, args.bounds))) {
+    throw new RangeError('Every custom ticket must use the current drawing bounds.');
+  }
+
+  const random = args.random ?? randomTicket;
+  const tickets = [...args.customTickets];
+  while (tickets.length < args.count) tickets.push(random(args.bounds));
+
+  if (!tickets.every((ticket) => isValidTicket(ticket, args.bounds))) {
+    throw new RangeError('A generated quick-pick does not satisfy the current drawing bounds.');
+  }
+  return tickets;
 }
 
 /** True iff the ticket has 5 unique normals in [1, ballMax] + a valid bonusball. */
