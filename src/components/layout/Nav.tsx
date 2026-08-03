@@ -24,12 +24,12 @@ import type { ReactNode } from 'react';
 import { HistoryIcon } from '@/components/icons/HistoryIcon';
 import { HomeIcon } from '@/components/icons/HomeIcon';
 import { LpIcon } from '@/components/icons/LpIcon';
-import { PlayIcon } from '@/components/icons/PlayIcon';
 import { PlanetsIcon } from '@/components/icons/PlanetsIcon';
+import { PlayIcon } from '@/components/icons/PlayIcon';
 import { TicketsIcon } from '@/components/icons/TicketsIcon';
 import { LP_ENABLED } from '@/config/contracts';
 
-export type NavKey = 'home' | 'play' | 'tickets' | 'planets' | 'lp' | 'history';
+export type NavKey = 'home' | 'play' | 'tickets' | 'planets' | 'lab' | 'lp' | 'history';
 
 // LP is gated by LP_ENABLED in src/config/contracts.ts. When disabled (the
 // default), the entry is filtered out here so both `<Nav>` (desktop) and
@@ -40,6 +40,7 @@ const ITEMS: { key: NavKey; label: string; icon: ReactNode }[] = [
   { key: 'play', label: 'Play', icon: <PlayIcon /> },
   { key: 'tickets', label: 'Tickets', icon: <TicketsIcon /> },
   { key: 'planets', label: 'Planets', icon: <PlanetsIcon /> },
+  ...(import.meta.env.DEV ? [{ key: 'lab' as const, label: 'Lab', icon: <PlanetsIcon /> }] : []),
   ...(LP_ENABLED ? [{ key: 'lp' as const, label: 'LP', icon: <LpIcon /> }] : []),
   { key: 'history', label: 'History', icon: <HistoryIcon /> },
 ];

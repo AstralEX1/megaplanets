@@ -2,32 +2,34 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { sha256, toHex } from 'viem';
 import {
-  GENERATOR_CONFIG_V1,
-  derivePlanet,
+  createSeason1Config,
+  derivePlanetPreview,
+  GENERATOR_CONFIG,
   renderPlanetFrame,
   renderPlanetGif,
   serializePlanetInput,
 } from '../src';
-import { GOLDEN_VECTORS } from '../tests/vectors';
+import { GOLDEN_VECTORS, SEASON_ID } from '../tests/golden-vectors';
 
-const fixturesDirectory = fileURLToPath(new URL('../tests/fixtures/', import.meta.url));
-await mkdir(fixturesDirectory, { recursive: true });
-
+const fixtureDirectory = fileURLToPath(new URL('../tests/fixtures/', import.meta.url));
+await mkdir(fixtureDirectory, { recursive: true });
+const config = createSeason1Config(SEASON_ID);
 const manifest = [];
+
 for (const vector of GOLDEN_VECTORS) {
-  const descriptor = derivePlanet(vector.input);
-  const firstFrame = renderPlanetFrame(descriptor, 0);
-  const middleFrame = renderPlanetFrame(descriptor, GENERATOR_CONFIG_V1.durationMs / 2);
-  const gif = renderPlanetGif(descriptor);
-  await writeFile(`${fixturesDirectory}${vector.name}.gif`, gif);
+  const preview = derivePlanetPreview(vector.input, config);
+  const firstFrame = renderPlanetFrame(preview.visual, 0);
+  const middleFrame = renderPlanetFrame(preview.visual, GENERATOR_CONFIG.durationMs / 2);
+  const gif = renderPlanetGif(preview.visual);
+  await writeFile(`${fixtureDirectory}${vector.name}.gif`, gif);
   manifest.push({
     name: vector.name,
     input: serializePlanetInput(vector.input),
-    seed: descriptor.seed,
-    dailyPoints: descriptor.dailyPoints.toString(),
-    rarity: descriptor.rarity,
-    canonicalTraitsJson: descriptor.canonicalTraitsJson,
-    traitsHash: descriptor.traitsHash,
+    seed: preview.descriptor.seed,
+    canonicalTraitsJson: preview.descriptor.canonicalTraitsJson,
+    traitsHash: preview.descriptor.traitsHash,
+    canonicalVisualTraitsJson: preview.canonicalVisualTraitsJson,
+    visualTraitsHash: preview.visualTraitsHash,
     firstFrameSha256: sha256(toHex(new Uint8Array(firstFrame.data.buffer))),
     middleFrameSha256: sha256(toHex(new Uint8Array(middleFrame.data.buffer))),
     gifSha256: sha256(toHex(gif)),
@@ -35,4 +37,4 @@ for (const vector of GOLDEN_VECTORS) {
   });
 }
 
-await writeFile(`${fixturesDirectory}manifest.json`, `${JSON.stringify(manifest, null, 2)}\n`);
+await writeFile(`${fixtureDirectory}manifest.json`, `${JSON.stringify(manifest, null, 2)}\n`);

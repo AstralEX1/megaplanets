@@ -1,98 +1,130 @@
-export type Hex = `0x${string}`;
-export type HexColor = `#${string}`;
+import type { Hex, HexColor, PlanetRenderDescriptor } from './visual-types';
 
-export type PaletteType =
-  | 'analogous'
-  | 'complementary'
-  | 'split-complementary'
-  | 'triad'
-  | 'cavity'
-  | 'earth';
+export const GENERATOR_VERSION = 2 as const;
 
-export type NoiseMode =
+export type PlanetRarity = 'Common' | 'Uncommon' | 'Epic' | 'Legendary';
+
+export type PlanetInput = {
+  seasonId: Hex;
+  ticketId: bigint;
+  drawingId: bigint;
+  normals: readonly number[];
+  bonusBall: number;
+  originTxHash: Hex;
+};
+
+export type NormalizedPlanetInput = Omit<PlanetInput, 'normals'> & {
+  normals: readonly [number, number, number, number, number];
+};
+
+export type SerializedPlanetInput = {
+  seasonId: Hex;
+  ticketId: string;
+  drawingId: string;
+  normals: readonly number[];
+  bonusBall: number;
+  originTxHash: Hex;
+};
+
+export type MineralsSubrange = {
+  min: number;
+  max: number;
+  weight: number;
+};
+
+export type RarityConfig = {
+  rarity: PlanetRarity;
+  weight: number;
+  min: number;
+  max: number;
+  subranges: readonly MineralsSubrange[];
+};
+
+export type TerrainMode =
   | 'simplex'
   | 'ridged'
   | 'domain-warping'
   | 'vertical-stripes'
   | 'horizontal-stripes'
-  | 'gradation';
+  | 'gradation'
+  | 'turbulence'
+  | 'banded'
+  | 'cratered'
+  | 'ocean-currents'
+  | 'cellular'
+  | 'polar-caps';
 
-export type PlanetRarity = 'Common' | 'Uncommon' | 'Rare' | 'Legendary' | '42';
-
-export type PlanetTicketInput = {
-  ticketId: bigint;
-  drawingId: bigint;
-  normals: readonly number[];
-  bonusBall: number;
+export type TypePalette = {
+  colors: readonly [HexColor, HexColor, HexColor, ...HexColor[]];
+  coolorsUrl: string;
 };
 
-export type NormalizedPlanetTicketInput = Omit<PlanetTicketInput, 'normals'> & {
-  normals: readonly [number, number, number, number, number];
+/** An owner-approved public Type and its deterministic visual profile. */
+export type TypeConfig = {
+  id: string;
+  publicName: string;
+  palette: TypePalette;
+  terrainWeights: readonly { mode: TerrainMode; weight: number }[];
 };
 
-export type SatelliteTrait = {
-  diameter: number;
-  color: HexColor;
-  speed: number;
-  orbitX: number;
-  orbitY: number;
-  initialAngle: number;
-  rotation: number;
+export type TypeWeightProfile = {
+  id: string;
+  weights: readonly number[];
 };
 
-export type PlanetColors = {
-  background: HexColor;
-  planet: readonly (HexColor | null)[];
-  cloud: readonly [HexColor, HexColor];
-  satellite: readonly [HexColor, HexColor];
-  star: readonly [HexColor, HexColor];
+export type SeasonConfig = {
+  seasonId: Hex;
+  season: number;
+  types: readonly TypeConfig[];
+  typeWeightProfiles: readonly TypeWeightProfile[];
+  satelliteCounts: readonly { label: string; min: number; max: number; weight: number }[];
+  rarity: readonly RarityConfig[];
 };
 
 export type PlanetTraits = {
-  generatorVersion: number;
-  paletteType: PaletteType;
-  paletteProfile: number;
-  paletteWeights: readonly number[];
-  baseHue: number;
-  colors: PlanetColors;
-  noiseMode: NoiseMode;
-  diameter: number;
-  hasClouds: boolean;
-  cloudNoiseMode: Extract<NoiseMode, 'simplex' | 'domain-warping'> | null;
-  mainLapMs: number;
-  cloudLapMs: number | null;
+  name: string;
+  typeId: string;
+  type: string;
+  terrain: TerrainMode;
+  palette: TypePalette;
+  satelliteCount: number;
   hasRing: boolean;
-  satellites: readonly SatelliteTrait[];
-  starCount: number;
+  minerals: number;
   rarity: PlanetRarity;
-  dailyPoints: string;
+  season: number;
   specialEditionId: null;
 };
 
 export type PlanetDescriptor = {
-  input: NormalizedPlanetTicketInput;
+  input: NormalizedPlanetInput;
   seed: Hex;
-  dailyPoints: bigint;
-  rarity: PlanetRarity;
   traits: PlanetTraits;
   canonicalTraitsJson: string;
   traitsHash: Hex;
 };
 
-export type PlanetFrame = {
-  width: number;
-  height: number;
-  data: Uint8ClampedArray<ArrayBuffer>;
+export type PlanetPreview = {
+  descriptor: PlanetDescriptor;
+  visual: PlanetRenderDescriptor;
+  canonicalVisualTraitsJson: string;
+  visualTraitsHash: Hex;
 };
 
-export type SerializedPlanetTicketInput = {
-  ticketId: string;
-  drawingId: string;
-  normals: readonly number[];
-  bonusBall: number;
+export type MetadataAttribute = {
+  trait_type: 'Name' | 'Type' | 'Satellites' | 'Minerals' | 'Rarity' | 'Season' | 'Seed';
+  value: string | number;
 };
 
-export type SerializedPlanetDescriptor = Omit<PlanetDescriptor, 'input' | 'dailyPoints'> & {
-  input: SerializedPlanetTicketInput;
-  dailyPoints: string;
+export type PlanetMetadata = {
+  name: string;
+  description: string;
+  attributes: readonly MetadataAttribute[];
+  provenance: {
+    ticketId: string;
+    drawingId: string;
+    originTxHash: Hex;
+    seasonId: Hex;
+    specialEditionId: null;
+    traitsHash: Hex;
+  };
 };

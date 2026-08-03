@@ -1,7 +1,8 @@
 import { concatHex, hexToBigInt, hexToBytes, keccak256, stringToHex, toHex } from 'viem';
-import type { Hex } from './types';
+import type { Hex } from './visual-types';
 
 const UINT256_RANGE = 1n << 256n;
+const BYTES32_PATTERN = /^0x[\da-fA-F]{64}$/;
 
 /** Local deterministic stream. It never reads or mutates Math.random. */
 export class DeterministicRandom {
@@ -11,6 +12,12 @@ export class DeterministicRandom {
   private byteOffset = 0;
 
   constructor(seed: Hex, namespace: string) {
+    if (!BYTES32_PATTERN.test(seed)) {
+      throw new RangeError('seed must be a 0x-prefixed bytes32 hex value.');
+    }
+    if (namespace.length === 0 || namespace.length > 128) {
+      throw new RangeError('Random namespace must contain between 1 and 128 characters.');
+    }
     this.streamSeed = keccak256(concatHex([seed, stringToHex(namespace)]));
   }
 
@@ -43,8 +50,11 @@ export class DeterministicRandom {
   }
 
   int(min: number, maxExclusive: number): number {
-    if (!Number.isInteger(min) || !Number.isInteger(maxExclusive) || maxExclusive <= min) {
+    if (!Number.isSafeInteger(min) || !Number.isSafeInteger(maxExclusive) || maxExclusive <= min) {
       throw new RangeError('Invalid deterministic integer range.');
+    }
+    if (maxExclusive - min > 0x1_0000_0000) {
+      throw new RangeError('Deterministic integer ranges may not exceed 2^32 values.');
     }
     return min + Math.floor(this.next() * (maxExclusive - min));
   }
@@ -68,11 +78,16 @@ export class DeterministicRandom {
   }
 
   weightedIndex(weights: readonly number[]): number {
-    if (weights.length === 0 || weights.some((weight) => !Number.isInteger(weight) || weight < 0)) {
+    if (
+      weights.length === 0 ||
+      weights.some((weight) => !Number.isSafeInteger(weight) || weight < 0)
+    ) {
       throw new RangeError('Weights must be non-negative integers.');
     }
     const total = weights.reduce((sum, weight) => sum + weight, 0);
-    if (total <= 0) throw new RangeError('At least one weight must be positive.');
+    if (!Number.isSafeInteger(total) || total <= 0) {
+      throw new RangeError('Weight total must be a positive safe integer.');
+    }
     let target = Number(this.bigint(BigInt(total)));
     for (let index = 0; index < weights.length; index += 1) {
       if (target < weights[index]) return index;
@@ -82,6 +97,6 @@ export class DeterministicRandom {
   }
 }
 
-export function namedRandom(seed: Hex, namespace: string): DeterministicRandom {
-  return new DeterministicRandom(seed, `MEGAPLANETS_GENERATOR_V1:${namespace}`);
+export function namedVisualRandom(seed: Hex, namespace: string): DeterministicRandom {
+  return new DeterministicRandom(seed, `MEGAPLANETS_GENERATOR:visual:${namespace}`);
 }

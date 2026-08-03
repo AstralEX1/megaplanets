@@ -1,53 +1,23 @@
-import type {
-  PlanetDescriptor,
-  PlanetTicketInput,
-  SerializedPlanetDescriptor,
-  SerializedPlanetTicketInput,
-} from './types';
+import { deserializePlanetInput, serializePlanetInput } from './input';
+import { verifyPlanetDescriptor } from './integrity';
+import type { PlanetDescriptor, SeasonConfig, SerializedPlanetInput } from './types';
 
-export function serializePlanetInput(input: PlanetTicketInput): SerializedPlanetTicketInput {
-  return {
-    ticketId: input.ticketId.toString(),
-    drawingId: input.drawingId.toString(),
-    normals: [...input.normals],
-    bonusBall: input.bonusBall,
-  };
-}
-
-export function deserializePlanetInput(input: SerializedPlanetTicketInput): PlanetTicketInput {
-  return {
-    ticketId: BigInt(input.ticketId),
-    drawingId: BigInt(input.drawingId),
-    normals: [...input.normals],
-    bonusBall: input.bonusBall,
-  };
-}
+export type SerializedPlanetDescriptor = Omit<PlanetDescriptor, 'input'> & {
+  input: SerializedPlanetInput;
+};
 
 export function serializePlanetDescriptor(
   descriptor: PlanetDescriptor,
 ): SerializedPlanetDescriptor {
-  return {
-    ...descriptor,
-    input: serializePlanetInput(descriptor.input),
-    dailyPoints: descriptor.dailyPoints.toString(),
-  };
+  return { ...descriptor, input: serializePlanetInput(descriptor.input) };
 }
 
 export function deserializePlanetDescriptor(
   descriptor: SerializedPlanetDescriptor,
+  config: SeasonConfig,
 ): PlanetDescriptor {
-  return {
-    ...descriptor,
-    input: {
-      ...deserializePlanetInput(descriptor.input),
-      normals: [...descriptor.input.normals].sort((left, right) => left - right) as [
-        number,
-        number,
-        number,
-        number,
-        number,
-      ],
-    },
-    dailyPoints: BigInt(descriptor.dailyPoints),
-  };
+  return verifyPlanetDescriptor(
+    { ...descriptor, input: deserializePlanetInput(descriptor.input) },
+    config,
+  );
 }

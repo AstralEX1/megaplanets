@@ -5,7 +5,7 @@
 The imported frontend remains the integration baseline during Stage 1. The MVP adds
 three boundaries without rewriting the known-good Megapot hooks:
 
-1. `packages/planet-generator` owns versioned deterministic traits, minerals, and GIF
+1. `packages/planet-generator` owns deterministic traits, minerals, and GIF
    rendering.
 2. `contracts` owns one-ticket-one-planet enforcement, free individual/batch minting,
    special-edition minting, and immutable metadata CIDs.
@@ -32,8 +32,8 @@ owner atomically. Owner-only special-edition minting uses a separate token-ID na
 ## Deterministic generator boundary
 
 Stage 3 implements `packages/planet-generator` as a DOM-free TypeScript package shared
-by the browser and future metadata backend. Generator v1 and its fixtures are immutable.
-Generator v2 hashes Solidity ABI-encoded `uint16 generatorVersion`, `bytes32 seasonId`,
+by the browser and future metadata backend. The canonical generator hashes Solidity
+ABI-encoded `uint16 generatorVersion`, `bytes32 seasonId`,
 `uint256 ticketId`, `uint256 drawingId`, sorted `uint8[5] normals`, `uint8 bonusBall`,
 and `bytes32 originTxHash`. All Type, terrain, satellite, background, name, minerals,
 and rarity streams are derived by name from that seed. The technical generator version

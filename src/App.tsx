@@ -21,6 +21,9 @@ import { Tickets } from '@/pages/Tickets';
 const Planets = lazy(() =>
   import('@/pages/Planets').then((module) => ({ default: module.Planets })),
 );
+const Lab = import.meta.env.DEV
+  ? lazy(() => import('@/pages/Lab').then((module) => ({ default: module.Lab })))
+  : null;
 
 export default function App() {
   const [active, setActive] = useState<NavKey>('home');
@@ -38,6 +41,9 @@ export default function App() {
       break;
     case 'planets':
       page = <Planets onNavigate={setActive} />;
+      break;
+    case 'lab':
+      page = Lab ? <Lab /> : <Home onNavigate={setActive} />;
       break;
     case 'lp':
       // Defensive fallback for programmatic `active='lp'` while LP is

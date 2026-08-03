@@ -43,5 +43,8 @@ docs/reviews/
 # brainstorming visual companion artifacts
 .superpowers/
 
+# local generator preview exports
+packages/planet-generator/generated-*/
+
 # Claude Code workspace state (settings, launch configs, hooks)
 .claude/

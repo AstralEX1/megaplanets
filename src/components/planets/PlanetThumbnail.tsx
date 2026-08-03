@@ -1,7 +1,7 @@
-import { renderPlanetFrame, type PlanetDescriptor } from '@megaplanets/planet-generator';
+import { type PlanetRenderDescriptor, renderPlanetFrame } from '@megaplanets/planet-generator';
 import { useEffect, useRef } from 'react';
 
-export function PlanetThumbnail({ descriptor }: { descriptor: PlanetDescriptor }) {
+export function PlanetThumbnail({ descriptor }: { descriptor: PlanetRenderDescriptor }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {

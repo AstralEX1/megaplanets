@@ -12,11 +12,11 @@ Target Base Sepolia and support one to ten manual or quick-pick tickets per purc
 
 Checkpoint: a confirmed batch purchase has independently reproducible ticket provenance for every emitted ticket.
 
-## Stage 3 — Versioned deterministic Planet generator
+## Stage 3 — Deterministic Planet generator
 
-Freeze generator v1 and its fixtures. Implement generator v2 with the Season 1 seed, ten configurable Types, weighted bonus-ball Type profiles, deterministic names, hierarchical minerals/rarity, GIF previews, and v2 golden vectors.
+Implement the canonical generator with the Season 1 seed, ten configurable Types, weighted bonus-ball Type profiles, deterministic names, hierarchical minerals/rarity, GIF previews, and golden vectors.
 
-Checkpoint: v1 remains reproducible and v2 metadata/GIF outputs are reproducible from canonical ticket provenance.
+Checkpoint: metadata and GIF outputs are reproducible from canonical ticket provenance.
 
 ## Stage 4 — Planet NFT contract
 
@@ -26,7 +26,7 @@ Checkpoint: Foundry unit/fuzz tests demonstrate individual mint, batch mint, own
 
 ## Stage 5 — Metadata, eligibility, and snapshot backend
 
-Index eligible source events, verify ticket ownership, generate/pin v2 metadata, issue replay-protected mint vouchers, snapshot all Planet holders daily, read immutable token metadata, and calculate auditable collection scores and referral allocations.
+Index eligible source events, verify ticket ownership, generate and pin canonical metadata, issue replay-protected mint vouchers, snapshot all Planet holders daily, read immutable token metadata, and calculate auditable collection scores and referral allocations.
 
 Checkpoint: local ticket-to-IPFS-to-voucher pipeline and reproducible snapshot report.
 

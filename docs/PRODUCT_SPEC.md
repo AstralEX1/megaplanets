@@ -24,7 +24,7 @@
 
 ## Planet identity
 
-Generator v1 and its golden fixtures are immutable historical artifacts. Season 1 uses generator v2, whose canonical seed is:
+Season 1 uses one canonical generator whose seed is:
 
 ```text
 keccak256(
@@ -42,7 +42,7 @@ keccak256(
 
 `originTxHash` is the canonical transaction hash of the ticket purchase or verified bonus-ticket claim. Tickets from a batch purchase may share it; unique `ticketId` values still make their Planet identities distinct. `drawingId` is identity data only and does not cap minerals or rarity.
 
-The browser, backend, and tests must use the exact Solidity ABI encoding above. Versioned test vectors lock its seed, traits hash, metadata JSON, and GIF output.
+The browser, backend, and tests must use the exact Solidity ABI encoding above. Golden test vectors lock its seed, traits hash, metadata JSON, and GIF output.
 
 ## Planet metadata
 
@@ -50,18 +50,17 @@ Regular Planet metadata exposes these user-facing attributes in this order:
 
 1. Name
 2. Type
-3. Terrain
-4. Satellites
-5. Minerals
-6. Rarity
-7. Season
-8. Seed
+3. Satellites
+4. Minerals
+5. Rarity
+6. Season
+7. Seed
 
-It also stores ticket ID, drawing ID, and origin transaction hash as audit provenance. `generatorVersion` is technical provenance used by the generator, tests, and backend; it is not a public NFT metadata attribute. Regular metadata sets `specialEditionId` to `null`.
+`Season` has numeric value `1`. It also stores ticket ID, drawing ID, and origin transaction hash as audit provenance. Regular metadata sets `specialEditionId` to `null`. `Satellites` is always a number: for a ring, it is the count of rendered ring particles, while ring state remains an internal canonical renderer trait.
 
 `Type` is the user-facing term for the Planet palette. Season 1 will have exactly ten Types. The bonus ball selects a configurable weighted Type profile, then the seed selects the actual Type within that profile. A bonus ball never maps directly to one Type.
 
-Name, terrain, satellites, background, and other renderer traits use independent named streams from the same deterministic seed. Only Type affects collection scoring.
+Name, terrain, satellites, background, and other renderer traits use independent named streams from the same deterministic seed. Terrain remains renderer-internal rather than a public metadata attribute. Only Type affects collection scoring.
 
 ## Minerals and rarity
 

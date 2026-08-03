@@ -1,7 +1,7 @@
 import * as gifencModule from 'gifenc';
-import { GENERATOR_CONFIG_V1 } from './config';
 import { createPlanetScene, hexColorToRgb, renderPlanetSceneFrame } from './render';
-import type { HexColor, PlanetDescriptor } from './types';
+import { GENERATOR_CONFIG } from './render-config';
+import type { HexColor, PlanetRenderDescriptor } from './visual-types';
 
 type GifPalette = readonly (readonly [number, number, number])[];
 type GifencApi = Pick<typeof gifencModule, 'GIFEncoder' | 'applyPalette'>;
@@ -17,7 +17,7 @@ if (!GIFEncoder || !applyPalette) {
   throw new Error('gifenc did not expose the required encoder API.');
 }
 
-function descriptorPalette(descriptor: PlanetDescriptor): GifPalette {
+function descriptorPalette(descriptor: PlanetRenderDescriptor): GifPalette {
   const colors = new Set<HexColor>();
   colors.add(descriptor.traits.colors.background);
   for (const color of descriptor.traits.colors.planet) if (color) colors.add(color);
@@ -28,17 +28,17 @@ function descriptorPalette(descriptor: PlanetDescriptor): GifPalette {
   return [...colors].map(hexColorToRgb);
 }
 
-export function renderPlanetGif(descriptor: PlanetDescriptor): Uint8Array {
+export function renderPlanetGif(descriptor: PlanetRenderDescriptor): Uint8Array {
   const scene = createPlanetScene(descriptor);
   const palette = descriptorPalette(descriptor);
   const gif = GIFEncoder({ initialCapacity: 512 * 1024 });
-  const frameDuration = GENERATOR_CONFIG_V1.durationMs / GENERATOR_CONFIG_V1.frameCount;
+  const frameDuration = GENERATOR_CONFIG.durationMs / GENERATOR_CONFIG.frameCount;
 
-  for (let frameIndex = 0; frameIndex < GENERATOR_CONFIG_V1.frameCount; frameIndex += 1) {
+  for (let frameIndex = 0; frameIndex < GENERATOR_CONFIG.frameCount; frameIndex += 1) {
     const frame = renderPlanetSceneFrame(
       scene,
       frameIndex * frameDuration,
-      GENERATOR_CONFIG_V1.durationMs,
+      GENERATOR_CONFIG.durationMs,
     );
     gif.writeFrame(applyPalette(frame.data, palette), frame.width, frame.height, {
       palette: frameIndex === 0 ? palette : undefined,

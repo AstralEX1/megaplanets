@@ -1,6 +1,5 @@
-import type { NoiseMode, PaletteType, PlanetRarity } from './types';
-
-export const GENERATOR_VERSION = 1 as const;
+import { GENERATOR_VERSION } from './types';
+import type { NoiseMode, PaletteType } from './visual-types';
 
 export const PALETTE_TYPES = [
   'analogous',
@@ -13,7 +12,7 @@ export const PALETTE_TYPES = [
 
 const BASE_PALETTE_WEIGHTS = [15, 10, 6, 4, 1, 6] as const;
 
-export const GENERATOR_CONFIG_V1 = Object.freeze({
+export const GENERATOR_CONFIG = Object.freeze({
   version: GENERATOR_VERSION,
   logicalSize: 128,
   outputSize: 512,
@@ -35,18 +34,16 @@ export const GENERATOR_CONFIG_V1 = Object.freeze({
     [3, 0, 2, 0, 0, 2],
     [3, 0, 2, 0, 0, 0],
   ] as const,
-  planetDiameter: { min: 32, maxExclusive: 64 },
+  planetDiameter: { min: 40, maxExclusive: 72 },
+  cloud: {
+    diameterPadding: 4,
+    weights: [2, 3, 3],
+  },
   ordinarySatellites: { min: 1, maxExclusive: 6 },
-  ringParticles: { min: 48, maxExclusive: 81 },
+  // A dense but still individually readable ring at the enlarged planet scale.
+  ringParticleMultiplier: { min: 1, maxExclusive: 2 },
+  satelliteDiameter: { min: 2, divisor: 8 },
   starCount: { min: 22, maxExclusive: 37 },
-  rarityWeights: {
-    Common: 7_200,
-    Uncommon: 2_000,
-    Rare: 700,
-    Legendary: 99,
-    '42': 1,
-  } as const satisfies Readonly<Record<PlanetRarity, number>>,
-  specialEditionsEnabled: false,
 });
 
 /** Bonus ball selects a rotated weight profile; the seed selects within it. */
