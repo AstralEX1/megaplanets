@@ -11,6 +11,7 @@ import type { NavKey } from '@/components/layout/Nav';
 import { PlanetThumbnail } from '@/components/planets/PlanetThumbnail';
 import { COPY } from '@/config/copy';
 import { PLANET_SEASON } from '@/config/planetSeason';
+import { EXPLORER_ADDRESS_URL, MEGAPLANETS_CONTRACT_ADDRESS } from '@/config/contracts';
 import {
   PURCHASED_TICKETS_UPDATED_EVENT,
   readPersistedPurchasedTickets,
@@ -154,6 +155,11 @@ export function Planets({ onNavigate }: { onNavigate: (key: NavKey) => void }) {
           Planet generator
         </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Your Planets</h1>
+        {MEGAPLANETS_CONTRACT_ADDRESS && (
+          <a className="mt-2 inline-block text-xs text-brand-primary-300 underline" href={`${EXPLORER_ADDRESS_URL}${MEGAPLANETS_CONTRACT_ADDRESS}`} target="_blank" rel="noreferrer">
+            View deployed MegaPlanets contract
+          </a>
+        )}
       </header>
       {(stored.invalidKeys.length > 0 || gallery.ignoredCount > 0) && (
         <div className="rounded-lg border border-amber-800 bg-amber-950/50 px-4 py-3 text-sm text-amber-200">

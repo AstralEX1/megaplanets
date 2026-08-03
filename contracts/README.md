@@ -1,6 +1,31 @@
 # Contracts
 
-Stage 4 will initialize a Foundry project here and implement a non-upgradeable `MegaPlanets` ERC-721. No contract code is part of the repository foundation.
+# MegaPlanets contracts
+
+Stage 4 provides the non-upgradeable Season 1 `MegaPlanets` ERC-721 for Base Sepolia. It is not deployed by this repository.
+
+## Local commands
+
+```sh
+cd contracts
+forge test
+forge build
+forge inspect MegaPlanets abi --json > abi/MegaPlanets.json
+```
+
+The pinned dependencies are OpenZeppelin Contracts v5.7.0 and forge-std v1.16.2. The deployment script is preparation-only; do not use `--broadcast` before Stage 6 authorization.
+
+## Season 1 and voucher API
+
+Season 1 is immutable and uses `0xee23bca2927e52eeb944320241d7a6e41726dcb3f169d972044bdafe95b4b15b` (`keccak256("MEGAPLANETS_SEASON_1")`). Set the same value in API configuration and `VITE_PLANET_SEASON_ID`.
+
+The EIP-712 domain is `MegaPlanets` / `1`. API signers issue one signature per value of:
+
+```text
+MintVoucher(address recipient,uint256 ticketId,bytes32 seasonId,uint256 drawingId,bytes32 originTxHash,bytes32 seed,bytes32 traitsHash,bytes32 metadataHash,string metadataURI,uint256 expiresAt)
+```
+
+`mint(voucher, signature)` and `mintBatch(vouchers, signatures)` are nonpayable. The contract checks the current Megapot ticket owner through `JackpotTicketNFT.ownerOf`; a revert indicates a burned or otherwise unavailable ticket.
 
 ## Normal Planet mints
 

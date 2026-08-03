@@ -6,7 +6,8 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignoreUnknown": true
+    "ignoreUnknown": true,
+    "includes": ["**", "!lib", "!contracts/out", "!contracts/cache"]
   },
   "css": {
     "parser": {

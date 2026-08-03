@@ -1,6 +1,6 @@
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
@@ -8,6 +8,9 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  test: {
+    exclude: ['**/node_modules/**', 'lib/**'],
   },
   // Dev-server proxy so `/api/megapot/*` forwards to api.megapot.io while you
   // work locally — no separate Hono process needed for development. In

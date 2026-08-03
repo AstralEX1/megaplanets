@@ -138,6 +138,12 @@ const ADDRESSES = {
 
 export const USDC_ADDRESS = ADDRESSES.USDC[CHAIN] as Address;
 export const JACKPOT_ADDRESS = ADDRESSES.Jackpot[CHAIN] as Address;
+const configuredMegaPlanets = import.meta.env.VITE_MEGAPLANETS_CONTRACT_ADDRESS?.trim();
+/** Deployed MegaPlanets ERC-721. Undefined until a valid deployment is configured. */
+export const MEGAPLANETS_CONTRACT_ADDRESS: Address | undefined =
+  configuredMegaPlanets && isAddress(configuredMegaPlanets)
+    ? getAddress(configuredMegaPlanets)
+    : undefined;
 export const BATCH_PURCHASE_FACILITATOR_ADDRESS = ADDRESSES.BatchPurchaseFacilitator[
   CHAIN
 ] as Address;

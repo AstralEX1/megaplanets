@@ -15,7 +15,7 @@
 - Base Sepolia only.
 - A purchase may contain one to ten custom tickets; there is no grouping into sets.
 - One Planet NFT per eligible Megapot ticket.
-- Only tickets purchased through MegaPlanets after the launch block are eligible, except for a future explicit integration of verified Megapot referral-bonus tickets.
+- Only tickets purchased through MegaPlanets after the launch block are eligible.
 - A ticket must be live and owned by the minter at mint time. Claimed or burned tickets never mint a Planet.
 - Users can mint one Planet or batch mint multiple eligible Planets in one Base transaction.
 - Planet metadata is immutable IPFS GIF and JSON.
@@ -40,7 +40,7 @@ keccak256(
 )
 ```
 
-`originTxHash` is the canonical transaction hash of the ticket purchase or verified bonus-ticket claim. Tickets from a batch purchase may share it; unique `ticketId` values still make their Planet identities distinct. `drawingId` is identity data only and does not cap minerals or rarity.
+`originTxHash` is the canonical transaction hash of the ticket purchase. Tickets from a batch purchase may share it; unique `ticketId` values still make their Planet identities distinct. `drawingId` is identity data only and does not cap minerals or rarity.
 
 The browser, backend, and tests must use the exact Solidity ABI encoding above. Golden test vectors lock its seed, traits hash, metadata JSON, and GIF output.
 

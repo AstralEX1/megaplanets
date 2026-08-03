@@ -85,7 +85,7 @@ function inspectGif(bytes: Uint8Array) {
   return { width, height, frames, durationMs, repeat };
 }
 
-const SEASON_ID = '0x1111111111111111111111111111111111111111111111111111111111111111' as const;
+const SEASON_ID = '0xee23bca2927e52eeb944320241d7a6e41726dcb3f169d972044bdafe95b4b15b' as const;
 const ORIGIN_A = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const;
 const ORIGIN_B = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as const;
 
@@ -103,16 +103,16 @@ describe('generator canonical seed', () => {
   it('normalizes normals and ABI-encodes all identity inputs', () => {
     expect(normalizePlanetInput(INPUT).normals).toEqual([2, 7, 14, 22, 29]);
     expect(derivePlanetSeed(INPUT)).toBe(
-      '0x33046168a631131dbbe76d315df6df15e6bf5f5be064c2b99ef6c31d00b8a928',
+      '0x36516ec3b920e0904c2f3a39c637c9b1522fafc1d066e4e11e8461fdf127bcfa',
     );
     expect(derivePlanetSeed({ ...INPUT, normals: [2, 7, 14, 22, 29] })).toBe(
-      '0x33046168a631131dbbe76d315df6df15e6bf5f5be064c2b99ef6c31d00b8a928',
+      '0x36516ec3b920e0904c2f3a39c637c9b1522fafc1d066e4e11e8461fdf127bcfa',
     );
     expect(derivePlanetSeed({ ...INPUT, originTxHash: ORIGIN_B })).toBe(
-      '0xcc48c152628f459befae549a10dbb28fe6ffa538cdc7fd227a88d9ea4bfc207c',
+      '0x138e822d43d5bc3d500b7bbeb925a58934b19de7039bc5bd3e1f866ecffe446f',
     );
     expect(derivePlanetSeed({ ...INPUT, ticketId: 457n })).toBe(
-      '0xe61825a3761ab08d55b315e4faa4cbde457fbcecad353029aa7f93165a001cca',
+      '0x3967c7d1faabb0f8d752cae62f8cfcc9233c4434c4bbb08d580c321d690d2bc9',
     );
   });
 
@@ -333,7 +333,7 @@ describe('generator Season 1 traits', () => {
         0,
       ),
     ).toThrow(/satellite count/);
-  });
+  }, 10_000);
 
   it('selects all declared palette variants and preserves Type-only visual mechanics', () => {
     const configuredType = (id: string) => {

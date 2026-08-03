@@ -1,7 +1,7 @@
 import type { PlanetInput } from '../src';
 
 export const SEASON_ID =
-  '0x1111111111111111111111111111111111111111111111111111111111111111' as const;
+  '0xee23bca2927e52eeb944320241d7a6e41726dcb3f169d972044bdafe95b4b15b' as const;
 
 export const GOLDEN_VECTORS = [
   {
