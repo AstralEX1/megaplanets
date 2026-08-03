@@ -1,5 +1,10 @@
 import { keccak256, stringToHex } from 'viem';
-import { derivePlanet } from './generator';
+import {
+  derivePlanet,
+  deriveTypePalette,
+  deriveTypeSatellites,
+  deriveTypeTerrain,
+} from './generator';
 import { deepFreeze } from './immutable';
 import type { PlanetInput, PlanetPreview, SeasonConfig } from './types';
 import { derivePlanetVisualForType } from './visual-traits';
@@ -17,6 +22,13 @@ function derivePreview(
   }
   const type = config.types.find((candidate) => candidate.id === typeId);
   if (!type) throw new RangeError(`Type "${typeId}" is not configured for this Season.`);
+  const terrain = forcedType ? deriveTypeTerrain(descriptor.seed, type) : descriptor.traits.terrain;
+  const satellites = forcedType
+    ? deriveTypeSatellites(descriptor.seed, type)
+    : {
+        satelliteCount: descriptor.traits.satelliteCount,
+        hasRing: descriptor.traits.hasRing,
+      };
   const visual = derivePlanetVisualForType(
     {
       ticketId: descriptor.input.ticketId,
@@ -27,12 +39,11 @@ function derivePreview(
     typeId,
     descriptor.seed,
     {
-      palette: type.palette,
-      terrain: forcedType
-        ? (type.terrainWeights[0]?.mode ?? descriptor.traits.terrain)
-        : descriptor.traits.terrain,
-      satelliteCount: descriptor.traits.satelliteCount,
-      hasRing: descriptor.traits.hasRing,
+      palette: forcedType ? deriveTypePalette(descriptor.seed, type) : descriptor.traits.palette,
+      terrain,
+      satelliteCount: satellites.satelliteCount,
+      hasRing: satellites.hasRing,
+      profile: type.visual,
     },
   );
   const canonicalVisualTraitsJson = JSON.stringify(visual.traits);

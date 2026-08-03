@@ -1,4 +1,12 @@
-export { derivePlanet, derivePlanetName, getTypeProfile } from './generator';
+export {
+  deriveOriginalCavityColors,
+  derivePlanet,
+  derivePlanetName,
+  deriveTypePalette,
+  deriveTypeSatellites,
+  deriveTypeTerrain,
+  getTypeProfile,
+} from './generator';
 export { renderPlanetGif } from './gif';
 export {
   assertBytes32,
@@ -42,11 +50,13 @@ export type {
   PlanetRarity,
   PlanetTraits,
   RarityConfig,
+  SatelliteDistribution,
   SeasonConfig,
   SerializedPlanetInput,
   TerrainMode,
   TypeConfig,
   TypePalette,
+  TypeVisualProfile,
   TypeWeightProfile,
 } from './types';
 export { GENERATOR_VERSION } from './types';

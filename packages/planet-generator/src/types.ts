@@ -59,12 +59,31 @@ export type TypePalette = {
   coolorsUrl: string;
 };
 
+export type SatelliteDistribution = {
+  kind: 'none' | 'one' | 'moons' | 'ring';
+  min: number;
+  max: number;
+  weight: number;
+};
+
+export type TypeVisualProfile = {
+  /** Void derives the original source Cavity colors instead of selecting fixed swatches. */
+  paletteMode: 'variants' | 'original-cavity';
+  paletteVariants: readonly TypePalette[];
+  terrainWeights: readonly { mode: TerrainMode; weight: number }[];
+  cloudStyle: 'standard' | 'ash' | 'oceanic' | 'nebula' | 'gas-giant' | 'gaia' | 'none';
+  satelliteStyle: 'standard' | 'ash' | 'gray' | 'rocky' | 'gas-giant' | 'cavity';
+  satellites: readonly SatelliteDistribution[];
+  diameterMultiplier: number;
+  mainLapMultiplier: number;
+  minimumMainLapMs?: number;
+};
+
 /** An owner-approved public Type and its deterministic visual profile. */
 export type TypeConfig = {
   id: string;
   publicName: string;
-  palette: TypePalette;
-  terrainWeights: readonly { mode: TerrainMode; weight: number }[];
+  visual: TypeVisualProfile;
 };
 
 export type TypeWeightProfile = {
@@ -77,7 +96,6 @@ export type SeasonConfig = {
   season: number;
   types: readonly TypeConfig[];
   typeWeightProfiles: readonly TypeWeightProfile[];
-  satelliteCounts: readonly { label: string; min: number; max: number; weight: number }[];
   rarity: readonly RarityConfig[];
 };
 

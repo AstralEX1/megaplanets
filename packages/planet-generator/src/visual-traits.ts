@@ -1,6 +1,7 @@
+import { deriveOriginalCavityColors } from './generator';
 import { type DeterministicRandom, namedVisualRandom } from './random';
 import { GENERATOR_CONFIG, getPaletteProfile, getPaletteWeights } from './render-config';
-import type { TerrainMode, TypePalette } from './types';
+import type { TerrainMode, TypePalette, TypeVisualProfile } from './types';
 import { GENERATOR_VERSION } from './types';
 import type {
   Hex,
@@ -43,13 +44,6 @@ function hsbToHex(hue: number, saturation: number, brightness: number): HexColor
       .toString(16)
       .padStart(2, '0');
   return `#${channel(red)}${channel(green)}${channel(blue)}`;
-}
-
-function shiftedHue(hue: number, distance = 15): number {
-  const normalized = mod(hue, 360);
-  if (240 - distance <= normalized && normalized <= 240 + distance) return 240;
-  if (60 < normalized && normalized < 225) return normalized + distance;
-  return mod(normalized - distance, 360);
 }
 
 function color(
@@ -133,73 +127,6 @@ function createSatelliteColors(
   return [first, second];
 }
 
-function createColors(
-  paletteType: PaletteType,
-  baseHue: number,
-  paletteRng: DeterministicRandom,
-  backgroundRng: DeterministicRandom,
-  satelliteColorRng: DeterministicRandom,
-): PlanetColors {
-  const background = color(backgroundRng, baseHue + 180, 15, 15, 20, 0, 0);
-  const cloud = [
-    color(backgroundRng, baseHue, 10, 100, 20, 10, 0),
-    color(backgroundRng, baseHue, 10, 80, 20, 10, 0),
-  ] as const;
-  // Keep the source palette stream position stable while satellite colors use their
-  // own named stream. This avoids changing terrain colors when only satellites evolve.
-  color(paletteRng, baseHue + 45, 30, 90, 20, 10, 10);
-  color(paletteRng, shiftedHue(baseHue + 45), 50, 70, 20, 10, 10);
-  const star = [
-    color(backgroundRng, baseHue + 180, 10, 100, 20, 0, 0),
-    color(backgroundRng, baseHue + 180, 20, 40, 20, 0, 0),
-  ] as const;
-
-  let planet: readonly (HexColor | null)[];
-  switch (paletteType) {
-    case 'analogous':
-      planet = [
-        color(paletteRng, baseHue, 60, 90),
-        color(paletteRng, shiftedHue(baseHue, 15), 65, 75),
-        color(paletteRng, shiftedHue(baseHue, 30), 70, 60),
-      ];
-      break;
-    case 'complementary':
-      planet = [
-        color(paletteRng, shiftedHue(baseHue, 15), 60, 75),
-        color(paletteRng, baseHue, 60, 90),
-        color(paletteRng, baseHue + 180, 60, 90),
-      ];
-      break;
-    case 'split-complementary':
-      planet = [
-        color(paletteRng, baseHue + 160, 40, 90),
-        color(paletteRng, baseHue, 60, 90),
-        color(paletteRng, baseHue + 200, 40, 90),
-      ];
-      break;
-    case 'triad':
-      planet = [
-        color(paletteRng, baseHue + 120, 40, 90),
-        color(paletteRng, baseHue, 60, 90),
-        color(paletteRng, baseHue + 240, 40, 90),
-      ];
-      break;
-    case 'cavity':
-      planet = [null, color(paletteRng, baseHue, 60, 90), null];
-      break;
-    case 'earth':
-      planet = [
-        color(paletteRng, 210, 60, 85),
-        color(paletteRng, 200, 60, 85),
-        color(paletteRng, 135, 70, 90),
-      ];
-      break;
-  }
-
-  const satellite = createSatelliteColors(paletteType, baseHue, planet, cloud, satelliteColorRng);
-  return { background, planet, cloud, satellite, star };
-}
-
 function deriveSatellites(
   rng: DeterministicRandom,
   diameter: number,
@@ -241,77 +168,6 @@ function deriveSatellites(
   }));
 }
 
-const TYPE_PALETTES: Record<PlanetTypeId, readonly (readonly HexColor[])[]> = {
-  nebula: [
-    ['#1e1b4b', '#f72585', '#facc15', '#4cc9f0'],
-    ['#3b0764', '#4cc9f0', '#f59e0b', '#fff7cc'],
-    ['#240046', '#f72585', '#4361ee', '#fde047'],
-  ],
-  desert: [
-    ['#4a2c1a', '#b45309', '#f59e0b', '#fef3c7'],
-    ['#5b3417', '#c2410c', '#fbbf24', '#fffbeb'],
-    ['#422006', '#a16207', '#facc15', '#fef9c3'],
-  ],
-  triplex: [
-    ['#f72585', '#4361ee', '#facc15'],
-    ['#00e5ff', '#ff2d95', '#00e5ff'],
-    ['#f97316', '#2563eb', '#a855f7'],
-  ],
-  toxic: [
-    ['#ff1744', '#00e5ff', '#76ff03'],
-    ['#7c4dff', '#ffea00', '#00e676'],
-    ['#ff1744', '#a855f7', '#00e5ff'],
-  ],
-  gaia: [
-    ['#075985', '#0ea5e9', '#16a34a', '#f8fafc'],
-    ['#0c4a6e', '#0284c7', '#15803d', '#e2e8f0'],
-    ['#164e63', '#0891b2', '#047857', '#f1f5f9'],
-  ],
-  volcanic: [
-    ['#1a0700', '#ff5a00', '#ffd60a', '#ff9f1c'],
-    ['#170606', '#7f1d1d', '#dc2626', '#f97316'],
-    ['#26110b', '#9a3412', '#ef4444', '#fca5a5'],
-  ],
-  'gas-giant': [
-    ['#5f2f15', '#c96d2d', '#f6c453', '#fef3c7'],
-    ['#5f4727', '#b8914a', '#e7c873', '#fff1bf'],
-    ['#061a40', '#0b5ed7', '#38bdf8', '#bfe9ff'],
-    ['#4a1020', '#c92d5d', '#f472b6', '#ffe4ef'],
-  ],
-  rocky: [
-    ['#1f2421', '#4a4f49', '#777b75', '#aaa69c'],
-    ['#171717', '#3f3f46', '#71717a', '#d4d4d8'],
-    ['#2f2926', '#62564b', '#928374', '#d5c4a1'],
-    ['#293241', '#5c677d', '#a9bcd0', '#d9e2ec'],
-  ],
-  oceanic: [
-    ['#0047ff', '#009dff', '#00e5ff', '#d9fbff'],
-    ['#1236d8', '#0077ff', '#21c7ff', '#d6f8ff'],
-    ['#0054c7', '#00a6ff', '#45e9ff', '#e0ffff'],
-    ['#1d4ed8', '#0ea5e9', '#22d3ee', '#ecfeff'],
-    ['#001f9e', '#006dff', '#00c2ff', '#c8f7ff'],
-    ['#0039a6', '#008cff', '#3ddcff', '#edffff'],
-  ],
-  void: [
-    ['#120326', '#7c3aed', '#22d3ee', '#f0abfc'],
-    ['#080812', '#a21caf', '#f472b6', '#fdf4ff'],
-    ['#140a1e', '#6d28d9', '#67e8f9', '#e9d5ff'],
-  ],
-};
-
-const TYPE_NOISE_MODES = {
-  nebula: 'domain-warping',
-  desert: 'vertical-stripes',
-  triplex: 'gradation',
-  toxic: 'vertical-stripes',
-  gaia: 'simplex',
-  volcanic: 'ridged',
-  'gas-giant': 'horizontal-stripes',
-  rocky: 'ridged',
-  oceanic: 'domain-warping',
-  void: 'domain-warping',
-} as const satisfies Readonly<Record<PlanetTypeId, NoiseMode>>;
-
 function jitterPalette(colors: readonly HexColor[], rng: DeterministicRandom): readonly HexColor[] {
   const jittered = colors.map((entry) => {
     const [red, green, blue] = rgb(entry);
@@ -338,173 +194,124 @@ function jitterPalette(colors: readonly HexColor[], rng: DeterministicRandom): r
 function derivePlanetForTypeFromBase(
   base: PlanetRenderDescriptor,
   planetType: PlanetTypeId,
+  canonicalPalette: TypePalette,
+  terrain: TerrainMode,
+  profile: TypeVisualProfile,
 ): PlanetRenderDescriptor {
   if (!isPlanetType(planetType)) throw new RangeError('Unsupported Planet Type.');
   const rng = namedVisualRandom(base.seed, `type:${planetType}`);
-  const presets = TYPE_PALETTES[planetType];
-  const preset = presets[rng.weightedIndex(presets.map(() => 1))];
-  if (!preset) throw new Error('Type palette preset is missing.');
-  const palette = jitterPalette(preset, rng);
-  const colors: PlanetColors = {
+  const palette = jitterPalette(canonicalPalette.colors, rng);
+  let colors: PlanetColors = {
     ...base.traits.colors,
     planet: palette.slice(0, 3),
-    satellite: base.traits.colors.satellite,
   };
   let paletteType = base.traits.paletteType;
   let baseHue = base.traits.baseHue;
-  let diameter = base.traits.diameter;
-  // Gradation belongs exclusively to Triplex. Explicit type modes also keep the
-  // visual identity independent from the source palette's generic noise selection.
-  let noiseMode: NoiseMode = TYPE_NOISE_MODES[planetType];
-  let hasClouds = base.traits.hasClouds;
-  let cloudNoiseMode = base.traits.cloudNoiseMode;
-  let cloudWeights = base.traits.cloudWeights;
+  const diameter = Math.round(base.traits.diameter * profile.diameterMultiplier);
+  const noiseMode: NoiseMode = terrain;
+  let hasClouds = false;
+  let cloudNoiseMode: NoiseMode | null = null;
+  let cloudWeights: readonly number[] | undefined;
   let cloudDirection: 1 | -1 | undefined;
-  let cloudLapMs = base.traits.cloudLapMs;
-  let mainLapMs = base.traits.mainLapMs;
-  let hasRing = base.traits.hasRing;
-  let satellites = base.traits.satellites;
-  if (planetType === 'gas-giant') {
-    diameter = Math.round(diameter * 1.3);
-    // Gas Giants have broad, ponderous bands: never allow a faster-than-seven-second turn.
-    mainLapMs = Math.max(7_000, Math.round(mainLapMs * 1.8));
-    hasClouds = true;
-    const gasCloudModes = ['horizontal-stripes', 'domain-warping', 'simplex'] as const;
-    cloudNoiseMode = gasCloudModes[rng.weightedIndex([5, 3, 2])] ?? 'horizontal-stripes';
-    cloudLapMs = Math.round(mainLapMs * 1.6);
-    cloudWeights = [
-      [1, 8, 1],
-      [1, 6, 1],
-      [1, 7, 2],
-    ][rng.weightedIndex([4, 4, 2])] ?? [1, 8, 1];
-    colors.cloud = [palette[3] ?? '#fff3d1', palette[1] ?? '#8c5a3c'];
-    hasRing = rng.weightedIndex([3, 7]) === 1;
-    if (hasRing) {
-      satellites = deriveSatellites(rng, diameter, colors, true);
-    } else {
-      const sourceSatellites = deriveSatellites(rng, diameter, colors, false);
-      satellites = Array.from({ length: rng.int(5, 12) }, (_, index) => {
-        const satellite = sourceSatellites[index % sourceSatellites.length];
-        if (!satellite) throw new Error('Gas Giant requires a source satellite.');
-        return {
-          ...satellite,
-          diameter: rng.int(2, 7),
-          speed: round(rng.float(0.28, 0.82)),
-        };
-      });
+  let cloudLapMs: number | null = null;
+  let mainLapMs = Math.round(base.traits.mainLapMs * profile.mainLapMultiplier);
+  if (profile.minimumMainLapMs !== undefined) {
+    mainLapMs = Math.max(profile.minimumMainLapMs, mainLapMs);
+  }
+
+  switch (profile.cloudStyle) {
+    case 'none':
+      break;
+    case 'standard':
+      hasClouds = rng.weightedIndex([4, 1]) === 0;
+      if (hasClouds) {
+        cloudNoiseMode = rng.weightedIndex([3, 1]) === 0 ? 'simplex' : 'domain-warping';
+        cloudWeights = [2, 3, 3];
+        cloudLapMs = Math.round(mainLapMs * rng.float(1.5, 2));
+      }
+      break;
+    case 'ash':
+      hasClouds = rng.weightedIndex([3, 1]) === 1;
+      if (hasClouds) {
+        cloudNoiseMode = 'domain-warping';
+        cloudWeights = [2, 3, 3];
+        cloudLapMs = Math.round(mainLapMs * 2.2);
+        colors = { ...colors, cloud: ['#a4a8ad', '#45484d'] };
+      }
+      break;
+    case 'oceanic':
+      hasClouds = true;
+      cloudNoiseMode = rng.weightedIndex([3, 2]) === 0 ? 'simplex' : 'domain-warping';
+      cloudWeights = [2, 5, 2];
+      cloudLapMs = Math.round(mainLapMs * rng.float(1.3, 1.75));
+      colors = { ...colors, cloud: ['#f0f9ff', '#7dd3fc'] };
+      break;
+    case 'nebula':
+      hasClouds = true;
+      cloudNoiseMode = rng.weightedIndex([3, 2]) === 0 ? 'simplex' : 'domain-warping';
+      cloudWeights = [2, 3, 3];
+      cloudDirection = rng.weightedIndex([3, 1]) === 1 ? -1 : 1;
+      if (cloudDirection === -1) mainLapMs = Math.round(mainLapMs * 1.65);
+      cloudLapMs = Math.round(mainLapMs * rng.float(0.8, 0.98));
+      colors = { ...colors, cloud: ['#fff1a8', '#ff3ea5'] };
+      break;
+    case 'gas-giant': {
+      hasClouds = true;
+      const gasCloudModes = ['horizontal-stripes', 'domain-warping', 'simplex'] as const;
+      cloudNoiseMode = gasCloudModes[rng.weightedIndex([5, 3, 2])] ?? 'horizontal-stripes';
+      cloudLapMs = Math.round(mainLapMs * 1.6);
+      cloudWeights = [
+        [1, 8, 1],
+        [1, 6, 1],
+        [1, 7, 2],
+      ][rng.weightedIndex([4, 4, 2])] ?? [1, 8, 1];
+      colors = { ...colors, cloud: [palette[3] ?? '#fff3d1', palette[1] ?? '#8c5a3c'] };
+      break;
     }
-    noiseMode = 'horizontal-stripes';
+    case 'gaia':
+      hasClouds = rng.weightedIndex([4, 1]) === 0;
+      if (hasClouds) {
+        cloudNoiseMode = rng.weightedIndex([3, 1]) === 0 ? 'simplex' : 'domain-warping';
+        cloudWeights = [2, 3, 3];
+        cloudLapMs = Math.round(mainLapMs * rng.float(1.5, 2));
+        colors = { ...colors, cloud: ['#f5f7f5', '#8c9690'] };
+      }
+      break;
   }
-  if (planetType === 'nebula') {
-    const nebulaHues = [250, 315, 30, 190] as const;
-    baseHue = nebulaHues[rng.weightedIndex([3, 3, 2, 2])] ?? 250;
-    colors.planet = [
-      color(rng, baseHue, 60, 90),
-      color(rng, shiftedHue(baseHue, 15), 65, 75),
-      color(rng, shiftedHue(baseHue, 30), 70, 60),
-    ];
-    colors.cloud = [
-      color(rng, baseHue + 180, 35, 100, 12, 8, 0),
-      color(rng, baseHue + 180, 45, 78, 12, 8, 0),
-    ];
-    paletteType = 'analogous';
-    const nebulaNoiseModes = [
-      'domain-warping',
-      'simplex',
-      'vertical-stripes',
-      'horizontal-stripes',
-    ] as const;
-    noiseMode = nebulaNoiseModes[rng.weightedIndex([4, 3, 2, 2])] ?? 'domain-warping';
-    hasClouds = true;
-    cloudNoiseMode = rng.weightedIndex([3, 2]) === 0 ? 'simplex' : 'domain-warping';
-    // Nebula clouds are a separate, visibly faster band drifting over the surface.
-    cloudDirection = rng.weightedIndex([3, 1]) === 1 ? -1 : 1;
-    if (cloudDirection === -1) mainLapMs = Math.round(mainLapMs * 1.65);
-    cloudLapMs = Math.round(mainLapMs * rng.float(0.8, 0.98));
-    cloudWeights = [2, 3, 3];
-    colors.cloud = ['#fff1a8', '#ff3ea5'];
-  }
-  if (planetType === 'volcanic') {
-    noiseMode = 'ridged';
-    hasClouds = rng.weightedIndex([3, 1]) === 1;
-    cloudNoiseMode = hasClouds ? 'domain-warping' : null;
-    cloudLapMs = hasClouds ? Math.round(mainLapMs * 2.2) : null;
-    colors.cloud = ['#d4d4d4', '#525252'];
-    const ashSatellites = jitterPalette(['#525252', '#9a9a9a', '#c4c4c4'], rng);
-    colors.satellite = [ashSatellites[0] ?? '#525252', ashSatellites[1] ?? '#9a9a9a'];
-    hasRing = false;
-    satellites = base.traits.satellites
-      .slice(0, rng.int(1, 6))
-      .map((satellite) => ({ ...satellite, rotation: rng.int(-90, 91) }));
-  }
-  if (planetType === 'oceanic') {
-    noiseMode = 'domain-warping';
-    hasClouds = true;
-    cloudNoiseMode = rng.weightedIndex([3, 2]) === 0 ? 'simplex' : 'domain-warping';
-    cloudLapMs = Math.round(mainLapMs * rng.float(1.3, 1.75));
-    cloudWeights = [2, 5, 2];
-    colors.cloud = ['#f0f9ff', '#7dd3fc'];
-  }
-  if (planetType === 'rocky') {
-    diameter = Math.round(diameter * 0.9);
-    noiseMode = 'ridged';
-    hasClouds = false;
-    cloudNoiseMode = null;
-    cloudLapMs = null;
-    hasRing = false;
-    satellites = base.traits.satellites
-      .slice(0, rng.weightedIndex([4, 4, 2]))
-      .map((satellite, index) => ({
-        ...satellite,
-        color: palette[(index + 1) % palette.length] ?? '#777b75',
-        speed: round(rng.float(0.025, 0.08)),
-      }));
-  }
-  if (planetType === 'desert') {
-    const desertNoiseModes = [
-      'vertical-stripes',
-      'horizontal-stripes',
-      'ridged',
-      'domain-warping',
-    ] as const;
-    noiseMode = desertNoiseModes[rng.weightedIndex([4, 3, 2, 1])] ?? 'vertical-stripes';
-  }
-  if (planetType === 'triplex') {
-    colors.planet = preset.slice(0, 3);
-    paletteType = 'split-complementary';
-  }
-  if (planetType === 'toxic') {
-    colors.planet = preset.slice(0, 3);
-    const toxicNoiseModes = ['vertical-stripes', 'horizontal-stripes', 'domain-warping'] as const;
-    noiseMode = toxicNoiseModes[rng.weightedIndex([4, 4, 2])] ?? 'horizontal-stripes';
-    paletteType = 'complementary';
-    hasClouds = false;
-    cloudNoiseMode = null;
-    cloudLapMs = null;
-  }
-  if (planetType === 'gaia') {
-    hasRing = false;
-    const graySatellites = jitterPalette(['#707070', '#a0a0a0', '#d0d0d0'], rng);
-    colors.satellite = [graySatellites[0] ?? '#707070', graySatellites[1] ?? '#a0a0a0'];
-  }
-  if (planetType === 'void') {
-    baseHue = rng.int(0, 360);
-    paletteType = 'cavity';
-    const cavityColor = color(rng, baseHue, 60, 90);
-    colors.planet = [null, cavityColor, null];
-    colors.cloud = [
-      color(rng, baseHue, 10, 100, 20, 10, 0),
-      color(rng, baseHue, 10, 80, 20, 10, 0),
-    ];
-    colors.background = color(rng, baseHue + 180, 15, 15, 20, 0, 0);
-    colors.satellite = createSatelliteColors('cavity', baseHue, colors.planet, colors.cloud, rng);
-    colors.star = [
-      color(rng, baseHue + 180, 10, 100, 20, 0, 0),
-      color(rng, baseHue + 180, 20, 40, 20, 0, 0),
-    ];
-    hasClouds = false;
-    cloudNoiseMode = null;
-    cloudLapMs = null;
+
+  switch (profile.satelliteStyle) {
+    case 'ash': {
+      const ash = jitterPalette(['#525252', '#909090', '#b8b8b8'], rng);
+      colors = { ...colors, satellite: [ash[0] ?? '#525252', ash[1] ?? '#909090'] };
+      break;
+    }
+    case 'gray': {
+      const gray = jitterPalette(['#707070', '#a0a0a0', '#d0d0d0'], rng);
+      colors = { ...colors, satellite: [gray[0] ?? '#707070', gray[1] ?? '#a0a0a0'] };
+      break;
+    }
+    case 'cavity': {
+      const cavity = deriveOriginalCavityColors(base.seed);
+      colors = {
+        background: cavity.background,
+        planet: [null, cavity.core, null],
+        cloud: cavity.cloud,
+        satellite: cavity.satellite,
+        star: cavity.star,
+      };
+      paletteType = 'cavity';
+      baseHue = 0;
+      break;
+    }
+    case 'standard':
+    case 'gas-giant':
+      colors = {
+        ...colors,
+        satellite: createSatelliteColors(paletteType, baseHue, colors.planet, colors.cloud, rng),
+      };
+      break;
+    case 'rocky':
+      break;
   }
   const traits = {
     ...base.traits,
@@ -519,8 +326,8 @@ function derivePlanetForTypeFromBase(
     cloudDirection,
     cloudLapMs,
     mainLapMs,
-    hasRing,
-    satellites,
+    hasRing: false,
+    satellites: [],
     planetType,
   } as const;
   return { ...base, traits };
@@ -530,18 +337,25 @@ function derivePlanetVisualFromSeed(
   normalized: NormalizedPlanetVisualInput,
   seed: Hex,
 ): PlanetRenderDescriptor {
-  const paletteRng = namedVisualRandom(seed, 'palette');
   const terrainRng = namedVisualRandom(seed, 'terrain');
-  const satelliteRng = namedVisualRandom(seed, 'satellites');
-  const satelliteColorRng = namedVisualRandom(seed, 'satellite-colors');
   const backgroundRng = namedVisualRandom(seed, 'background');
 
-  const paletteWeights = getPaletteWeights(normalized.bonusBall);
-  const paletteIndex = paletteRng.weightedIndex(paletteWeights);
-  const paletteType = GENERATOR_CONFIG.paletteTypes[paletteIndex];
-  if (!paletteType) throw new Error('Palette selection exceeded configured palette types.');
-  const baseHue = paletteRng.int(0, 360);
-  const colors = createColors(paletteType, baseHue, paletteRng, backgroundRng, satelliteColorRng);
+  const paletteType: PaletteType = 'analogous';
+  const baseHue = backgroundRng.int(0, 360);
+  const colors: PlanetColors = {
+    background: color(backgroundRng, baseHue + 180, 15, 15, 20, 0, 0),
+    // TypeVisualProfile replaces this placeholder before any frame is rendered.
+    planet: ['#1f2937', '#64748b', '#e2e8f0'],
+    cloud: [
+      color(backgroundRng, baseHue, 10, 100, 20, 10, 0),
+      color(backgroundRng, baseHue, 10, 80, 20, 10, 0),
+    ],
+    satellite: ['#f8fafc', '#94a3b8'],
+    star: [
+      color(backgroundRng, baseHue + 180, 10, 100, 20, 0, 0),
+      color(backgroundRng, baseHue + 180, 20, 40, 20, 0, 0),
+    ],
+  };
 
   const firstDiameter = terrainRng.int(
     GENERATOR_CONFIG.planetDiameter.min,
@@ -552,22 +366,7 @@ function derivePlanetVisualFromSeed(
     GENERATOR_CONFIG.planetDiameter.maxExclusive,
   );
   const diameter = Math.max(firstDiameter, secondDiameter);
-  const noiseGroup = Math.floor(paletteIndex / 2);
-  const noiseWeights = GENERATOR_CONFIG.noiseWeights[noiseGroup];
-  if (!noiseWeights) throw new Error('Palette has no terrain distribution.');
-  const noiseMode = GENERATOR_CONFIG.noiseModes[terrainRng.weightedIndex(noiseWeights)];
-  if (!noiseMode) throw new Error('Terrain selection exceeded configured noise modes.');
-
-  const hasClouds = paletteType !== 'cavity' && terrainRng.weightedIndex([4, 1]) === 0;
-  const cloudNoiseMode = hasClouds
-    ? terrainRng.weightedIndex([3, 1]) === 0
-      ? 'simplex'
-      : 'domain-warping'
-    : null;
   const mainLapMs = Math.round(terrainRng.float(3_000, 5_000));
-  const cloudLapMs = hasClouds ? Math.round(mainLapMs * terrainRng.float(1.5, 2)) : null;
-  const hasRing = satelliteRng.weightedIndex([1, 5]) === 0;
-  const satellites = deriveSatellites(satelliteRng, diameter, colors, hasRing);
   const starCount = backgroundRng.int(
     GENERATOR_CONFIG.starCount.min,
     GENERATOR_CONFIG.starCount.maxExclusive,
@@ -578,17 +377,17 @@ function derivePlanetVisualFromSeed(
     paletteType,
     typePalette: colors.planet.filter((color): color is HexColor => color !== null),
     paletteProfile: getPaletteProfile(normalized.bonusBall),
-    paletteWeights,
+    paletteWeights: getPaletteWeights(normalized.bonusBall),
     baseHue,
     colors,
-    noiseMode,
+    noiseMode: 'simplex' as NoiseMode,
     diameter,
-    hasClouds,
-    cloudNoiseMode,
+    hasClouds: false,
+    cloudNoiseMode: null,
     mainLapMs,
-    cloudLapMs,
-    hasRing,
-    satellites,
+    cloudLapMs: null,
+    hasRing: false,
+    satellites: [],
     starCount,
     specialEditionId: null,
   } as const;
@@ -620,6 +419,7 @@ export type CanonicalVisualOptions = {
   terrain: TerrainMode;
   satelliteCount: number;
   hasRing: boolean;
+  profile: TypeVisualProfile;
 };
 
 /** Applies the canonical descriptor's palette, terrain, and satellite profile to the renderer. */
@@ -635,34 +435,40 @@ export function derivePlanetVisualForType(
   const visual = derivePlanetForTypeFromBase(
     derivePlanetVisualFromSeed(normalizeVisualInput(input), seed.toLowerCase() as Hex),
     planetType,
+    options.palette,
+    options.terrain,
+    options.profile,
   );
-  const rng = namedVisualRandom(seed, `canonical-visual:${planetType}`);
-  const palette = jitterPalette(options.palette.colors, rng);
-  const colors: PlanetColors = {
-    ...visual.traits.colors,
-    planet: palette.slice(0, 3),
-  };
-  colors.satellite = createSatelliteColors(
-    visual.traits.paletteType,
-    visual.traits.baseHue,
-    colors.planet,
-    colors.cloud,
-    rng,
-  );
-  const satellites = deriveSatellites(
+  const baseSatellites = deriveSatellites(
     namedVisualRandom(seed, 'canonical-satellites'),
     visual.traits.diameter,
-    colors,
+    visual.traits.colors,
     options.hasRing,
     options.satelliteCount,
   );
+  const satellites = baseSatellites.map((satellite, index) => {
+    if (options.profile.satelliteStyle === 'rocky') {
+      const color = visual.traits.colors.planet[(index + 1) % visual.traits.colors.planet.length];
+      return {
+        ...satellite,
+        color: color ?? '#777b75',
+        speed: round(namedVisualRandom(seed, `rocky-satellite:${index}`).float(0.025, 0.08)),
+      };
+    }
+    if (options.profile.satelliteStyle === 'gas-giant') {
+      return {
+        ...satellite,
+        diameter: namedVisualRandom(seed, `gas-satellite:${index}`).int(2, 7),
+        speed: round(namedVisualRandom(seed, `gas-satellite-speed:${index}`).float(0.28, 0.82)),
+      };
+    }
+    return satellite;
+  });
   return {
     ...visual,
     traits: {
       ...visual.traits,
-      colors,
       typePalette: [...options.palette.colors],
-      noiseMode: options.terrain,
       hasRing: options.hasRing,
       satellites,
     },

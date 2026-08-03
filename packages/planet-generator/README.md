@@ -31,10 +31,13 @@ visual decisions.
 ## Traits and metadata
 
 The ten Season 1 Types are Nebula, Desert, Triplex, Toxic, Void, Gaia, Volcanic, Gas
-Giant, Rocky, and Oceanic. Each declarative Type profile stores local palette colors,
-its Coolors source URL, and weighted terrain modes. The bonus ball selects a weighted
-profile; the seed then chooses a Type within it. Every Type remains possible in every
-profile.
+Giant, Rocky, and Oceanic. Each immutable `TypeVisualProfile` stores the deterministic
+palette variants, terrain weights, clouds, satellites, size, and rotation constraints
+for exactly one Type. Bonus balls select cyclic profiles in Type-roster order: the
+matching Type has a 55% weight and each of the other nine Types has a 5% weight. The
+seed then resolves the Type, palette, terrain, and satellites once; the renderer only
+consumes those resolved choices. Void intentionally uses the source generator's HSB
+Cavity formula rather than fixed swatches.
 
 Names are synthesized from a deterministic phoneme grammar and may receive a Roman or
 catalogue suffix. They are not selected from a finite list. Regular procedural planets
@@ -73,8 +76,10 @@ contrasting colors and source-style front/back orbit ordering.
 
 The visual layer supports simplex, ridged, domain-warped, striped, and gradation terrain.
 Pure extension samplers add turbulence, banded, cratered, ocean-current, cellular, and
-polar-cap modes. New palette and terrain behavior belongs in immutable Season
-configuration and requires reviewed golden outputs.
+polar-cap modes. Lab uses the same weighted Type profile as canonical previews, so it
+can show every valid terrain variation instead of a fixed first mode. New palette and
+terrain behavior belongs in immutable Season configuration and requires reviewed golden
+outputs.
 
 ## Integration and verification
 

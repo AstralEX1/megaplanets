@@ -224,7 +224,9 @@ export function Lab() {
               >
                 <span
                   className="mr-1 inline-block h-2 w-2 rounded-full"
-                  style={{ background: type.palette.colors.at(-1) }}
+                  style={{
+                    background: type.visual.paletteVariants.at(-1)?.colors.at(-1) ?? '#7c3aed',
+                  }}
                 />
                 {type.publicName}
               </button>

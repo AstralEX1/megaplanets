@@ -6,10 +6,15 @@ import {
   buildPlanetMetadata,
   createSeason1Config,
   createTerrainNoiseSampler,
+  deriveOriginalCavityColors,
   derivePlanet,
   derivePlanetName,
   derivePlanetPreview,
+  derivePlanetPreviewForType,
   derivePlanetSeed,
+  deriveTypePalette,
+  deriveTypeSatellites,
+  deriveTypeTerrain,
   deserializePlanetDescriptor,
   GENERATOR_CONFIG,
   getTypeProfile,
@@ -131,25 +136,26 @@ describe('generator canonical seed', () => {
 });
 
 describe('generator Season 1 traits', () => {
-  it('uses complete deterministic weighted Type profiles for every bonus bucket', () => {
+  it('gives the bonus-ball Type 55% weight and every other Type 5%', () => {
     for (let bonusBall = 1; bonusBall <= 24; bonusBall += 1) {
       const profile = getTypeProfile(CONFIG, bonusBall);
       expect(profile).toBe(
         SEASON_1_TYPE_WEIGHT_PROFILES[(bonusBall - 1) % SEASON_1_TYPE_WEIGHT_PROFILES.length],
       );
-      expect(profile.weights.every((weight) => weight > 0)).toBe(true);
+      expect(profile.weights.filter((weight) => weight === 55)).toHaveLength(1);
+      expect(profile.weights.filter((weight) => weight === 5)).toHaveLength(9);
     }
   });
 
-  it('rejects a direct Type mapping and validates Season 1 rarity configuration', () => {
+  it('rejects Type profile weight drift and validates Season 1 rarity configuration', () => {
     expect(() =>
       validateSeasonConfig({
         ...CONFIG,
         typeWeightProfiles: CONFIG.typeWeightProfiles.map((profile, index) =>
-          index === 0 ? { id: 'direct', weights: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0] } : profile,
+          index === 0 ? { ...profile, weights: [55, 6, 5, 5, 5, 5, 5, 5, 5, 4] } : profile,
         ),
       }),
-    ).toThrow(/positive safe-integer weight/);
+    ).toThrow(/matching Type 55/);
     expect(
       SEASON_1_RARITY_CONFIG.map(({ rarity, weight, min, max }) => [rarity, weight, min, max]),
     ).toEqual([
@@ -163,7 +169,7 @@ describe('generator Season 1 traits', () => {
   it('freezes canonical configuration and rejects drift in weights and mineral coverage', () => {
     expect(Object.isFrozen(CONFIG)).toBe(true);
     expect(Object.isFrozen(CONFIG.types)).toBe(true);
-    expect(Object.isFrozen(CONFIG.types[0]?.palette.colors)).toBe(true);
+    expect(Object.isFrozen(CONFIG.types[0]?.visual.paletteVariants)).toBe(true);
     expect(() => {
       (CONFIG.types as unknown as { publicName: string }[])[0] = { publicName: 'Mutated' };
     }).toThrow();
@@ -207,28 +213,47 @@ describe('generator Season 1 traits', () => {
       'Oceanic',
     ]);
     expect(
-      SEASON_1_TYPES.every((type) => type.palette.coolorsUrl.startsWith('https://coolors.co/')),
+      SEASON_1_TYPES.every((type) =>
+        type.visual.paletteVariants.every((variant) =>
+          variant.coolorsUrl.startsWith('https://coolors.co/'),
+        ),
+      ),
     ).toBe(true);
-    expect(SEASON_1_TYPES.find((type) => type.id === 'volcanic')?.terrainWeights[0]?.mode).toBe(
-      'turbulence',
-    );
-    expect(SEASON_1_TYPES.find((type) => type.id === 'gas-giant')?.terrainWeights[0]?.mode).toBe(
-      'banded',
-    );
-    expect(SEASON_1_TYPES.find((type) => type.id === 'rocky')?.terrainWeights[0]?.mode).toBe(
+    expect(
+      SEASON_1_TYPES.find((type) => type.id === 'volcanic')?.visual.terrainWeights[0]?.mode,
+    ).toBe('turbulence');
+    expect(
+      SEASON_1_TYPES.find((type) => type.id === 'gas-giant')?.visual.terrainWeights[0]?.mode,
+    ).toBe('banded');
+    expect(SEASON_1_TYPES.find((type) => type.id === 'rocky')?.visual.terrainWeights[0]?.mode).toBe(
       'cratered',
     );
-    expect(SEASON_1_TYPES.find((type) => type.id === 'oceanic')?.terrainWeights[0]?.mode).toBe(
-      'ocean-currents',
-    );
-    expect(SEASON_1_TYPES.find((type) => type.id === 'triplex')?.terrainWeights).toEqual([
+    expect(
+      SEASON_1_TYPES.find((type) => type.id === 'oceanic')?.visual.terrainWeights[0]?.mode,
+    ).toBe('ocean-currents');
+    expect(SEASON_1_TYPES.find((type) => type.id === 'triplex')?.visual.terrainWeights).toEqual([
       { mode: 'gradation', weight: 1 },
     ]);
     expect(
       SEASON_1_TYPES.filter((type) => type.id !== 'triplex')
-        .flatMap((type) => type.terrainWeights.map((terrain) => terrain.mode))
+        .flatMap((type) => type.visual.terrainWeights.map((terrain) => terrain.mode))
         .join(','),
     ).not.toContain('gradation');
+    const volcanic = SEASON_1_TYPES.find((type) => type.id === 'volcanic');
+    expect(
+      volcanic?.visual.paletteVariants.every((variant) =>
+        variant.colors.every((color) => {
+          const channels = [
+            Number.parseInt(color.slice(1, 3), 16),
+            Number.parseInt(color.slice(3, 5), 16),
+            Number.parseInt(color.slice(5, 7), 16),
+          ];
+          return !(
+            Math.min(...channels) > 190 && Math.max(...channels) - Math.min(...channels) < 45
+          );
+        }),
+      ),
+    ).toBe(true);
   });
 
   it('uses hierarchical rarity and mineral selection without a drawing ID cap', () => {
@@ -308,6 +333,100 @@ describe('generator Season 1 traits', () => {
         0,
       ),
     ).toThrow(/satellite count/);
+  });
+
+  it('selects all declared palette variants and preserves Type-only visual mechanics', () => {
+    const configuredType = (id: string) => {
+      const type = SEASON_1_TYPES.find((candidate) => candidate.id === id);
+      if (!type) throw new Error(`Missing configured Type: ${id}`);
+      return type;
+    };
+    for (const type of SEASON_1_TYPES) {
+      const selected = new Set<string>();
+      for (
+        let ticketId = 1;
+        ticketId <= 1_000 && selected.size < type.visual.paletteVariants.length;
+        ticketId += 1
+      ) {
+        selected.add(
+          deriveTypePalette(derivePlanetSeed({ ...INPUT, ticketId: BigInt(ticketId) }), type)
+            .coolorsUrl,
+        );
+      }
+      if (type.visual.paletteMode === 'variants') {
+        expect(selected).toEqual(
+          new Set(type.visual.paletteVariants.map((variant) => variant.coolorsUrl)),
+        );
+      }
+    }
+
+    const oceanic = derivePlanetPreviewForType(INPUT, CONFIG, 'oceanic');
+    expect(oceanic.visual.traits.typePalette).toEqual(
+      deriveTypePalette(oceanic.descriptor.seed, configuredType('oceanic')).colors,
+    );
+    expect(oceanic.visual.traits.colors.planet.some((color) => color === '#082f49')).toBe(false);
+
+    const toxic = derivePlanetPreviewForType(INPUT, CONFIG, 'toxic');
+    expect(toxic.visual.traits.hasClouds).toBe(false);
+    expect(toxic.visual.traits.colors.planet).not.toEqual(oceanic.visual.traits.colors.planet);
+
+    const gaia = derivePlanetPreviewForType(INPUT, CONFIG, 'gaia');
+    expect(gaia.visual.traits.typePalette).toEqual(
+      deriveTypePalette(gaia.descriptor.seed, configuredType('gaia')).colors,
+    );
+    expect(gaia.visual.traits.hasRing).toBe(false);
+
+    const voidPlanet = derivePlanetPreviewForType(INPUT, CONFIG, 'void');
+    expect(voidPlanet.visual.traits.paletteType).toBe('cavity');
+    expect(voidPlanet.visual.traits.colors.planet).toEqual([null, expect.any(String), null]);
+    const cavity = deriveOriginalCavityColors(voidPlanet.descriptor.seed);
+    expect(voidPlanet.visual.traits.colors).toMatchObject({
+      background: cavity.background,
+      planet: [null, cavity.core, null],
+      cloud: cavity.cloud,
+      satellite: cavity.satellite,
+      star: cavity.star,
+    });
+  });
+
+  it('uses every configured terrain in canonical and Lab Type previews', () => {
+    for (const type of SEASON_1_TYPES) {
+      const expected = new Set(type.visual.terrainWeights.map((entry) => entry.mode));
+      const canonical = new Set<string>();
+      const lab = new Set<string>();
+      for (
+        let ticketId = 1;
+        ticketId <= 10_000 && (canonical.size < expected.size || lab.size < expected.size);
+        ticketId += 1
+      ) {
+        const input = { ...INPUT, ticketId: BigInt(ticketId) };
+        canonical.add(deriveTypeTerrain(derivePlanetSeed(input), type));
+        lab.add(
+          derivePlanetPreviewForType(input, CONFIG, type.id as typeof type.id).visual.traits
+            .noiseMode,
+        );
+      }
+      expect(canonical).toEqual(expected);
+      expect(lab).toEqual(expected);
+    }
+  });
+
+  it('keeps volcanic ash gray and prevents forbidden rings', () => {
+    for (const typeId of ['gaia', 'rocky', 'volcanic'] as const) {
+      const type = SEASON_1_TYPES.find((candidate) => candidate.id === typeId);
+      if (!type) throw new Error(`Missing configured Type: ${typeId}`);
+      for (let ticketId = 1; ticketId <= 1_000; ticketId += 1) {
+        expect(
+          deriveTypeSatellites(derivePlanetSeed({ ...INPUT, ticketId: BigInt(ticketId) }), type)
+            .hasRing,
+        ).toBe(false);
+      }
+    }
+    const volcanic = Array.from({ length: 40 }, (_, index) =>
+      derivePlanetPreviewForType({ ...INPUT, ticketId: BigInt(index + 1) }, CONFIG, 'volcanic'),
+    ).find((preview) => preview.visual.traits.hasClouds);
+    expect(volcanic).toBeDefined();
+    expect(volcanic?.visual.traits.colors.cloud).toEqual(['#a4a8ad', '#45484d']);
   });
 
   it('samples every original and Season 1 terrain mode deterministically', () => {
