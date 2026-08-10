@@ -23,7 +23,6 @@
     "@prisma/client": "^7.9.1",
     "@rainbow-me/rainbowkit": "^2.2.0",
     "@tanstack/react-query": "^5.62.0",
-    "gsap": "^3.15.0",
     "hono": "^4.12.21",
     "ogl": "1.0.11",
     "pg": "^8.22.0",

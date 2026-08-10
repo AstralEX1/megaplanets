@@ -21,7 +21,7 @@ describe('ExpeditionConfigurator', () => {
     onExplore: vi.fn(),
   };
 
-  it('shows only the selected number of preview silhouettes up to three', () => {
+  it('shows a single selected planet in the static depth stack', () => {
     render(<ExpeditionConfigurator
       quantity={1}
       total={1_000_000n}
@@ -35,7 +35,15 @@ describe('ExpeditionConfigurator', () => {
       onExplore={vi.fn()}
     />);
 
-    expect(screen.getAllByLabelText(/unrevealed planet/i)).toHaveLength(1);
+    expect(screen.getAllByRole('img', { name: /selected planet/i })).toHaveLength(1);
+  });
+
+  it('shows every selected planet in a static depth stack without carousel controls', () => {
+    render(<ExpeditionConfigurator {...props} quantity={5} />);
+
+    expect(screen.getByRole('group', { name: 'Selected planets visualization' })).toBeInTheDocument();
+    expect(screen.getAllByRole('img', { name: /selected planet/i })).toHaveLength(5);
+    expect(screen.queryByRole('button', { name: /previous slide|next slide/i })).not.toBeInTheDocument();
   });
 
   it('opens and closes coordinates from the desktop arrow', async () => {

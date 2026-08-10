@@ -4,18 +4,7 @@ import type { CustomTicket, TicketBounds } from '@/lib/tickets';
 import { CoordinatesPanel } from './CoordinatesDisclosure';
 import { ExploreButton } from './ExploreButton';
 import { CompactPlanetDial } from './CompactPlanetDial';
-
-const PLANET_ACCENTS = [
-  { key: 'near', borderClass: 'border-[#b28cff]' },
-  { key: 'middle', borderClass: '-ml-13 border-[#8d77d2]' },
-  { key: 'far', borderClass: '-ml-13 border-[#6e62a0]' },
-] as const;
-
-function PlanetSilhouettes({ quantity }: { quantity: number }) {
-  return <div className="flex h-[260px] items-center justify-center pt-6">
-    {PLANET_ACCENTS.slice(0, Math.min(quantity, 3)).map((planet, index) => <div key={planet.key} role="img" className={`grid h-[190px] w-[190px] shrink-0 place-items-center rounded-full border-2 bg-[var(--surface-raised)] text-7xl font-semibold text-[var(--text-primary)] shadow-[0_0_0_8px_var(--background)] ${planet.borderClass}`} aria-label={`Unrevealed planet ${index + 1}`}>?</div>)}
-  </div>;
-}
+import { StaticDepthStack } from './StaticDepthStack';
 
 export function ExpeditionConfigurator({ quantity, total, bounds, manuallyEditedTickets, automaticQuickPick, disabled, approvalSpender, approvalAmount, onApproved, onQuantityChange, onAutomaticQuickPickChange, onTicketsChange, onExplore }: { quantity: number; total: bigint; bounds: TicketBounds | null; manuallyEditedTickets: readonly CustomTicket[]; automaticQuickPick: boolean; disabled: boolean; approvalSpender?: `0x${string}`; approvalAmount?: bigint; onApproved?: () => void; onQuantityChange: (value: number) => void; onAutomaticQuickPickChange: (value: boolean) => void; onTicketsChange: (tickets: readonly CustomTicket[]) => void; onExplore: () => void }) {
   const [coordinatesOpen, setCoordinatesOpen] = useState(false);
@@ -26,7 +15,7 @@ export function ExpeditionConfigurator({ quantity, total, bounds, manuallyEdited
       <div className="w-full max-w-[560px] shrink-0">
         <div className="flex flex-col items-center">
           <h1 className="text-center font-hud text-4xl font-bold tracking-[-0.05em] text-[var(--text-primary)]">Start an expedition!</h1>
-          <PlanetSilhouettes quantity={quantity} />
+          <StaticDepthStack quantity={quantity} />
           <div className="w-full pt-5"><CompactPlanetDial quantity={quantity} onChange={onQuantityChange} /></div>
           <div className="w-full pt-5">{approvalSpender !== undefined && approvalAmount !== undefined ? <ApprovalButton spender={approvalSpender} amount={approvalAmount} onApproved={onApproved}><ExploreButton quantity={quantity} total={total} disabled={disabled} onClick={onExplore} /></ApprovalButton> : <ExploreButton quantity={quantity} total={total} disabled={disabled} onClick={onExplore} />}</div>
         </div>

@@ -12,17 +12,29 @@ describe('CompactPlanetDial', () => {
 
     const slider = screen.getByRole('slider', { name: 'Planets to explore' });
 
-    expect(slider).toHaveAttribute('min', '1');
-    expect(slider).toHaveAttribute('max', '50');
-    expect(slider).toHaveValue('3');
+    expect(slider).toHaveAttribute('aria-valuemin', '1');
+    expect(slider).toHaveAttribute('aria-valuemax', '50');
+    expect(slider).toHaveAttribute('aria-valuenow', '3');
+    expect(screen.getByRole('button', { name: 'Selected planets thumb' })).toHaveStyle({ left: '4.081632653061225%' });
   });
 
   it('emits the value while the slider is dragged', () => {
     const onChange = vi.fn();
     render(<CompactPlanetDial quantity={3} onChange={onChange} />);
 
-    fireEvent.input(screen.getByRole('slider', { name: 'Planets to explore' }), { target: { value: '17' } });
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Planets to explore' }), { key: 'End' });
 
-    expect(onChange).toHaveBeenLastCalledWith(17);
+    expect(onChange).toHaveBeenLastCalledWith(50);
+  });
+
+  it('maps pointer position on the track to the selected quantity', () => {
+    const onChange = vi.fn();
+    render(<CompactPlanetDial quantity={3} onChange={onChange} />);
+
+    const slider = screen.getByRole('slider', { name: 'Planets to explore' });
+    Object.defineProperty(slider, 'getBoundingClientRect', { value: () => ({ left: 100, width: 490 }) });
+    fireEvent.pointerDown(slider, { pointerId: 1, clientX: 340 });
+
+    expect(onChange).toHaveBeenLastCalledWith(25);
   });
 });

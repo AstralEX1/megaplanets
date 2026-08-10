@@ -23,9 +23,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.62.0
         version: 5.100.6(react@19.2.5)
-      gsap:
-        specifier: ^3.15.0
-        version: 3.15.0
       hono:
         specifier: ^4.12.21
         version: 4.12.21
@@ -2677,9 +2674,6 @@ packages:
 
   graphmatch@1.1.1:
     resolution: {integrity: sha512-5ykVn/EXM1hF0XCaWh05VbYvEiOL2lY1kBxZtaYsyvjp7cmWOU1XsAdfQBwClraEofXDT197lFbXOEVMHpvQOg==}
-
-  gsap@3.15.0:
-    resolution: {integrity: sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A==}
 
   h3@1.15.11:
     resolution: {integrity: sha512-L3THSe2MPeBwgIZVSH5zLdBBU90TOxarvhK9d04IDY2AmVS8j2Jz2LIWtwsGOU3lu2I5jCN7FNvVfY2+XyF+mg==}
@@ -7585,8 +7579,6 @@ snapshots:
   grammex@3.1.13: {}
 
   graphmatch@1.1.1: {}
-
-  gsap@3.15.0: {}
 
   h3@1.15.11:
     dependencies:

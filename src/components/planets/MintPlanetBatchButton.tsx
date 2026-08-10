@@ -9,7 +9,7 @@ import { isPlanetVoucherServiceConfigured, requestPlanetVoucher } from '@/lib/pl
 
 type MintablePlanet = { preview: PlanetPreview; logIndex: bigint | undefined };
 
-export function MintPlanetBatchButton({ planets, onMinted }: { planets: readonly MintablePlanet[]; onMinted?: (ticketIds: readonly bigint[]) => void }) {
+export function MintPlanetBatchButton({ planets, buttonLabel, onMinted }: { planets: readonly MintablePlanet[]; buttonLabel?: string; onMinted?: (ticketIds: readonly bigint[]) => void }) {
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const write = useWriteContract();
@@ -51,5 +51,5 @@ export function MintPlanetBatchButton({ planets, onMinted }: { planets: readonly
   if (planets.length > 50) return <p className="text-xs text-zinc-500">Reveal up to 50 planets at a time.</p>;
   if (!canMint) return <p className="text-xs text-zinc-500">Connect a Base Sepolia wallet to reveal these planets.</p>;
 
-  return <div className="space-y-2"><Button onClick={() => void mintBatch()} disabled={isPreparing || write.isPending || receipt.isLoading}>{isPreparing ? 'Preparing reveal…' : write.isPending || receipt.isLoading ? 'Revealing planets…' : `Reveal all ${planets.length} planets`}</Button><TxStatus hash={write.data} isPending={isPreparing || write.isPending || receipt.isLoading} isSuccess={receipt.isSuccess} error={preparationError ?? write.error ?? receipt.error} /></div>;
+  return <div className="space-y-2"><Button onClick={() => void mintBatch()} disabled={isPreparing || write.isPending || receipt.isLoading}>{isPreparing ? 'Preparing reveal…' : write.isPending || receipt.isLoading ? 'Revealing planets…' : buttonLabel ?? `Reveal all ${planets.length} planets`}</Button><TxStatus hash={write.data} isPending={isPreparing || write.isPending || receipt.isLoading} isSuccess={receipt.isSuccess} error={preparationError ?? write.error ?? receipt.error} /></div>;
 }

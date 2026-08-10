@@ -1,0 +1,50 @@
+- generic [ref=f4e4]:
+  - banner [ref=f4e5]:
+    - generic [ref=f4e6]:
+      - link "MegaPlanets" [ref=f4e7] [cursor=pointer]:
+        - /url: /
+      - navigation "Primary" [ref=f4e20]:
+        - button "Explore planets" [ref=f4e21] [cursor=pointer]
+        - button "My planets" [ref=f4e22] [cursor=pointer]
+        - button "Leaderboard" [ref=f4e23] [cursor=pointer]
+      - button "Connect" [ref=f4e25] [cursor=pointer]
+  - main [ref=f4e26]:
+    - generic [ref=f4e27]:
+      - generic [ref=f4e28]:
+        - generic [ref=f4e29]: DRAWING SYNCING
+        - generic [ref=f4e30]: Sales open
+      - paragraph [ref=f4e31]: Connect your wallet to buy tickets.
+      - generic [ref=f4e33]:
+        - generic [ref=f4e35]:
+          - heading "Start an expedition!" [level=1] [ref=f4e36]
+          - group "Selected planets visualization" [ref=f4e37]:
+            - generic [ref=f4e38]:
+              - img "Selected planet 1 of 3" [ref=f4e40]
+              - img "Selected planet 2 of 3" [ref=f4e42]
+              - img "Selected planet 3 of 3" [ref=f4e44]
+            - generic [ref=f4e45]: 3 planets selected
+          - generic [ref=f4e47]:
+            - generic [ref=f4e48]:
+              - generic [ref=f4e49]: Planets to explore
+              - generic [ref=f4e50]:
+                - status [ref=f4e51]: "3"
+                - button "Custom quantity" [ref=f4e52] [cursor=pointer]: Custom
+            - slider "Planets to explore" [ref=f4e53] [cursor=pointer]:
+              - button "Selected planets thumb"
+            - generic [ref=f4e54]:
+              - generic [ref=f4e55]: "1"
+              - generic [ref=f4e56]: "10"
+              - generic [ref=f4e57]: "25"
+              - generic [ref=f4e58]: "50"
+          - button "Explore 3 · $0.00 USDC" [disabled] [ref=f4e60]:
+            - text: Explore 3 ·
+            - generic [ref=f4e61]: $0.00
+            - text: USDC
+        - button "Open coordinates" [ref=f4e62] [cursor=pointer]:
+          - generic [ref=f4e63]: ›
+  - contentinfo [ref=f4e65]:
+    - paragraph [ref=f4e66]:
+      - generic [ref=f4e67]: Infrastructure Participant interface — not operated by, affiliated with, or endorsed by Megapot. Participating assets may be lost. See
+      - link "full disclaimer" [ref=f4e68] [cursor=pointer]:
+        - /url: https://github.com/coordinationlabs/megapot-starter-kit/blob/main/docs/DISCLAIMER.md
+      - text: .

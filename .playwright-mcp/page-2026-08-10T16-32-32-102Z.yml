@@ -1,0 +1,69 @@
+- generic [ref=e4]:
+  - banner [ref=e5]:
+    - generic [ref=e6]:
+      - link "MegaPlanets" [ref=e7] [cursor=pointer]:
+        - /url: /
+      - navigation "Primary" [ref=e20]:
+        - button "Explore planets" [ref=e21] [cursor=pointer]
+        - button "My planets" [ref=e22] [cursor=pointer]
+        - button "Leaderboard" [ref=e23] [cursor=pointer]
+      - button "Connect" [ref=e25] [cursor=pointer]
+  - main [ref=e26]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - generic [ref=e29]: "DRAWING #7601"
+        - generic [ref=e30]: Sales open
+      - paragraph [ref=e31]: Connect your wallet to buy tickets.
+      - generic [ref=e33]:
+        - generic [ref=e35]:
+          - heading "Start an expedition!" [level=1] [ref=e36]
+          - group "Selected planets visualization" [ref=e37]:
+            - generic [ref=e38]:
+              - img "Selected planet 1 of 26" [ref=e70]
+              - img "Selected planet 2 of 26" [ref=e71]
+              - img "Selected planet 3 of 26" [ref=e72]
+              - img "Selected planet 4 of 26" [ref=e74]
+              - img "Selected planet 5 of 26" [ref=e76]
+            - generic [ref=e45]: 26 planets selected
+          - generic [ref=e47]:
+            - generic [ref=e48]:
+              - generic [ref=e49]: Planets to explore
+              - generic [ref=e50]:
+                - status [ref=e51]: "26"
+                - button "Custom quantity" [ref=e52] [cursor=pointer]: Custom
+            - slider "Planets to explore" [active] [ref=e53] [cursor=pointer]:
+              - button "Selected planets thumb"
+            - generic [ref=e54]:
+              - generic [ref=e55]: "1"
+              - generic [ref=e56]: "10"
+              - generic [ref=e57]: "25"
+              - generic [ref=e58]: "50"
+          - button "Explore 26 · $0.26 USDC" [disabled] [ref=e77]:
+            - text: Explore 26 ·
+            - generic [ref=e61]: $0.26
+            - text: USDC
+        - button "Close coordinates" [expanded] [ref=e78] [cursor=pointer]:
+          - generic [ref=e63]: ‹
+        - region "Coordinates" [ref=e80]:
+          - generic [ref=e81]:
+            - heading "Coordinates" [level=2] [ref=e82]
+            - button "Shuffle" [ref=e83] [cursor=pointer]
+          - generic [ref=e84]:
+            - generic [ref=e85]:
+              - generic [ref=e86]: TKT
+              - generic [ref=e87]: 01 · 02 · 03 · 04 · 05 · BONUS
+            - paragraph [ref=e88]: Use Shuffle or add a ticket to choose coordinates.
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - generic [ref=e91]: Automatic quick pick
+              - switch "Automatic quick pick" [checked] [disabled] [ref=e92]
+            - generic [ref=e94]:
+              - generic [ref=e95]: 0 manually selected
+              - generic [ref=e96]: 26 automatic quick picks
+            - paragraph [ref=e97]: Quick picks are generated with the current drawing limits when your purchase is submitted.
+  - contentinfo [ref=e65]:
+    - paragraph [ref=e66]:
+      - generic [ref=e67]: Infrastructure Participant interface — not operated by, affiliated with, or endorsed by Megapot. Participating assets may be lost. See
+      - link "full disclaimer" [ref=e68] [cursor=pointer]:
+        - /url: https://github.com/coordinationlabs/megapot-starter-kit/blob/main/docs/DISCLAIMER.md
+      - text: .

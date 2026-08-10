@@ -1,0 +1,50 @@
+- generic [ref=e4]:
+  - banner [ref=e5]:
+    - generic [ref=e6]:
+      - link "MegaPlanets" [ref=e7] [cursor=pointer]:
+        - /url: /
+      - navigation "Primary" [ref=e20]:
+        - button "Explore planets" [ref=e21] [cursor=pointer]
+        - button "My planets" [ref=e22] [cursor=pointer]
+        - button "Leaderboard" [ref=e23] [cursor=pointer]
+      - button "Connect" [ref=e25] [cursor=pointer]
+  - main [ref=e26]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - generic [ref=e29]: DRAWING SYNCING
+        - generic [ref=e30]: Sales open
+      - paragraph [ref=e31]: Connect your wallet to buy tickets.
+      - generic [ref=e33]:
+        - generic [ref=e35]:
+          - heading "Start an expedition!" [level=1] [ref=e36]
+          - group "Selected planets visualization" [ref=e37]:
+            - generic [ref=e38]:
+              - img "Selected planet 1 of 3" [ref=e40]
+              - img "Selected planet 2 of 3" [ref=e42]
+              - img "Selected planet 3 of 3" [ref=e44]
+            - generic [ref=e45]: 3 planets selected
+          - generic [ref=e47]:
+            - generic [ref=e48]:
+              - generic [ref=e49]: Planets to explore
+              - generic [ref=e50]:
+                - status [ref=e51]: "3"
+                - button "Custom quantity" [ref=e52] [cursor=pointer]: Custom
+            - slider "Planets to explore" [ref=e53] [cursor=pointer]:
+              - button "Selected planets thumb"
+            - generic [ref=e54]:
+              - generic [ref=e55]: "1"
+              - generic [ref=e56]: "10"
+              - generic [ref=e57]: "25"
+              - generic [ref=e58]: "50"
+          - button "Explore 3 · $0.00 USDC" [disabled] [ref=e60]:
+            - text: Explore 3 ·
+            - generic [ref=e61]: $0.00
+            - text: USDC
+        - button "Open coordinates" [ref=e62] [cursor=pointer]:
+          - generic [ref=e63]: ›
+  - contentinfo [ref=e65]:
+    - paragraph [ref=e66]:
+      - generic [ref=e67]: Infrastructure Participant interface — not operated by, affiliated with, or endorsed by Megapot. Participating assets may be lost. See
+      - link "full disclaimer" [ref=e68] [cursor=pointer]:
+        - /url: https://github.com/coordinationlabs/megapot-starter-kit/blob/main/docs/DISCLAIMER.md
+      - text: .

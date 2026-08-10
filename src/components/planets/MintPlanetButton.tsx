@@ -10,10 +10,12 @@ import { isPlanetVoucherServiceConfigured, requestPlanetVoucher } from '@/lib/pl
 export function MintPlanetButton({
   preview,
   logIndex,
+  buttonLabel,
   onMinted,
 }: {
   preview: PlanetPreview;
   logIndex: bigint | undefined;
+  buttonLabel?: string;
   onMinted?: (ticketId: bigint) => void;
 }) {
   const { address } = useAccount();
@@ -80,7 +82,7 @@ export function MintPlanetButton({
   return (
     <div className="space-y-2">
       <Button onClick={() => void mint()} disabled={isPreparing || write.isPending || receipt.isLoading}>
-        {isPreparing ? 'Preparing reveal…' : write.isPending || receipt.isLoading ? 'Revealing planet…' : 'Reveal planet'}
+        {isPreparing ? 'Preparing reveal…' : write.isPending || receipt.isLoading ? 'Revealing planet…' : buttonLabel ?? 'Reveal planet'}
       </Button>
       <p className="text-xs text-amber-200">
         The server verifies ticket provenance and signs immutable IPFS metadata before your wallet submits the Base Sepolia mint.
