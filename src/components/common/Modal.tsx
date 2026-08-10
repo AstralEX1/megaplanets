@@ -94,7 +94,7 @@ export function Modal({
   return createPortal(
     // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismiss is supplemental — keyboard users use ESC or the close button inside the dialog
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -105,15 +105,15 @@ export function Modal({
         aria-modal="true"
         aria-label={ariaLabel}
         className={
-          'flex max-h-[92vh] w-full flex-col overflow-hidden border border-zinc-200 ' +
-          'bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950 ' +
+          'flex max-h-[92vh] w-full flex-col overflow-hidden border border-[var(--border)] ' +
+          'bg-[var(--surface)] shadow-xl ' +
           'rounded-t-2xl sm:my-12 sm:max-w-lg sm:rounded-2xl'
         }
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div
           aria-hidden
-          className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-zinc-300 dark:bg-zinc-700 sm:hidden"
+          className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[var(--border-strong)] sm:hidden"
         />
         {children}
       </div>

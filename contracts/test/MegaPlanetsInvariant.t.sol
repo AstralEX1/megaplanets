@@ -19,7 +19,7 @@ contract MegaPlanetsHandler is Test, IERC721Receiver {
     }
 
     function mintValid(uint256 rawTicketId) external {
-        uint256 ticketId = bound(rawTicketId, 1, planets.SPECIAL_TOKEN_PREFIX() - 1);
+        uint256 ticketId = bound(rawTicketId, 1, type(uint128).max);
         if (planets.planetMinted(ticketId)) return;
         MintVoucherLib.MintVoucher memory voucher = MintVoucherLib.MintVoucher({
             recipient: address(this),
@@ -67,14 +67,16 @@ contract MegaPlanetsInvariantTest is Test {
         targetContract(address(handler));
     }
 
-    function invariant_NormalIdsRemainTicketIdsAndNeverEnterSpecialNamespace() external view {
+    function invariant_EachMintedTicketHasOneSequentialPlanetWithPreservedProvenance() external view {
         uint256 count = handler.mintedCount();
         for (uint256 i; i < count; ++i) {
             uint256 ticketId = handler.mintedTicketIdAt(i);
             assertTrue(planets.planetMinted(ticketId));
-            assertLt(ticketId, planets.SPECIAL_TOKEN_PREFIX());
-            assertEq(planets.ownerOf(ticketId), address(handler));
-            assertEq(planets.tokenURI(ticketId), "ipfs://invariant");
+            uint256 tokenId = planets.planetTokenIdByTicketId(ticketId);
+            assertGt(tokenId, 0);
+            assertEq(planets.ticketIdByPlanetTokenId(tokenId), ticketId);
+            assertEq(planets.ownerOf(tokenId), address(handler));
+            assertEq(planets.tokenURI(tokenId), "ipfs://invariant");
         }
     }
 }

@@ -21,13 +21,8 @@
  * desktop, both visible at a glance.
  */
 import type { ReactNode } from 'react';
-import { HistoryIcon } from '@/components/icons/HistoryIcon';
-import { HomeIcon } from '@/components/icons/HomeIcon';
-import { LpIcon } from '@/components/icons/LpIcon';
 import { PlanetsIcon } from '@/components/icons/PlanetsIcon';
 import { PlayIcon } from '@/components/icons/PlayIcon';
-import { TicketsIcon } from '@/components/icons/TicketsIcon';
-import { LP_ENABLED } from '@/config/contracts';
 
 export type NavKey = 'home' | 'play' | 'tickets' | 'planets' | 'lab' | 'lp' | 'history';
 
@@ -36,13 +31,9 @@ export type NavKey = 'home' | 'play' | 'tickets' | 'planets' | 'lab' | 'lp' | 'h
 // `<MobileBottomNav>` (mobile) render without it. The mobile bar's
 // `flex-1 justify-around` rebalances from 5 → 4 tabs automatically.
 const ITEMS: { key: NavKey; label: string; icon: ReactNode }[] = [
-  { key: 'home', label: 'Home', icon: <HomeIcon /> },
-  { key: 'play', label: 'Play', icon: <PlayIcon /> },
-  { key: 'tickets', label: 'Tickets', icon: <TicketsIcon /> },
-  { key: 'planets', label: 'Planets', icon: <PlanetsIcon /> },
-  ...(import.meta.env.DEV ? [{ key: 'lab' as const, label: 'Lab', icon: <PlanetsIcon /> }] : []),
-  ...(LP_ENABLED ? [{ key: 'lp' as const, label: 'LP', icon: <LpIcon /> }] : []),
-  { key: 'history', label: 'History', icon: <HistoryIcon /> },
+  { key: 'play', label: 'Explore planets', icon: <PlayIcon /> },
+  { key: 'planets', label: 'My planets', icon: <PlanetsIcon /> },
+  { key: 'history', label: 'Leaderboard', icon: <PlanetsIcon /> },
 ];
 
 type NavProps = { active: NavKey; onSelect: (k: NavKey) => void };
@@ -59,10 +50,10 @@ export function Nav({ active, onSelect }: NavProps) {
             onClick={() => onSelect(i.key)}
             aria-current={isActive ? 'page' : undefined}
             className={
-              'pixel-frame px-3 py-2 text-sm font-medium uppercase tracking-wide transition-colors ' +
+              'rounded-lg px-3 py-2 font-hud text-sm font-medium uppercase tracking-wide transition-colors ' +
               (isActive
-                ? 'bg-[#7139a8] text-white shadow-[2px_2px_0_#050610]'
-                : 'text-[#9eabd4] hover:bg-[#1b2048] hover:text-[#e8f7ff]')
+                ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]')
             }
           >
             {i.label}
@@ -76,7 +67,7 @@ export function Nav({ active, onSelect }: NavProps) {
 export function MobileBottomNav({ active, onSelect }: NavProps) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-[#3c4475] bg-[#0a0d24]/95 backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-[var(--border)] bg-[var(--background)] md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       aria-label="Primary"
     >
@@ -90,11 +81,11 @@ export function MobileBottomNav({ active, onSelect }: NavProps) {
             aria-current={isActive ? 'page' : undefined}
             className={
               'relative flex flex-1 flex-col items-center gap-1 py-2.5 text-[12px] font-medium transition-colors ' +
-              'active:bg-[#1b2048] ' +
+              'active:bg-[var(--surface-hover)] ' +
               (isActive
-                ? 'text-brand-primary-300 ' +
-                  'before:absolute before:top-0 before:left-1/2 before:h-0.5 before:w-8 before:-translate-x-1/2 before:bg-brand-primary-400'
-                : 'text-[#9eabd4] hover:text-[#e8f7ff]')
+                ? 'text-[var(--primary)] ' +
+                  'before:absolute before:top-0 before:left-1/2 before:h-0.5 before:w-8 before:-translate-x-1/2 before:bg-[var(--primary)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]')
             }
           >
             {i.icon}

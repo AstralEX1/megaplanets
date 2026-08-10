@@ -29,10 +29,10 @@ const SIZE_CLASSES: Record<BallSize, string> = {
 };
 
 const NORMAL_SELECTED =
-  'border-brand-primary-300 bg-brand-primary-400 text-[#04111b] shadow-[2px_2px_0_#091126]';
-const NORMAL_UNSELECTED = 'border-[#535c96] bg-[#171b3d] text-[#c6d7f6]';
-const BONUS_SELECTED = 'border-[#ffd166] bg-[#ffb703] text-[#2a1700] shadow-[2px_2px_0_#241306]';
-const BONUS_UNSELECTED = 'border-[#d49031] bg-[#4c2b1b] text-[#ffe0a6]';
+  'border-[var(--accent)] bg-[var(--accent)] text-white';
+const NORMAL_UNSELECTED = 'border-[var(--border-strong)] bg-[var(--surface-raised)] text-[var(--text-primary)]';
+const BONUS_SELECTED = 'border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]';
+const BONUS_UNSELECTED = 'border-[var(--primary)]/60 bg-[var(--surface-raised)] text-[var(--primary)]';
 
 export type BallProps = {
   n: number | string;

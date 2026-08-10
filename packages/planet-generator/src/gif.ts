@@ -31,7 +31,7 @@ function descriptorPalette(descriptor: PlanetRenderDescriptor): GifPalette {
 export function renderPlanetGif(descriptor: PlanetRenderDescriptor): Uint8Array {
   const scene = createPlanetScene(descriptor);
   const palette = descriptorPalette(descriptor);
-  const gif = GIFEncoder({ initialCapacity: 512 * 1024 });
+  const gif = GIFEncoder({ initialCapacity: 128 * 1024 });
   const frameDuration = GENERATOR_CONFIG.durationMs / GENERATOR_CONFIG.frameCount;
 
   for (let frameIndex = 0; frameIndex < GENERATOR_CONFIG.frameCount; frameIndex += 1) {

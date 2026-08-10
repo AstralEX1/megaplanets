@@ -31,8 +31,8 @@ export function Layout({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-transparent text-[#e8f7ff]">
-      <header className="sticky top-0 z-30 border-b border-[#3c4475] bg-[#0a0d24]/95 shadow-[0_3px_0_#04050e] backdrop-blur">
+    <div className="space-shell relative isolate min-h-screen text-[var(--text)]">
+      <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--background)]">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <a
             href="/"
@@ -49,8 +49,10 @@ export function Layout({
         </div>
         <MobileWalletBar />
       </header>
-      <main className="mx-auto max-w-5xl px-4 pt-6 pb-6">{children}</main>
-      <Footer />
+      <main className="relative z-10 mx-auto max-w-5xl px-4 pt-6 pb-6">{children}</main>
+      <div className="relative z-10">
+        <Footer />
+      </div>
       <MobileBottomNav active={active} onSelect={onSelect} />
       <div
         aria-hidden

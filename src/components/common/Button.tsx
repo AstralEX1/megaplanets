@@ -27,12 +27,11 @@ export type ButtonVariant = 'primary' | 'secondary' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary:
-    'bg-brand-primary-400 text-[#051119] shadow-[3px_3px_0_#0f172a] hover:bg-brand-primary-300 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none',
+  primary: 'bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)]',
   secondary:
-    'border border-[#535c96] bg-[#1b2048] text-[#d8e9ff] shadow-[3px_3px_0_#080a1d] hover:bg-[#272f66] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none',
+    'border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)]',
   danger:
-    'bg-[#ef476f] text-[#24040c] shadow-[3px_3px_0_#0f172a] hover:bg-[#fb7185] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none',
+    'bg-[var(--danger)] text-[#28070d] hover:brightness-110',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
@@ -42,7 +41,7 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 };
 
 const BASE_CLASSES =
-  'pixel-frame uppercase tracking-wider transition-all disabled:cursor-not-allowed disabled:opacity-50';
+  'font-hud uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-50';
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;

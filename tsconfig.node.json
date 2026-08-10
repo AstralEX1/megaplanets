@@ -19,5 +19,10 @@
 
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "server/**/*.ts"]
+  "include": [
+    "vite.config.ts",
+    "server/**/*.ts",
+    "api/**/*.ts",
+    "packages/planet-generator/src/**/*.d.ts"
+  ]
 }

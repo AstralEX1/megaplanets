@@ -15,8 +15,7 @@ const BASE_PALETTE_WEIGHTS = [15, 10, 6, 4, 1, 6] as const;
 export const GENERATOR_CONFIG = Object.freeze({
   version: GENERATOR_VERSION,
   logicalSize: 128,
-  outputSize: 512,
-  scale: 4,
+  outputSize: 128,
   frameCount: 144,
   durationMs: 12_000,
   paletteTypes: PALETTE_TYPES,
@@ -40,7 +39,7 @@ export const GENERATOR_CONFIG = Object.freeze({
     weights: [2, 3, 3],
   },
   ordinarySatellites: { min: 1, maxExclusive: 6 },
-  // A dense but still individually readable ring at the enlarged planet scale.
+  // A dense but still individually readable ring at the logical pixel scale.
   ringParticleMultiplier: { min: 1, maxExclusive: 2 },
   satelliteDiameter: { min: 2, divisor: 8 },
   starCount: { min: 22, maxExclusive: 37 },

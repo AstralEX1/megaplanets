@@ -17,8 +17,8 @@ contract MegaPlanetsFuzzTest is Test {
         planets = new MegaPlanets(address(this), signer, address(tickets));
     }
 
-    function testFuzz_NormalMintAlwaysUsesTicketId(uint256 rawTicketId, uint256 userKey) external {
-        uint256 ticketId = bound(rawTicketId, 1, planets.SPECIAL_TOKEN_PREFIX() - 1);
+    function testFuzz_NormalMintUsesSequentialTokenIdAndPreservesTicketId(uint256 rawTicketId, uint256 userKey) external {
+        uint256 ticketId = bound(rawTicketId, 1, type(uint128).max);
         address recipient = vm.addr(bound(userKey, 1, type(uint128).max));
         MintVoucherLib.MintVoucher memory voucher = _voucher(recipient, ticketId, "ipfs://fuzz");
         tickets.mint(recipient, ticketId);
@@ -27,13 +27,16 @@ contract MegaPlanetsFuzzTest is Test {
         vm.prank(recipient);
         planets.mint(voucher, signature);
 
-        assertEq(planets.ownerOf(ticketId), recipient);
+        uint256 tokenId = planets.planetTokenIdByTicketId(ticketId);
+        assertEq(tokenId, 1);
+        assertEq(planets.ownerOf(tokenId), recipient);
+        assertEq(planets.ticketIdByPlanetTokenId(tokenId), ticketId);
         assertTrue(planets.planetMinted(ticketId));
     }
 
     function testFuzz_InvalidBatchIsAtomic(uint256 firstId, uint256 secondId) external {
-        firstId = bound(firstId, 1, planets.SPECIAL_TOKEN_PREFIX() - 2);
-        secondId = bound(secondId, firstId + 1, planets.SPECIAL_TOKEN_PREFIX() - 1);
+        firstId = bound(firstId, 1, type(uint128).max - 1);
+        secondId = bound(secondId, firstId + 1, type(uint128).max);
         address recipient = makeAddr("recipient");
         MintVoucherLib.MintVoucher[] memory vouchers = new MintVoucherLib.MintVoucher[](2);
         bytes[] memory signatures = new bytes[](2);

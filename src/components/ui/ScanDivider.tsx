@@ -1,0 +1,1 @@
+export function ScanDivider({ label }: { label?: string }) { return <div className="flex items-center gap-3"><span className="h-px flex-1 bg-[var(--border)]" />{label && <span className="telemetry text-[var(--text-muted)]">{label}</span>}<span className="h-px flex-1 bg-[var(--border)]" /></div>; }

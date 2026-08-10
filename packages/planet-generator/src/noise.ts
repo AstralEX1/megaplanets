@@ -21,6 +21,10 @@ function clamp(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
+function quantize(value: number, levels: number): number {
+  return Math.round(clamp(value) * levels) / levels;
+}
+
 function fbm(
   noise: NoiseFunction3D,
   x: number,
@@ -130,7 +134,7 @@ export function createTerrainNoiseSampler(
       }
       case 'ocean-currents': {
         const current = Math.sin((phi + simplex() * 2.5) * 3 + Math.sin(theta * 4));
-        return { value: clamp(current * 0.35 + simplex() * 0.65), defaultWeights: [5, 4, 2] };
+      return { value: clamp(current * 0.35 + simplex() * 0.65), defaultWeights: [4, 3, 4] };
       }
       case 'cellular':
         return { value: cellular(), defaultWeights: [3, 4, 2] };
@@ -139,6 +143,26 @@ export function createTerrainNoiseSampler(
         return {
           value: clamp(latitude * 0.75 + simplex() * 0.25),
           defaultWeights: [2, 3, 4],
+        };
+      }
+      case 'pixel-continents':
+        return { value: quantize(simplex(), 4), defaultWeights: [3, 3, 4] };
+      case 'archipelago':
+        return {
+          value: quantize(clamp((1 - cellular()) * 0.65 + simplex() * 0.35), 4),
+          defaultWeights: [3, 3, 5],
+        };
+      case 'pixel-mountain-ridges':
+        return {
+          value: quantize(1 - fbm(noise, nx, ny, nz, (raw) => Math.abs(raw)), 5),
+          defaultWeights: [5, 4, 1],
+        };
+      case 'spiral-currents': {
+        const curl =
+          Math.sin(phi * 3 + theta * 5 + simplex() * 1.8 + Math.sin(theta * 3) * 2) * 0.5 + 0.5;
+        return {
+          value: quantize(clamp(curl * 0.72 + simplex() * 0.28), 5),
+          defaultWeights: [3, 4, 3],
         };
       }
       default:

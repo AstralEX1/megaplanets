@@ -3,11 +3,16 @@
 MegaPlanets is a Base Sepolia MVP built on the Megapot protocol. A user buys a
 Megapot ticket, then uses that ticket to mint a deterministic collectible planet.
 
-This repository contains the Stage 3 checkpoint. A user can select numbers manually
-or quick-pick exactly one ticket, approve the exact USDC price, and buy through
-`Jackpot.buyTickets` on Base Sepolia. Confirmed MegaPlanets tickets can then be viewed
-as deterministic 512×512 animated pixel-art Planets. NFT minting, canonical IPFS
-metadata, and leaderboard behavior are added in later checkpoints.
+This repository contains the Stage 4 contract checkpoint and Stage 5 voucher-service
+groundwork. A user can buy one to ten direct tickets or create an all-random bulk order
+for eleven to fifty tickets on Base Sepolia, using exact USDC approvals. Confirmed
+MegaPlanets tickets render as deterministic 512x512 animated pixel-art Planets.
+
+Planet minting is intentionally disabled until a server-side voucher service is configured
+with `VITE_PLANET_API_BASE_URL`. That service verifies receipt provenance for the original
+purchase recipient, pins immutable IPFS media/metadata, and signs the mint voucher. The
+repository does not make a claim about a current contract deployment; verify addresses and
+the active metadata signer together before enabling minting.
 
 ## Requirements
 
@@ -23,9 +28,8 @@ pnpm install
 pnpm dev
 ```
 
-The example environment targets Base Sepolia. Before purchasing tickets, replace
-the dead referrer address with the public wallet that should receive Megapot
-referral fees.
+The example environment targets Base Sepolia and includes the approved public MegaPlanets
+referrer. Override it only for an explicitly approved test or deployment configuration.
 
 ## Verification
 
@@ -45,11 +49,11 @@ pnpm build
 
 ## Current scope
 
-LP, subscriptions, batch orders, and multi-ticket purchases are excluded from the
-MegaPlanets checkout. The Play page deliberately permits exactly one ticket per
-transaction and stores the confirmed `TicketPurchased` data locally for the connected
-wallet. The Stage 3 Planets gallery reads only those local confirmations; the durable
-eligibility index arrives in Stage 5.
+The Play page supports direct purchases of one to ten tickets and all-random keeper bulk
+orders of eleven to fifty tickets. It stores receipt-confirmed `TicketPurchased` data
+locally and the Planets gallery additionally scans canonical on-chain purchase events for
+the connected original recipient. Ticket transfers are outside the current eligibility
+scope: the voucher service remains bound to that original recipient.
 
 ## License
 

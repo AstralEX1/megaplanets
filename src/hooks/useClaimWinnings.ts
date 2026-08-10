@@ -9,18 +9,22 @@
  * ---
  */
 import { parseAbi } from 'viem';
-import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
+import { useState } from 'react';
+import { useAccount, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { JACKPOT_ADDRESS } from '@/config/contracts';
 import { MAX_CLAIM_BATCH } from '@/lib/tickets';
 
 const abi = parseAbi(['function claimWinnings(uint256[] _userTicketIds)']);
 
 export function useClaimWinnings() {
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
+  const [preparationError, setPreparationError] = useState<Error | null>(null);
 
-  const claim = (ticketIds: readonly bigint[]) => {
-    if (ticketIds.length === 0) return;
+  const claim = async (ticketIds: readonly bigint[]) => {
+    if (!address || !publicClient || ticketIds.length === 0) return;
     if (ticketIds.length > MAX_CLAIM_BATCH) {
       // biome-ignore lint/suspicious/noConsole: deliberate diagnostic
       console.warn(
@@ -29,13 +33,20 @@ export function useClaimWinnings() {
           `Call again with the remaining IDs after this tx confirms.`,
       );
     }
-    const batch = ticketIds.slice(0, MAX_CLAIM_BATCH);
-    write.writeContract({
-      address: JACKPOT_ADDRESS,
-      abi,
-      functionName: 'claimWinnings',
-      args: [batch],
-    });
+    setPreparationError(null);
+    try {
+      const batch = ticketIds.slice(0, MAX_CLAIM_BATCH);
+      const simulation = await publicClient.simulateContract({
+        account: address,
+        address: JACKPOT_ADDRESS,
+        abi,
+        functionName: 'claimWinnings',
+        args: [batch],
+      });
+      write.writeContract(simulation.request);
+    } catch (error) {
+      setPreparationError(error instanceof Error ? error : new Error('Claim preparation failed.'));
+    }
   };
 
   return {
@@ -46,7 +57,10 @@ export function useClaimWinnings() {
     /** Combined "in-flight" flag. Kept for callers that only need a single bool. */
     isPending: write.isPending || receipt.isLoading,
     isSuccess: receipt.isSuccess,
-    error: write.error ?? receipt.error,
-    reset: write.reset,
+    error: preparationError ?? write.error ?? receipt.error,
+    reset: () => {
+      write.reset();
+      setPreparationError(null);
+    },
   };
 }

@@ -21,7 +21,11 @@ export type NoiseMode =
   | 'cratered'
   | 'ocean-currents'
   | 'cellular'
-  | 'polar-caps';
+  | 'polar-caps'
+  | 'pixel-continents'
+  | 'archipelago'
+  | 'pixel-mountain-ridges'
+  | 'spiral-currents';
 
 export const PLANET_TYPES = [
   'nebula',

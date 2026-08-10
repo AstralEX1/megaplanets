@@ -1,0 +1,225 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../api/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PlanetKind {
+  NORMAL
+  SPECIAL
+}
+
+model User {
+  id            String          @id @default(uuid()) @db.Uuid
+  walletAddress String          @unique @db.VarChar(42)
+  createdAt     DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime        @updatedAt @db.Timestamptz(3)
+  sessions      WalletSession[]
+
+  @@map("users")
+}
+
+model AuthNonce {
+  id            String    @id @default(uuid()) @db.Uuid
+  walletAddress String    @db.VarChar(42)
+  nonceHash     String    @unique @db.Char(64)
+  message       String
+  expiresAt     DateTime  @db.Timestamptz(3)
+  consumedAt    DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([walletAddress, expiresAt])
+  @@map("auth_nonces")
+}
+
+model WalletSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique @db.Char(64)
+  expiresAt DateTime  @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("wallet_sessions")
+}
+
+model TicketPurchase {
+  id             String             @id @default(uuid()) @db.Uuid
+  chainId        Int
+  jackpotAddress String             @db.VarChar(42)
+  ticketId       Decimal            @db.Decimal(78, 0)
+  drawingId      Decimal            @db.Decimal(78, 0)
+  recipient      String             @db.VarChar(42)
+  normals        Int[]
+  bonusBall      Int
+  source         String             @db.Char(66)
+  originTxHash   String             @db.Char(66)
+  blockNumber    BigInt
+  blockHash      String             @db.Char(66)
+  logIndex       Int
+  purchasedAt    DateTime           @db.Timestamptz(3)
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  voucher        MintVoucherRecord?
+  planet         Planet?
+
+  @@unique([chainId, jackpotAddress, ticketId])
+  @@unique([chainId, originTxHash, logIndex])
+  @@index([recipient, purchasedAt])
+  @@map("ticket_purchases")
+}
+
+model MintVoucherRecord {
+  id               String         @id @default(uuid()) @db.Uuid
+  ticketPurchaseId String         @unique @db.Uuid
+  recipient        String         @db.VarChar(42)
+  voucher          Json
+  signature        String         @db.VarChar(132)
+  signer           String         @db.VarChar(42)
+  digest           String         @db.Char(66)
+  expiresAt        DateTime       @db.Timestamptz(3)
+  createdAt        DateTime       @default(now()) @db.Timestamptz(3)
+  ticketPurchase   TicketPurchase @relation(fields: [ticketPurchaseId], references: [id], onDelete: Restrict)
+
+  @@index([recipient, expiresAt])
+  @@map("mint_vouchers")
+}
+
+model Planet {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  ticketPurchaseId   String?                  @unique @db.Uuid
+  chainId            Int
+  contractAddress    String                   @db.VarChar(42)
+  tokenId            Decimal                  @db.Decimal(78, 0)
+  ticketId           Decimal?                 @db.Decimal(78, 0)
+  kind               PlanetKind
+  ownerAddress       String                   @db.VarChar(42)
+  seasonId           String                   @db.Char(66)
+  seed               String?                  @db.Char(66)
+  traitsHash         String?                  @db.Char(66)
+  metadataHash       String?                  @db.Char(66)
+  metadataUri        String
+  baseMineralsPerDay BigInt?
+  generatorVersion   Int?
+  planetType         String?                  @db.VarChar(32)
+  terrain            String?                  @db.VarChar(32)
+  rarity             String?                  @db.VarChar(16)
+  satelliteCount     Int?
+  hasRing            Boolean?
+  mintTxHash         String                   @db.Char(66)
+  mintBlockNumber    BigInt
+  mintBlockHash      String                   @db.Char(66)
+  mintLogIndex       Int
+  mintedAt           DateTime                 @db.Timestamptz(3)
+  createdAt          DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime                 @updatedAt @db.Timestamptz(3)
+  ownershipHistory   PlanetOwnershipHistory[]
+  accrualState       PlanetAccrualState?
+  mineralLedger      MineralLedgerEntry[]
+  ticketPurchase     TicketPurchase?          @relation(fields: [ticketPurchaseId], references: [id], onDelete: Restrict)
+
+  @@unique([chainId, contractAddress, tokenId])
+  @@unique([chainId, mintTxHash, mintLogIndex])
+  @@index([ownerAddress, mintedAt])
+  @@map("planets")
+}
+
+model PlanetOwnershipHistory {
+  id              String   @id @default(uuid()) @db.Uuid
+  planetId        String   @db.Uuid
+  fromAddress     String?  @db.VarChar(42)
+  toAddress       String?  @db.VarChar(42)
+  transactionHash String   @db.Char(66)
+  blockNumber     BigInt
+  blockHash       String   @db.Char(66)
+  blockTimestamp  DateTime @db.Timestamptz(3)
+  logIndex        Int
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  planet          Planet   @relation(fields: [planetId], references: [id], onDelete: Restrict)
+
+  @@unique([transactionHash, logIndex])
+  @@index([planetId, blockNumber])
+  @@index([toAddress, blockTimestamp])
+  @@map("planet_ownership_history")
+}
+
+model PlanetAccrualState {
+  id            String   @id @default(uuid()) @db.Uuid
+  planetId      String   @unique @db.Uuid
+  ownerAddress  String   @db.VarChar(42)
+  startedAt     DateTime @db.Timestamptz(3)
+  multiplierBps Int
+  remainder     BigInt   @default(0)
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+  planet        Planet   @relation(fields: [planetId], references: [id], onDelete: Restrict)
+
+  @@index([ownerAddress, startedAt])
+  @@map("planet_accrual_state")
+}
+
+model MineralLedgerEntry {
+  id                  String   @id @default(uuid()) @db.Uuid
+  planetId            String   @db.Uuid
+  ownerAddress        String   @db.VarChar(42)
+  startedAt           DateTime @db.Timestamptz(3)
+  endedAt             DateTime @db.Timestamptz(3)
+  baseMineralsPerDay  BigInt
+  multiplierBps       Int
+  amountMicros        BigInt
+  fractionalRemainder BigInt   @default(0)
+  createdAt           DateTime @default(now()) @db.Timestamptz(3)
+  planet              Planet   @relation(fields: [planetId], references: [id], onDelete: Restrict)
+
+  @@unique([planetId, ownerAddress, startedAt, endedAt])
+  @@index([ownerAddress, endedAt])
+  @@index([planetId, endedAt])
+  @@map("mineral_ledger")
+}
+
+model ProcessedBlockchainEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  chainId         Int
+  contractAddress String   @db.VarChar(42)
+  transactionHash String   @db.Char(66)
+  logIndex        Int
+  blockNumber     BigInt
+  blockHash       String   @db.Char(66)
+  eventName       String   @db.VarChar(64)
+  payload         Json
+  processedAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([chainId, contractAddress, transactionHash, logIndex])
+  @@index([chainId, contractAddress, blockNumber])
+  @@map("processed_blockchain_events")
+}
+
+model IndexerCursor {
+  id              String   @id @default(uuid()) @db.Uuid
+  chainId         Int
+  contractAddress String   @db.VarChar(42)
+  stream          String   @db.VarChar(64)
+  nextBlock       BigInt
+  lastBlockHash   String?  @db.Char(66)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([chainId, contractAddress, stream])
+  @@map("indexer_cursors")
+}
+
+model DailySnapshotRecord {
+  id          String   @id @default(uuid()) @db.Uuid
+  seasonId    String   @db.Char(66)
+  blockNumber BigInt
+  snapshot    Json
+  capturedAt  DateTime @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([seasonId, blockNumber])
+  @@map("daily_snapshots")
+}

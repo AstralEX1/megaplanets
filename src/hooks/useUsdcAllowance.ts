@@ -19,7 +19,7 @@ export function useUsdcAllowance(
   user: `0x${string}` | undefined,
   spender: `0x${string}` | undefined,
 ) {
-  const { data, isLoading, refetch } = useReadContract({
+  const { data, error, isLoading, refetch } = useReadContract({
     address: USDC_ADDRESS,
     abi: erc20Abi,
     functionName: 'allowance',
@@ -29,6 +29,7 @@ export function useUsdcAllowance(
 
   return {
     allowance: data,
+    error,
     isLoading,
     refetch,
   };

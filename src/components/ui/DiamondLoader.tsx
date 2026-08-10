@@ -1,0 +1,1 @@
+export function DiamondLoader() { return <span role="status" aria-label="Loading" className="inline-block h-5 w-5 animate-spin border border-[var(--primary)] bg-[var(--primary)]/20 [clip-path:polygon(50%_0,100%_50%,50%_100%,0_50%)]" />; }

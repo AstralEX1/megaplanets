@@ -190,8 +190,8 @@ export function TicketPicker({
           className={
             'w-full rounded-lg px-4 py-3 text-sm font-semibold transition-colors ' +
             (valid
-              ? 'bg-brand-primary-600 text-white shadow-sm hover:bg-brand-primary-700 active:shadow-none'
-              : 'cursor-not-allowed bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500')
+              ? 'bg-[var(--accent)] text-white hover:brightness-110'
+              : 'cursor-not-allowed bg-[var(--surface-hover)] text-[var(--text-disabled)]')
           }
         >
           {saveLabel}

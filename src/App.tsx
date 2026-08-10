@@ -12,7 +12,7 @@ import { lazy, Suspense, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import type { NavKey } from '@/components/layout/Nav';
 import { LP_ENABLED } from '@/config/contracts';
-import { History } from '@/pages/History';
+import { Leaderboard } from '@/pages/Leaderboard';
 import { Home } from '@/pages/Home';
 import { LP } from '@/pages/LP';
 import { Play } from '@/pages/Play';
@@ -26,7 +26,12 @@ const Lab = import.meta.env.DEV
   : null;
 
 export default function App() {
-  const [active, setActive] = useState<NavKey>('home');
+  const [active, setActive] = useState<NavKey>(() => {
+    if (window.location.pathname === '/play') return 'play';
+    if (window.location.pathname === '/planets') return 'planets';
+    if (window.location.pathname === '/leaderboard') return 'history';
+    return 'home';
+  });
 
   let page: ReactNode;
   switch (active) {
@@ -52,7 +57,7 @@ export default function App() {
       page = LP_ENABLED ? <LP /> : <Home onNavigate={setActive} />;
       break;
     case 'history':
-      page = <History />;
+      page = <Leaderboard />;
       break;
   }
 
