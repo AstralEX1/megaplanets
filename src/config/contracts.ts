@@ -19,7 +19,13 @@ import { base, baseSepolia } from 'viem/chains';
 
 export type ChainName = 'mainnet' | 'testnet';
 
-export const CHAIN: ChainName = (import.meta.env.VITE_CHAIN as ChainName | undefined) ?? 'testnet';
+export function parseChainName(value: string | undefined): ChainName {
+  if (value === undefined || value.trim() === '') return 'testnet';
+  if (value === 'mainnet' || value === 'testnet') return value;
+  throw new Error('VITE_CHAIN must be either "mainnet" or "testnet".');
+}
+
+export const CHAIN = parseChainName(import.meta.env.VITE_CHAIN);
 
 export const VIEM_CHAIN = CHAIN === 'mainnet' ? base : baseSepolia;
 
@@ -58,6 +64,9 @@ export const BONUSBALL_MIN = 1;
  * Computed from a UTF-8 string padded to 32 bytes via `viem.stringToHex`.
  */
 export const TICKET_SOURCE = stringToHex('MEGAPLANETS_V1', { size: 32 });
+
+/** First Base Sepolia block whose MegaPlanets ticket events can mint Season 1 Planets. */
+export const MEGAPLANETS_LAUNCH_BLOCK = 44_997_183n;
 
 /**
  * Toggle the LP page and nav entry. Default `false` — most forks surface only
@@ -139,11 +148,16 @@ const ADDRESSES = {
 export const USDC_ADDRESS = ADDRESSES.USDC[CHAIN] as Address;
 export const JACKPOT_ADDRESS = ADDRESSES.Jackpot[CHAIN] as Address;
 const configuredMegaPlanets = import.meta.env.VITE_MEGAPLANETS_CONTRACT_ADDRESS?.trim();
+/** Verified Base Sepolia Season 1 deployment; mainnet still requires explicit configuration. */
+const BASE_SEPOLIA_MEGAPLANETS_CONTRACT: Address =
+  '0xa94b947256fa977E63a7970CDf513FDD7632d744';
 /** Deployed MegaPlanets ERC-721. Undefined until a valid deployment is configured. */
 export const MEGAPLANETS_CONTRACT_ADDRESS: Address | undefined =
   configuredMegaPlanets && isAddress(configuredMegaPlanets)
     ? getAddress(configuredMegaPlanets)
-    : undefined;
+    : CHAIN === 'testnet'
+      ? BASE_SEPOLIA_MEGAPLANETS_CONTRACT
+      : undefined;
 export const BATCH_PURCHASE_FACILITATOR_ADDRESS = ADDRESSES.BatchPurchaseFacilitator[
   CHAIN
 ] as Address;

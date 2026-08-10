@@ -1,4 +1,5 @@
-import { encodePacked, hashTypedData, keccak256, privateKeyToAccount, type Address, type Hex } from 'viem';
+import { encodePacked, hashTypedData, keccak256, type Address, type Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { SEASON_1_ID, type Stage5Config } from './config';
 
 export type MintVoucher = {

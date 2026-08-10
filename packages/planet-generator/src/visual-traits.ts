@@ -127,6 +127,129 @@ function createSatelliteColors(
   return [first, second];
 }
 
+const OCEANIC_PASTEL_SATELLITES = [
+  '#bcf4de',
+  '#cde5d7',
+  '#ded6d1',
+  '#eec6ca',
+  '#ffb7c3',
+  '#f08080',
+  '#f4978e',
+  '#f8ad9d',
+  '#fbc4ab',
+  '#ffdab9',
+  '#fcd5ce',
+  '#fae1dd',
+  '#f8edeb',
+  '#e8e8e4',
+  '#d8e2dc',
+  '#ece4db',
+  '#ffe5d9',
+  '#ffd7ba',
+  '#fec89a',
+  '#b6e2dd',
+  '#c8ddbb',
+  '#e9e5af',
+  '#fbdf9d',
+  '#fbc99d',
+  '#fbb39d',
+  '#fba09d',
+] as const;
+
+const OCEANIC_VIVID_SATELLITES = [
+  '#07c8f9',
+  '#09a6f3',
+  '#0a85ed',
+  '#0c63e7',
+  '#0d41e1',
+  '#007bff',
+  '#0091f7',
+  '#00a7ef',
+  '#00bde8',
+  '#00d3e0',
+  '#00e9d8',
+  '#00ffd0',
+  '#00ffc8',
+  '#00f0d0',
+  '#00e2d8',
+  '#00c5e7',
+  '#00b6ef',
+  '#00a8f7',
+  '#0099ff',
+] as const;
+
+const TOXIC_SATELLITES = [
+  '#ff0000',
+  '#ffff00',
+  '#00ff00',
+  '#00ffff',
+  '#0000ff',
+  '#ff00ff',
+  '#ff7300',
+  '#adff02',
+  '#ff006d',
+  '#8f00ff',
+] as const;
+
+function createOceanicSatelliteColors(
+  palette: TypePalette,
+  planet: readonly (HexColor | null)[],
+  cloud: readonly [HexColor, HexColor],
+  rng: DeterministicRandom,
+): readonly [HexColor, HexColor] {
+  const averageLightness =
+    palette.colors.reduce((sum, colorValue) => {
+      const [red, green, blue] = rgb(colorValue);
+      return sum + (red * 299 + green * 587 + blue * 114) / 1000;
+    }, 0) / palette.colors.length;
+  const candidates = (averageLightness > 175
+    ? OCEANIC_VIVID_SATELLITES
+    : OCEANIC_PASTEL_SATELLITES
+  ).map((colorValue, index) => ({ colorValue, index }));
+  const offset = rng.int(0, candidates.length);
+  const surfaces = [
+    ...planet.filter((colorValue): colorValue is HexColor => colorValue !== null),
+    ...cloud,
+  ];
+  const ranked = candidates
+    .map(({ colorValue, index }) => ({
+      candidate: colorValue,
+      index: (index + offset) % candidates.length,
+      contrast: Math.min(...surfaces.map((surface) => colorDistance(colorValue, surface))),
+    }))
+    .sort((first, second) => second.contrast - first.contrast || first.index - second.index);
+  const first = ranked[0]?.candidate;
+  const second = ranked.find(
+    (candidate) => candidate.candidate !== first && colorDistance(candidate.candidate, first ?? candidate.candidate) >= 70,
+  )?.candidate;
+  if (!first || !second) throw new Error('Could not derive Oceanic contrast satellite colors.');
+  return [first, second];
+}
+
+function createToxicSatelliteColors(
+  planet: readonly (HexColor | null)[],
+  cloud: readonly [HexColor, HexColor],
+  rng: DeterministicRandom,
+): readonly [HexColor, HexColor] {
+  const offset = rng.int(0, TOXIC_SATELLITES.length);
+  const surfaces = [
+    ...planet.filter((colorValue): colorValue is HexColor => colorValue !== null),
+    ...cloud,
+  ];
+  const ranked = TOXIC_SATELLITES.map((candidate, index) => ({
+    candidate,
+    index: (index + offset) % TOXIC_SATELLITES.length,
+    contrast: Math.min(...surfaces.map((surface) => colorDistance(candidate, surface))),
+  })).sort((first, second) => second.contrast - first.contrast || first.index - second.index);
+  const first = ranked[0]?.candidate;
+  const second = ranked.find(
+    (candidate) =>
+      candidate.candidate !== first && colorDistance(candidate.candidate, first ?? candidate.candidate) >= 120,
+  )?.candidate;
+  if (!first || !second) throw new Error('Could not derive Toxic contrast satellite colors.');
+  return [first, second];
+}
+
 function deriveSatellites(
   rng: DeterministicRandom,
   diameter: number,
@@ -191,6 +314,100 @@ function jitterPalette(colors: readonly HexColor[], rng: DeterministicRandom): r
   });
 }
 
+/** Places the strongest separator in slot 2; slots 1 and 3 are the outer tones. */
+function volcanicDominantColorIndex(terrain: TerrainMode): 0 | 1 {
+  switch (terrain) {
+    case 'cratered':
+      return 0;
+    case 'turbulence':
+    case 'ridged':
+    case 'domain-warping':
+    case 'archipelago':
+      return 1;
+    default:
+      return 1;
+  }
+}
+
+const VOLCANIC_ROCK_COLORS = new Set<HexColor>([
+  '#0a0908',
+  '#2d2e2e',
+  '#353535',
+  '#38302e',
+  '#3c6e71',
+  '#4a4f49',
+  '#6f6866',
+]);
+
+function arrangeVolcanicPalette(colors: readonly HexColor[], terrain: TerrainMode): readonly HexColor[] {
+  const first = colors.slice(0, 3);
+  const brightness = (entry: HexColor) => {
+    const [red, green, blue] = rgb(entry);
+    return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+  };
+  const rocks = first.filter((entry) => VOLCANIC_ROCK_COLORS.has(entry));
+  const lava = first.filter((entry) => !VOLCANIC_ROCK_COLORS.has(entry));
+  const stoneColors = rocks.length > 0 ? rocks : first;
+  const darkRock = stoneColors.reduce(
+    (darkest, entry) => (brightness(entry) < brightness(darkest) ? entry : darkest),
+  );
+  const otherRocks = rocks.filter((entry) => entry !== darkRock);
+  const otherColors = rocks.length > 0 ? [...otherRocks, ...lava] : first.filter((entry) => entry !== darkRock);
+  if (rocks.length === 2 && lava.length === 1) {
+    return volcanicDominantColorIndex(terrain) === 0
+      ? [darkRock, otherRocks[0] as HexColor, lava[0] as HexColor]
+      : [otherRocks[0] as HexColor, darkRock, lava[0] as HexColor];
+  }
+  if (rocks.length === 1 && lava.length === 2) {
+    return [darkRock, lava[0] as HexColor, lava[1] as HexColor];
+  }
+  return volcanicDominantColorIndex(terrain) === 0
+    ? [darkRock, ...otherColors, ...colors.slice(3)]
+    : [...otherColors, darkRock, ...colors.slice(3)];
+}
+
+function arrangePalette(
+  colors: readonly HexColor[],
+  planetType: PlanetTypeId,
+  terrain: TerrainMode,
+): readonly HexColor[] {
+  if (colors.length < 3) return colors;
+  const first = colors.slice(0, 3);
+  if (planetType === 'volcanic') return arrangeVolcanicPalette(colors, terrain);
+  if (planetType === 'triplex') return colors;
+  if (planetType === 'nebula') return colors;
+  if (planetType === 'gaia') {
+    const green: HexColor[] = [];
+    const blue: HexColor[] = [];
+    const other: HexColor[] = [];
+    for (const entry of first) {
+      const [red, greenChannel, blueChannel] = rgb(entry);
+      if (greenChannel > red * 1.08 && greenChannel >= blueChannel * 0.85) green.push(entry);
+      else if (blueChannel > red * 1.08 && blueChannel >= greenChannel * 0.9) blue.push(entry);
+      else other.push(entry);
+    }
+    if (green.length >= 2) return [...green, ...blue, ...other, ...colors.slice(3)];
+    if (blue.length >= 2) return [...blue, ...green, ...other, ...colors.slice(3)];
+  }
+  let middleIndex = 0;
+  let bestContrast = -1;
+  for (let candidate = 0; candidate < first.length; candidate += 1) {
+    const middle = first[candidate];
+    if (!middle) continue;
+    const contrast = Math.min(
+      ...first
+        .filter((_, index) => index !== candidate)
+        .map((outer) => colorDistance(middle, outer)),
+    );
+    if (contrast > bestContrast) {
+      bestContrast = contrast;
+      middleIndex = candidate;
+    }
+  }
+  const outers = first.filter((_, index) => index !== middleIndex);
+  return [outers[0] as HexColor, first[middleIndex] as HexColor, outers[1] as HexColor, ...colors.slice(3)];
+}
+
 function derivePlanetForTypeFromBase(
   base: PlanetRenderDescriptor,
   planetType: PlanetTypeId,
@@ -200,10 +417,11 @@ function derivePlanetForTypeFromBase(
 ): PlanetRenderDescriptor {
   if (!isPlanetType(planetType)) throw new RangeError('Unsupported Planet Type.');
   const rng = namedVisualRandom(base.seed, `type:${planetType}`);
-  const palette = jitterPalette(canonicalPalette.colors, rng);
+  const arrangedPalette = arrangePalette(canonicalPalette.colors, planetType, terrain);
+  const palette = jitterPalette(arrangedPalette, rng);
   let colors: PlanetColors = {
     ...base.traits.colors,
-    planet: palette.slice(0, 3),
+    planet: palette,
   };
   let paletteType = base.traits.paletteType;
   let baseHue = base.traits.baseHue;
@@ -228,15 +446,22 @@ function derivePlanetForTypeFromBase(
         cloudNoiseMode = rng.weightedIndex([3, 1]) === 0 ? 'simplex' : 'domain-warping';
         cloudWeights = [2, 3, 3];
         cloudLapMs = Math.round(mainLapMs * rng.float(1.5, 2));
+        if (planetType === 'triplex') colors = { ...colors, cloud: ['#ffffff', '#ffffff'] };
       }
       break;
     case 'ash':
-      hasClouds = rng.weightedIndex([3, 1]) === 1;
+      hasClouds = rng.weightedIndex([1, 1]) === 1;
       if (hasClouds) {
-        cloudNoiseMode = 'domain-warping';
-        cloudWeights = [2, 3, 3];
-        cloudLapMs = Math.round(mainLapMs * 2.2);
-        colors = { ...colors, cloud: ['#a4a8ad', '#45484d'] };
+        const ashClouds = [
+          { mode: 'domain-warping' as const, weights: [2, 3, 3], colors: ['#9a9d9c', '#45484d'] as const },
+          { mode: 'turbulence' as const, weights: [3, 4, 2], colors: ['#747876', '#343738'] as const },
+          { mode: 'simplex' as const, weights: [2, 4, 2], colors: ['#aaa69c', '#4a4642'] as const },
+        ];
+        const ash = ashClouds[rng.weightedIndex([3, 2, 2])] ?? ashClouds[0];
+        cloudNoiseMode = ash?.mode ?? 'domain-warping';
+        cloudWeights = ash?.weights ?? [2, 3, 3];
+        cloudLapMs = Math.round(mainLapMs * rng.float(1.8, 2.5));
+        colors = { ...colors, cloud: ash?.colors ?? ['#9a9d9c', '#45484d'] };
       }
       break;
     case 'oceanic':
@@ -261,10 +486,10 @@ function derivePlanetForTypeFromBase(
       cloudNoiseMode = gasCloudModes[rng.weightedIndex([5, 3, 2])] ?? 'horizontal-stripes';
       cloudLapMs = Math.round(mainLapMs * 1.6);
       cloudWeights = [
-        [1, 8, 1],
-        [1, 6, 1],
-        [1, 7, 2],
-      ][rng.weightedIndex([4, 4, 2])] ?? [1, 8, 1];
+        [2, 6, 2],
+        [2, 5, 2],
+        [2, 6, 2],
+      ][rng.weightedIndex([4, 4, 2])] ?? [2, 6, 2];
       colors = { ...colors, cloud: [palette[3] ?? '#fff3d1', palette[1] ?? '#8c5a3c'] };
       break;
     }
@@ -307,7 +532,12 @@ function derivePlanetForTypeFromBase(
     case 'gas-giant':
       colors = {
         ...colors,
-        satellite: createSatelliteColors(paletteType, baseHue, colors.planet, colors.cloud, rng),
+        satellite:
+          planetType === 'oceanic'
+            ? createOceanicSatelliteColors(canonicalPalette, colors.planet, colors.cloud, rng)
+            : planetType === 'toxic'
+              ? createToxicSatelliteColors(colors.planet, colors.cloud, rng)
+            : createSatelliteColors(paletteType, baseHue, colors.planet, colors.cloud, rng),
       };
       break;
     case 'rocky':

@@ -10,7 +10,14 @@
  * ---
  */
 import { parseAbi } from 'viem';
-import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
+import { useState } from 'react';
+import {
+  useAccount,
+  usePublicClient,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi';
 import { JACKPOT_ADDRESS } from '@/config/contracts';
 
 const abi = parseAbi([
@@ -20,6 +27,7 @@ const abi = parseAbi([
 
 export function useClaimReferralFees() {
   const { address } = useAccount();
+  const publicClient = usePublicClient();
 
   const balanceQuery = useReadContract({
     address: JACKPOT_ADDRESS,
@@ -31,13 +39,22 @@ export function useClaimReferralFees() {
 
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
+  const [preparationError, setPreparationError] = useState<Error | null>(null);
 
-  const claim = () => {
-    write.writeContract({
-      address: JACKPOT_ADDRESS,
-      abi,
-      functionName: 'claimReferralFees',
-    });
+  const claim = async () => {
+    if (!address || !publicClient) return;
+    setPreparationError(null);
+    try {
+      const simulation = await publicClient.simulateContract({
+        account: address,
+        address: JACKPOT_ADDRESS,
+        abi,
+        functionName: 'claimReferralFees',
+      });
+      write.writeContract(simulation.request);
+    } catch (error) {
+      setPreparationError(error instanceof Error ? error : new Error('Referral claim preparation failed.'));
+    }
   };
 
   const earned = balanceQuery.data;
@@ -54,7 +71,10 @@ export function useClaimReferralFees() {
     /** Combined "in-flight" flag. Kept for callers that only need a single bool. */
     isPending: write.isPending || receipt.isLoading,
     isSuccess: receipt.isSuccess,
-    error: write.error ?? receipt.error,
-    reset: write.reset,
+    error: preparationError ?? write.error ?? receipt.error,
+    reset: () => {
+      write.reset();
+      setPreparationError(null);
+    },
   };
 }

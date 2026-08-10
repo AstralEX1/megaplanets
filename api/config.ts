@@ -8,10 +8,13 @@ export const SEASON_1_ID =
 
 export type Stage5Config = {
   rpcUrl: string;
+  databaseUrl?: string;
   pinataJwt: string;
   signerPrivateKey: `0x${string}`;
   launchBlock: bigint;
+  storePath?: string;
   planetContractAddress?: `0x${string}`;
+  planetDeploymentBlock?: bigint;
 };
 
 function required(env: Record<string, string | undefined>, name: string): string {
@@ -35,11 +38,17 @@ export function loadStage5Config(env: Record<string, string | undefined>): Stage
   if (configuredContract && !isAddress(configuredContract)) {
     throw new Error('MEGAPLANETS_CONTRACT_ADDRESS must be an EVM address.');
   }
+  const configuredDeploymentBlock = env.MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK?.trim();
+  const planetDeploymentBlock = configuredDeploymentBlock === undefined || configuredDeploymentBlock === '' ? undefined : BigInt(configuredDeploymentBlock);
+  if (planetDeploymentBlock !== undefined && planetDeploymentBlock < 0n) throw new Error('MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK must be non-negative.');
   return {
     rpcUrl: required(env, 'BASE_SEPOLIA_RPC_URL'),
+    databaseUrl: env.DATABASE_URL?.trim() || undefined,
     pinataJwt: required(env, 'PINATA_JWT'),
     signerPrivateKey: signerPrivateKey as `0x${string}`,
     launchBlock,
+    storePath: env.MEGAPLANETS_STORE_PATH?.trim(),
     planetContractAddress: configuredContract as `0x${string}` | undefined,
+    planetDeploymentBlock,
   };
 }

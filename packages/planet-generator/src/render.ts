@@ -35,6 +35,10 @@ function clamp(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
+function quantize(value: number, levels: number): number {
+  return Math.round(clamp(value) * levels) / levels;
+}
+
 function mod(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor;
 }
@@ -164,13 +168,30 @@ function sampleNoise(
       return { value: clamp((1 - cellular()) * 0.72 + simplex() * 0.28), weights: [5, 3, 2] };
     case 'ocean-currents': {
       const current = Math.sin((phi + simplex() * 2.5) * 3 + Math.sin(theta * 4));
-      return { value: clamp(current * 0.35 + simplex() * 0.65), weights: [5, 4, 2] };
+      return { value: clamp(current * 0.35 + simplex() * 0.65), weights: [4, 3, 4] };
     }
     case 'cellular':
       return { value: cellular(), weights: [3, 4, 2] };
     case 'polar-caps': {
       const latitude = Math.abs(Math.cos(theta));
       return { value: clamp(latitude * 0.75 + simplex() * 0.25), weights: [2, 3, 4] };
+    }
+    case 'pixel-continents':
+      return { value: quantize(simplex(), 4), weights: [3, 3, 4] };
+    case 'archipelago':
+      return {
+        value: quantize(clamp((1 - cellular()) * 0.65 + simplex() * 0.35), 4),
+        weights: [3, 3, 5],
+      };
+    case 'pixel-mountain-ridges':
+      return {
+        value: quantize(1 - fbm(noise, nx, ny, nz, (raw) => Math.abs(raw)), 5),
+        weights: [5, 4, 1],
+      };
+    case 'spiral-currents': {
+      const curl =
+        Math.sin(phi * 3 + theta * 5 + simplex() * 1.8 + Math.sin(theta * 3) * 2) * 0.5 + 0.5;
+      return { value: quantize(clamp(curl * 0.72 + simplex() * 0.28), 5), weights: [3, 4, 3] };
     }
   }
 }
@@ -436,24 +457,6 @@ function drawSatellite(
   }
 }
 
-function upscale(logical: Uint8ClampedArray): Uint8ClampedArray<ArrayBuffer> {
-  const logicalSize = GENERATOR_CONFIG.logicalSize;
-  const outputSize = GENERATOR_CONFIG.outputSize;
-  const scale = GENERATOR_CONFIG.scale;
-  const output = new Uint8ClampedArray(outputSize * outputSize * 4);
-  for (let y = 0; y < outputSize; y += 1) {
-    for (let x = 0; x < outputSize; x += 1) {
-      const source = (Math.floor(y / scale) * logicalSize + Math.floor(x / scale)) * 4;
-      const target = (y * outputSize + x) * 4;
-      output[target] = logical[source];
-      output[target + 1] = logical[source + 1];
-      output[target + 2] = logical[source + 2];
-      output[target + 3] = logical[source + 3];
-    }
-  }
-  return output;
-}
-
 export function renderPlanetSceneFrame(
   scene: Scene,
   timeMs: number,
@@ -486,7 +489,7 @@ export function renderPlanetSceneFrame(
   return {
     width: GENERATOR_CONFIG.outputSize,
     height: GENERATOR_CONFIG.outputSize,
-    data: upscale(logical),
+    data: logical,
   };
 }
 

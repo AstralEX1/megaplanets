@@ -11,8 +11,12 @@ import type {
 } from './types';
 import type { HexColor } from './visual-types';
 
-function palette(colors: readonly [HexColor, HexColor, HexColor, ...HexColor[]]): TypePalette {
+function palette(
+  colors: readonly [HexColor, HexColor, HexColor, ...HexColor[]],
+  name?: string,
+): TypePalette {
   return {
+    ...(name ? { name } : {}),
     colors,
     coolorsUrl: `https://coolors.co/${colors.map((color) => color.slice(1)).join('-')}`,
   };
@@ -91,9 +95,18 @@ export const SEASON_1_TYPES = deepFreeze([
     visual: {
       paletteMode: 'variants',
       paletteVariants: [
-        palette(['#1e1b4b', '#f72585', '#facc15', '#4cc9f0']),
-        palette(['#3b0764', '#4cc9f0', '#f59e0b', '#fff7cc']),
-        palette(['#240046', '#f72585', '#4361ee', '#fde047']),
+        palette(['#590d22', '#a4133c', '#e0aaff'], 'Bordeaux Violet Mist'),
+        palette(['#800f2f', '#c9184a', '#e0aaff'], 'Cherry Violet Nebula'),
+        palette(['#10002b', '#3c096c', '#7b2cbf'], 'Violet Void'),
+        palette(['#240046', '#5a189a', '#c77dff'], 'Amethyst Arc'),
+        palette(['#a4133c', '#ff4d6d', '#e0aaff'], 'Rose Fire Veil'),
+        palette(['#3c096c', '#9d4edd', '#e0aaff'], 'Lavender Spell'),
+        palette(['#10002b', '#5a189a', '#9d4edd'], 'Indigo Velvet Bloom'),
+        palette(['#3c096c', '#7b2cbf', '#ff4d6d'], 'Violet Rose Rift'),
+        palette(['#800f2f', '#c9184a', '#c77dff'], 'Amethyst Cherry'),
+        palette(['#590d22', '#c9184a', '#9d4edd'], 'Mauve Fire Veil'),
+        palette(['#240046', '#7b2cbf', '#e0aaff'], 'Royal Violet Mist'),
+        palette(['#800f2f', '#5a189a', '#c77dff'], 'Dark Amaranth Orchid'),
       ],
       terrainWeights: [
         { mode: 'simplex', weight: 4 },
@@ -114,14 +127,21 @@ export const SEASON_1_TYPES = deepFreeze([
     visual: {
       paletteMode: 'variants',
       paletteVariants: [
-        palette(['#4a2c1a', '#b45309', '#f59e0b', '#fef3c7']),
-        palette(['#5b3417', '#c2410c', '#fbbf24', '#fffbeb']),
-        palette(['#422006', '#a16207', '#facc15', '#fef9c3']),
+        palette(['#34140e', '#ce812c', '#e7d99c'], 'Dune Ember Gradient'),
+        palette(['#201408', '#8a5428', '#f0c880'], 'Night Ochre Gradient'),
+        palette(['#352208', '#7b6b43', '#e1bb80'], 'Olive Fawn Sands'),
+        palette(['#644536', '#b87d48', '#ffe0b5'], 'Navajo Copper Dunes'),
+        palette(['#0e0705', '#653019', '#e3ba66'], 'Dark Coffee Horizon'),
       ],
       terrainWeights: [
         { mode: 'vertical-stripes', weight: 5 },
         { mode: 'ridged', weight: 3 },
         { mode: 'cellular', weight: 2 },
+        { mode: 'simplex', weight: 2 },
+        { mode: 'domain-warping', weight: 4 },
+        { mode: 'pixel-continents', weight: 3 },
+        { mode: 'archipelago', weight: 2 },
+        { mode: 'pixel-mountain-ridges', weight: 2 },
       ],
       cloudStyle: 'standard',
       satelliteStyle: 'standard',
@@ -136,9 +156,13 @@ export const SEASON_1_TYPES = deepFreeze([
     visual: {
       paletteMode: 'variants',
       paletteVariants: [
-        palette(['#f72585', '#4361ee', '#facc15']),
-        palette(['#00e5ff', '#ff2d95', '#00e5ff']),
-        palette(['#f97316', '#2563eb', '#a855f7']),
+        palette(['#f94144', '#f9c74f', '#277da1'], 'Sunset Gradient'),
+        palette(['#d9ed92', '#34a0a4', '#184e77'], 'Ocean Teal Gradient'),
+        palette(['#007f5f', '#aacc00', '#ffff3f'], 'Jungle Lime Gradient'),
+        palette(['#b5e48c', '#168aad', '#184e77'], 'Mint to Baltic Gradient'),
+        palette(['#f94144', '#43aa8b', '#577590'], 'Coral Teal Contrast'),
+        palette(['#f3722c', '#1a759f', '#eeef20'], 'Tangerine Cyan Contrast'),
+        palette(['#d4d700', '#4d908e', '#f9844a'], 'Lime Teal Coral Contrast'),
       ],
       terrainWeights: [{ mode: 'gradation', weight: 1 }],
       cloudStyle: 'standard',
@@ -154,14 +178,25 @@ export const SEASON_1_TYPES = deepFreeze([
     visual: {
       paletteMode: 'variants',
       paletteVariants: [
-        palette(['#ff1744', '#00e5ff', '#76ff03']),
-        palette(['#7c4dff', '#ffea00', '#00e676']),
-        palette(['#ff1744', '#a855f7', '#00e5ff']),
+        palette(['#ff1744', '#00e5ff', '#76ff03'], 'Toxic Red Cyan Lime'),
+        palette(['#7c4dff', '#ffea00', '#00e676'], 'Toxic Violet Gold Green'),
+        palette(['#ff1744', '#a855f7', '#00e5ff'], 'Toxic Red Violet Cyan'),
+        palette(['#e6c229', '#d11149', '#1a8fe3'], 'Saffron Ocean Pulse'),
+        palette(['#01befe', '#ff7d00', '#adff02'], 'Neon Tangerine Lime'),
+        palette(['#6a00ff', '#ff00ff', '#ffdd00'], 'Indigo Pink Gold'),
+        palette(['#ff0040', '#00ff15', '#0095ff'], 'Lipstick Lime Blue'),
+        palette(['#ff00a1', '#90fe00', '#00fff7'], 'Rose Lime Ice'),
+        palette(['#ff0000', '#00ff00', '#0000ff'], 'Primary Poison'),
+        palette(['#44d800', '#7f00ff', '#ff3800'], 'Radioactive Violet Flame'),
+        palette(['#ff2b67', '#00ffce', '#ffeb00'], 'Fuchsia Mint Sunbeam'),
+        palette(['#d11149', '#00ffff', '#8f00ff'], 'Cherry Cyan Violet'),
+        palette(['#ff7300', '#ff1dce', '#00ffce'], 'Pumpkin Neon Current'),
       ],
       terrainWeights: [
         { mode: 'vertical-stripes', weight: 5 },
         { mode: 'horizontal-stripes', weight: 4 },
         { mode: 'domain-warping', weight: 1 },
+        { mode: 'spiral-currents', weight: 3 },
       ],
       cloudStyle: 'none',
       satelliteStyle: 'standard',
@@ -194,14 +229,35 @@ export const SEASON_1_TYPES = deepFreeze([
     visual: {
       paletteMode: 'variants',
       paletteVariants: [
-        palette(['#075985', '#0ea5e9', '#16a34a', '#f8fafc']),
-        palette(['#0c4a6e', '#0284c7', '#15803d', '#e2e8f0']),
-        palette(['#164e63', '#0891b2', '#047857', '#f1f5f9']),
+        palette(['#0077b6', '#00b4d8', '#606c38'], 'Ocean Blue Serenity & Olive Shore'),
+        palette(['#0077b6', '#00b4d8', '#2c6e49'], 'Ocean Blue Serenity & Turf Green'),
+        palette(['#0077b6', '#00b4d8', '#538d22'], 'Ocean Blue Serenity & Forest Moss'),
+        palette(['#0077b6', '#00b4d8', '#155d27'], 'Ocean Blue Serenity & Dark Emerald'),
+        palette(['#0077b6', '#00b4d8', '#2dc653'], 'Ocean Blue Serenity & Jade Green'),
+        palette(['#2c6e49', '#4c956c', '#0077b6'], 'Turf & Sea Green with Ocean Blue'),
+        palette(['#143601', '#538d22', '#427aa1'], 'Black Forest & Moss with Coastal Blue'),
+        palette(['#155d27', '#2dc653', '#42bfdd'], 'Emerald & Jade with Sky Surge'),
+        palette(['#73a942', '#aad576', '#61a5c2'], 'Sage & Willow with Steel Blue'),
+        palette(['#134074', '#8da9c4', '#4c956c'], 'Deep Blue Sea & Mint Coast'),
+        palette(['#2c6e49', '#4c956c', '#427aa1'], 'Minty Floral Coast'),
+        palette(['#588157', '#a3b18a', '#468faf'], 'Leafy Forest Retreat & Coast'),
+        palette(['#89c2d9', '#a9d6e5', '#4c956c'], 'Frosted Coast & Green Land'),
+        palette(['#0096c7', '#48cae4', '#c38e70'], 'Turquoise Surf & Toasted Earth'),
+        palette(['#013a63', '#2c7da0', '#9d6b53'], 'Coastal Night & Cinnamon Soil'),
+        palette(['#90e0ef', '#ade8f4', '#deab90'], 'Frosted Water & Light Bronze'),
+        palette(['#084b83', '#42bfdd', '#774936'], 'Sky Surge & Clay Soil'),
+        // Template.earth in the original Astraea generator: HSB(210, 65%, 85%),
+        // HSB(200, 70%, 85%), HSB(135, 80%, 90%).
+        palette(['#4c92d9', '#41a6d9', '#2ee65c'], 'Template Earth'),
+        // Land-rich: two adjacent land colors and one blue ocean color.
+        palette(['#606c38', '#386641', '#427aa1'], 'Land-Rich Forest & Sea'),
       ],
       terrainWeights: [
-        { mode: 'simplex', weight: 4 },
-        { mode: 'domain-warping', weight: 3 },
-        { mode: 'ocean-currents', weight: 3 },
+        { mode: 'simplex', weight: 2 },
+        { mode: 'domain-warping', weight: 4 },
+        { mode: 'pixel-continents', weight: 3 },
+        { mode: 'archipelago', weight: 2 },
+        { mode: 'pixel-mountain-ridges', weight: 2 },
       ],
       cloudStyle: 'gaia',
       satelliteStyle: 'gray',
@@ -216,14 +272,23 @@ export const SEASON_1_TYPES = deepFreeze([
     visual: {
       paletteMode: 'variants',
       paletteVariants: [
-        palette(['#1a0700', '#ff5a00', '#ffd60a', '#ff9f1c']),
-        palette(['#170606', '#7f1d1d', '#dc2626', '#f97316']),
-        palette(['#26110b', '#9a3412', '#ef4444', '#fb923c']),
+        palette(['#353535', '#6f6866', '#ff9505'], 'Deep Saffron Rock'),
+        palette(['#353535', '#6f6866', '#e89005'], 'Carrot Fire Rock'),
+        palette(['#353535', '#6f6866', '#ffb627'], 'Amber Flame Rock'),
+        palette(['#3c6e71', '#2d2e2e', '#f42b03'], 'Slate Ember Rock'),
+        palette(['#2d2e2e', '#6f6866', '#bc3908'], 'Ash and Rust Rock'),
+        palette(['#38302e', '#6f6866', '#e70e02'], 'Granite Molten Rock'),
+        palette(['#0a0908', '#353535', '#bc3908'], 'Black Glass Ruby Rock'),
+        palette(['#0a0908', '#e89005', '#f42b03'], 'Obsidian Tangerine Flow'),
+        palette(['#0a0908', '#bc3908', '#e70e02'], 'Graphite Crimson Flow'),
       ],
       terrainWeights: [
         { mode: 'turbulence', weight: 5 },
         { mode: 'ridged', weight: 3 },
         { mode: 'cratered', weight: 2 },
+        { mode: 'domain-warping', weight: 3 },
+        { mode: 'archipelago', weight: 2 },
+        { mode: 'cellular', weight: 2 },
       ],
       cloudStyle: 'ash',
       satelliteStyle: 'ash',
@@ -262,15 +327,16 @@ export const SEASON_1_TYPES = deepFreeze([
     visual: {
       paletteMode: 'variants',
       paletteVariants: [
-        palette(['#1f2421', '#4a4f49', '#777b75', '#aaa69c']),
-        palette(['#171717', '#3f3f46', '#71717a', '#d4d4d8']),
-        palette(['#2f2926', '#62564b', '#928374', '#d5c4a1']),
-        palette(['#293241', '#5c677d', '#a9bcd0', '#d9e2ec']),
+        palette(['#353535', '#3c6e71', '#828e82'], 'Monochrome Beach'),
+        palette(['#9db5b2', '#6f6866', '#38302e'], 'Grayscale Harmony'),
+        palette(['#bca3ac', '#2d2e2e', '#a99985'], 'Lilac Ash & Onyx'),
       ],
       terrainWeights: [
-        { mode: 'cratered', weight: 5 },
-        { mode: 'ridged', weight: 3 },
-        { mode: 'cellular', weight: 2 },
+        { mode: 'simplex', weight: 2 },
+        { mode: 'domain-warping', weight: 4 },
+        { mode: 'pixel-continents', weight: 3 },
+        { mode: 'archipelago', weight: 2 },
+        { mode: 'cratered', weight: 2 },
       ],
       cloudStyle: 'none',
       satelliteStyle: 'rocky',
@@ -285,16 +351,37 @@ export const SEASON_1_TYPES = deepFreeze([
     visual: {
       paletteMode: 'variants',
       paletteVariants: [
-        palette(['#0047ff', '#009dff', '#00e5ff', '#d9fbff']),
-        palette(['#1236d8', '#0077ff', '#21c7ff', '#d6f8ff']),
-        palette(['#0054c7', '#00a6ff', '#45e9ff', '#e0ffff']),
-        palette(['#1d4ed8', '#0ea5e9', '#00e5ff', '#ecfeff']),
-        palette(['#001f9e', '#006dff', '#00c2ff', '#c8f7ff']),
-        palette(['#0039a6', '#008cff', '#3ddcff', '#edffff']),
+        // Ordered as light edge -> saturated transition -> deep edge. The
+        // middle tone is intentionally separated from both neighbours so
+        // adjacent terrain bands remain readable in pixel art.
+        palette(['#e3f2fd', '#64b5f6', '#90caf9'], 'Blue Gradient: Ice to Sky'),
+        palette(['#64b5f6', '#42a5f5', '#2196f3'], 'Blue Gradient: Sky to Azure'),
+        palette(['#1976d2', '#1565c0', '#0d47a1'], 'Blue Gradient: Cobalt Depths'),
+        palette(['#023e8a', '#0077b6', '#00b4d8'], 'Ocean Blue Serenity'),
+        palette(['#90e0ef', '#ade8f4', '#caf0f8'], 'Ocean Blue Serenity: Ice Light'),
+        palette(['#2c7da0', '#61a5c2', '#89c2d9'], 'Coastal Blues'),
+        palette(['#0b2545', '#13315c', '#134074'], 'Deep Blue Sea'),
+        palette(['#d9f0ff', '#a3d5ff', '#83c9f4'], 'Ice Shelf Blue'),
+        palette(['#006d77', '#83c5be', '#edf6f9'], 'Ocean Pearl Delight'),
+        palette(['#006d77', '#83c5be', '#ffddd2'], 'Ocean Pearl & Blush'),
+        palette(['#07beb8', '#3dccc7', '#68d8d6'], 'Turquoise Waters'),
+        palette(['#68d8d6', '#9ceaeF', '#c4fff9'], 'Turquoise Ice Waters'),
+        palette(['#42bfdd', '#bbe6e4', '#e29578'], 'Sky Surge & Warm Pearl'),
+        palette(['#5465ff', '#788bff', '#9bb1ff'], 'Electric Sapphire: Cornflower Sky'),
+        palette(['#bfd7ff', '#e2fdff', '#5465ff'], 'Electric Sapphire: Ice Light'),
+        palette(['#add7f6', '#87bfff', '#3f8efc'], 'Blue Energy: Clear Water'),
+        // Keep the two neighbouring transitions high-contrast; the outer
+        // colours may remain related because they never form a direct band
+        // boundary in the unified 1 -> 2 -> 3 ordering.
+        palette(['#3b28cc', '#007bff', '#2667ff'], 'Ultrasonic Blue: Deep Water'),
+        palette(['#5465ff', '#3f8efc', '#2667ff'], 'Electric Sapphire: Blue Depth'),
       ],
       terrainWeights: [
-        { mode: 'ocean-currents', weight: 5 },
-        { mode: 'domain-warping', weight: 5 },
+        { mode: 'ocean-currents', weight: 4 },
+        { mode: 'simplex', weight: 2 },
+        { mode: 'domain-warping', weight: 3 },
+        { mode: 'archipelago', weight: 2 },
+        { mode: 'pixel-mountain-ridges', weight: 2 },
       ],
       cloudStyle: 'oceanic',
       satelliteStyle: 'standard',
@@ -401,6 +488,10 @@ function isTerrainMode(value: string): value is TerrainMode {
     'ocean-currents',
     'cellular',
     'polar-caps',
+    'pixel-continents',
+    'archipelago',
+    'pixel-mountain-ridges',
+    'spiral-currents',
   ].includes(value);
 }
 
@@ -414,11 +505,15 @@ function colorDistance(first: HexColor, second: HexColor): number {
   );
 }
 
-function validatePaletteContrast(colors: readonly HexColor[], label: string) {
+function validatePaletteContrast(
+  colors: readonly HexColor[],
+  label: string,
+  minimumDistance = 55,
+) {
   for (let index = 1; index < colors.length; index += 1) {
     const previous = colors[index - 1];
     const current = colors[index];
-    if (!previous || !current || colorDistance(previous, current) < 55) {
+    if (!previous || !current || colorDistance(previous, current) < minimumDistance) {
       throw new RangeError(`${label} must keep adjacent palette colors visually distinct.`);
     }
   }
@@ -461,7 +556,11 @@ export function validateSeasonConfig(config: SeasonConfig): void {
       ) {
         throw new RangeError('Every Type palette variant needs valid Coolors colors and URL.');
       }
-      validatePaletteContrast(variant.colors, `${type.publicName} palette`);
+      validatePaletteContrast(
+        variant.colors,
+        `${type.publicName} palette`,
+        type.id === 'gaia' || type.id === 'oceanic' ? 20 : 55,
+      );
     }
     if (visual.terrainWeights.length === 0 || visual.terrainWeights.length > 12)
       throw new RangeError('Every Type needs between one and twelve terrain weights.');

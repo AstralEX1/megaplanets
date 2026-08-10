@@ -15,6 +15,7 @@
  */
 import type { ReactNode } from 'react';
 import { COPY } from '@/config/copy';
+import Galaxy from '@/components/Galaxy/Galaxy';
 import { BrandMark } from './BrandMark';
 import { Footer } from './Footer';
 import { MobileWalletBar } from './MobileWalletBar';
@@ -31,8 +32,23 @@ export function Layout({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-transparent text-[#e8f7ff]">
-      <header className="sticky top-0 z-30 border-b border-[#3c4475] bg-[#0a0d24]/95 shadow-[0_3px_0_#04050e] backdrop-blur">
+    <div className="relative isolate min-h-screen bg-[var(--bg)] text-[var(--text)]">
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 opacity-[0.12]">
+        <Galaxy
+          starSpeed={0.1}
+          density={1.2}
+          hueShift={360}
+          speed={0.5}
+          glowIntensity={0.4}
+          saturation={0.5}
+          mouseRepulsion={false}
+          repulsionStrength={0.5}
+          twinkleIntensity={0.2}
+          rotationSpeed={0}
+          transparent
+        />
+      </div>
+      <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--background)]">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <a
             href="/"
@@ -49,8 +65,10 @@ export function Layout({
         </div>
         <MobileWalletBar />
       </header>
-      <main className="mx-auto max-w-5xl px-4 pt-6 pb-6">{children}</main>
-      <Footer />
+      <main className="relative z-10 mx-auto max-w-5xl px-4 pt-6 pb-6">{children}</main>
+      <div className="relative z-10">
+        <Footer />
+      </div>
       <MobileBottomNav active={active} onSelect={onSelect} />
       <div
         aria-hidden

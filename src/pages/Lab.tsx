@@ -113,6 +113,12 @@ export function Lab() {
   } | null>(null);
   const [gif, setGif] = useState<GifState>({ status: 'idle', url: null, error: null });
   const planetName = seasonDescriptor.traits.name;
+  const displayedPalette =
+    SEASON_1_TYPES.find((type) => type.id === descriptor.traits.planetType)?.visual.paletteVariants.find(
+      (variant) =>
+        variant.colors.length === descriptor.traits.typePalette.length &&
+        variant.colors.every((color, index) => color === descriptor.traits.typePalette[index]),
+    ) ?? seasonDescriptor.traits.palette;
 
   const draft = useMemo(() => {
     try {
@@ -324,6 +330,20 @@ export function Lab() {
           <div>
             <p className="text-zinc-500">Terrain</p>
             <p>{descriptor.traits.noiseMode}</p>
+          </div>
+          <div className="col-span-2 sm:col-span-4">
+            <p className="text-zinc-500">Palette</p>
+            <p>{displayedPalette.name ?? 'Unnamed palette'}</p>
+            <fieldset className="mt-2 flex gap-2" aria-label="Palette colors">
+              {displayedPalette.colors.map((color) => (
+                <span
+                  key={color}
+                  className="h-5 w-5 rounded border border-white/20"
+                  style={{ backgroundColor: color }}
+                  title={color}
+                />
+              ))}
+            </fieldset>
           </div>
           <div>
             <p className="text-zinc-500">Rarity</p>

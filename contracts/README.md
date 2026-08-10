@@ -2,7 +2,9 @@
 
 # MegaPlanets contracts
 
-Stage 4 provides the non-upgradeable Season 1 `MegaPlanets` ERC-721 for Base Sepolia. It is not deployed by this repository.
+`MegaPlanets` is the ERC721A-based V2 implementation prepared for a clean Base
+Sepolia deployment. The already deployed non-upgradeable ERC-721 V1 is retained
+as `src/MegaPlanetsV1.sol` for migration reference and is not modified.
 
 ## Local commands
 
@@ -13,7 +15,11 @@ forge build
 forge inspect MegaPlanets abi --json > abi/MegaPlanets.json
 ```
 
-The pinned dependencies are OpenZeppelin Contracts v5.7.0 and forge-std v1.16.2. The deployment script is preparation-only; do not use `--broadcast` before Stage 6 authorization.
+The pinned dependencies are OpenZeppelin Contracts v5.7.0, ERC721A v4.3.0, and
+forge-std v1.16.2. `abi/MegaPlanets.json` is generated from the V2 contract
+with Foundry. Regenerate it after every public interface change. The deployment
+script is preparation-only; do not use `--broadcast` without explicit
+authorization.
 
 ## Season 1 and voucher API
 
@@ -30,7 +36,9 @@ MintVoucher(address recipient,uint256 ticketId,bytes32 seasonId,uint256 drawingI
 ## Normal Planet mints
 
 - One live eligible Megapot ticket mints one normal Planet.
-- The normal Planet token ID equals the Megapot ticket ID.
+- ERC721A Planet token IDs are consecutive and start at `1`.
+- `planetTokenIdByTicketId(ticketId)` and `ticketIdByPlanetTokenId(tokenId)`
+  preserve immutable Megapot provenance.
 - `mint` and `mintBatch` are nonpayable. MegaPlanets charges no mint fee; the user pays Base gas only.
 - A normal mint verifies an EIP-712 voucher, rejects an already-minted ticket, and checks that the recipient currently owns the live Megapot ticket.
 - A batch is atomic: every voucher must be valid, address the same recipient, reference a distinct live ticket, and fit the bounded batch-size limit selected during Stage 4.
@@ -39,6 +47,5 @@ Each voucher binds the recipient, ticket ID, Season ID, origin transaction hash,
 
 ## Special editions
 
-Procedural generation cannot create a special edition. Owner-only `mintSpecial` creates manual prize NFTs with separately prepared immutable IPFS metadata. Special token IDs use a namespace disjoint from normal ticket IDs, and regular metadata always has `specialEditionId: null`.
-
-Claimed or burned Megapot tickets are never eligible, including in a batch mint.
+Special-edition minting is not part of V2 or the current testnet MVP. Claimed or
+burned Megapot tickets are never eligible, including in a batch mint.

@@ -226,7 +226,7 @@ describe('generator Season 1 traits', () => {
       SEASON_1_TYPES.find((type) => type.id === 'gas-giant')?.visual.terrainWeights[0]?.mode,
     ).toBe('banded');
     expect(SEASON_1_TYPES.find((type) => type.id === 'rocky')?.visual.terrainWeights[0]?.mode).toBe(
-      'cratered',
+      'simplex',
     );
     expect(
       SEASON_1_TYPES.find((type) => type.id === 'oceanic')?.visual.terrainWeights[0]?.mode,
@@ -315,11 +315,11 @@ describe('generator Season 1 traits', () => {
     ).toThrow(/integrity/);
   });
 
-  it('renders a deterministic 512px preview from the selected Type palette', () => {
+  it('renders a deterministic 128px preview from the selected Type palette', () => {
     const visual = derivePlanetPreview(INPUT, CONFIG).visual;
     const first = renderPlanetFrame(visual, 0);
     const second = renderPlanetFrame(derivePlanetPreview(INPUT, CONFIG).visual, 0);
-    expect([first.width, first.height]).toEqual([512, 512]);
+    expect([first.width, first.height]).toEqual([128, 128]);
     expect(second.data).toEqual(first.data);
     expect(() =>
       renderPlanetFrame(
@@ -426,7 +426,7 @@ describe('generator Season 1 traits', () => {
       derivePlanetPreviewForType({ ...INPUT, ticketId: BigInt(index + 1) }, CONFIG, 'volcanic'),
     ).find((preview) => preview.visual.traits.hasClouds);
     expect(volcanic).toBeDefined();
-    expect(volcanic?.visual.traits.colors.cloud).toEqual(['#a4a8ad', '#45484d']);
+    expect(volcanic?.visual.traits.colors.cloud).toEqual(['#aaa69c', '#4a4642']);
   });
 
   it('samples every original and Season 1 terrain mode deterministically', () => {
@@ -443,6 +443,10 @@ describe('generator Season 1 traits', () => {
       'ocean-currents',
       'cellular',
       'polar-caps',
+      'pixel-continents',
+      'archipelago',
+      'pixel-mountain-ridges',
+      'spiral-currents',
     ] as const;
     const first = createTerrainNoiseSampler(derivePlanetSeed(INPUT));
     const second = createTerrainNoiseSampler(derivePlanetSeed(INPUT));
@@ -585,8 +589,8 @@ describe('generator GIF fixtures', () => {
     expect(actual).toEqual(manifest.find((entry) => entry.name === name));
     expect(gif).toEqual(new Uint8Array(readFileSync(`${fixtureDirectory}${name}.gif`)));
     expect(inspectGif(gif)).toEqual({
-      width: 512,
-      height: 512,
+      width: 128,
+      height: 128,
       frames: 144,
       durationMs: 12_000,
       repeat: 0,

@@ -12,7 +12,7 @@ import { lazy, Suspense, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import type { NavKey } from '@/components/layout/Nav';
 import { LP_ENABLED } from '@/config/contracts';
-import { History } from '@/pages/History';
+import { Leaderboard } from '@/pages/Leaderboard';
 import { Home } from '@/pages/Home';
 import { LP } from '@/pages/LP';
 import { Play } from '@/pages/Play';
@@ -52,7 +52,7 @@ export default function App() {
       page = LP_ENABLED ? <LP /> : <Home onNavigate={setActive} />;
       break;
     case 'history':
-      page = <History />;
+      page = <Leaderboard />;
       break;
   }
 

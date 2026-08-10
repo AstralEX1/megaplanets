@@ -52,9 +52,14 @@ export type TerrainMode =
   | 'cratered'
   | 'ocean-currents'
   | 'cellular'
-  | 'polar-caps';
+  | 'polar-caps'
+  | 'pixel-continents'
+  | 'archipelago'
+  | 'pixel-mountain-ridges'
+  | 'spiral-currents';
 
 export type TypePalette = {
+  name?: string;
   colors: readonly [HexColor, HexColor, HexColor, ...HexColor[]];
   coolorsUrl: string;
 };

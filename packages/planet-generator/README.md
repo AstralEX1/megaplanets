@@ -64,10 +64,11 @@ Rarity is descriptive and never multiplies minerals or score.
 
 ## Rendering
 
-The accepted renderer builds a 128×128 logical pixel scene and nearest-neighbor scales
-it to a 512×512 GIF. The preset contains 144 frames over twelve seconds, loops forever,
-uses a fixed palette, and does not dither. Animation speeds are loop-safe while retaining
-different planet, cloud, and satellite speeds.
+The accepted renderer produces a 128×128 animated GIF directly from the logical pixel
+scene. The UI uses nearest-neighbor CSS scaling for larger displays, so the stored asset
+stays small while retaining its intended pixel-art appearance. The preset contains 144
+frames over twelve seconds, loops forever, uses a fixed palette, and does not dither.
+Animation speeds are loop-safe while retaining different planet, cloud, and satellite speeds.
 
 Clouds are a separate transparent pixel sphere, four logical pixels larger than the
 terrain. The rear hemisphere uses the darker cloud color, allowing cloud pixels to pass

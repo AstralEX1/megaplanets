@@ -16,14 +16,14 @@
       "originTxHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     "seed": "0x36516ec3b920e0904c2f3a39c637c9b1522fafc1d066e4e11e8461fdf127bcfa",
-    "canonicalTraitsJson": "{\"name\":\"Uopaigryria\",\"typeId\":\"nebula\",\"type\":\"Nebula\",\"palette\":{\"colors\":[\"#3b0764\",\"#4cc9f0\",\"#f59e0b\",\"#fff7cc\"],\"coolorsUrl\":\"https://coolors.co/3b0764-4cc9f0-f59e0b-fff7cc\"},\"terrain\":\"domain-warping\",\"satelliteCount\":4,\"hasRing\":false,\"minerals\":24,\"rarity\":\"Common\",\"season\":1,\"specialEditionId\":null}",
-    "traitsHash": "0xebaf6bf8c4a1544e5dfd95fd31191df8985e986a34ac24587ba32655c6962a90",
-    "canonicalVisualTraitsJson": "{\"generatorVersion\":2,\"paletteType\":\"analogous\",\"typePalette\":[\"#3b0764\",\"#4cc9f0\",\"#f59e0b\",\"#fff7cc\"],\"paletteProfile\":2,\"paletteWeights\":[1,6,15,10,6,4],\"baseHue\":221,\"colors\":{\"background\":\"#262421\",\"planet\":[\"#33005c\",\"#42bfe6\",\"#f9a20f\"],\"cloud\":[\"#fff1a8\",\"#ff3ea5\"],\"satellite\":[\"#7aff21\",\"#ff5029\"],\"star\":[\"#fff4e6\",\"#665c52\"]},\"noiseMode\":\"domain-warping\",\"diameter\":59,\"hasClouds\":true,\"cloudNoiseMode\":\"domain-warping\",\"mainLapMs\":4673,\"cloudLapMs\":3797,\"hasRing\":false,\"satellites\":[{\"diameter\":6,\"color\":\"#7aff21\",\"speed\":0.660044,\"orbitX\":55,\"orbitY\":14,\"initialAngle\":277,\"rotation\":-61},{\"diameter\":6,\"color\":\"#ff5029\",\"speed\":1.124018,\"orbitX\":50,\"orbitY\":10,\"initialAngle\":23,\"rotation\":-2},{\"diameter\":7,\"color\":\"#7aff21\",\"speed\":1.218156,\"orbitX\":49,\"orbitY\":10,\"initialAngle\":127,\"rotation\":-57},{\"diameter\":7,\"color\":\"#ff5029\",\"speed\":0.886216,\"orbitX\":46,\"orbitY\":12,\"initialAngle\":185,\"rotation\":70}],\"starCount\":34,\"specialEditionId\":null,\"cloudWeights\":[2,3,3],\"cloudDirection\":1,\"planetType\":\"nebula\"}",
-    "visualTraitsHash": "0x26735e06b282041284c0ab739a8dfd15971f4d57cc09cd266e2259c14804c264",
-    "firstFrameSha256": "0x225437e61d94b75a2059c9b4a6a0df4870ce7110d106706ca84d1346c58ff493",
-    "middleFrameSha256": "0xf3817ef20a07578d30ff5dd48f63cd8a72b34f46a8d53974ffb0101955783ece",
-    "gifSha256": "0x7a3ca66214fc960c8bf67367f2cab318ca3d0a996289990c5f7923f050d098c2",
-    "gifBytes": 835734
+    "canonicalTraitsJson": "{\"name\":\"Uopaigryria\",\"typeId\":\"nebula\",\"type\":\"Nebula\",\"palette\":{\"name\":\"Rose Fire Veil\",\"colors\":[\"#a4133c\",\"#ff4d6d\",\"#e0aaff\"],\"coolorsUrl\":\"https://coolors.co/a4133c-ff4d6d-e0aaff\"},\"terrain\":\"domain-warping\",\"satelliteCount\":4,\"hasRing\":false,\"minerals\":24,\"rarity\":\"Common\",\"season\":1,\"specialEditionId\":null}",
+    "traitsHash": "0x6b7ad982c2a4a59ef48e269060c0862cce1800a77dc0bb256674ae9c8528593e",
+    "canonicalVisualTraitsJson": "{\"generatorVersion\":2,\"paletteType\":\"analogous\",\"typePalette\":[\"#a4133c\",\"#ff4d6d\",\"#e0aaff\"],\"paletteProfile\":2,\"paletteWeights\":[1,6,15,10,6,4],\"baseHue\":221,\"colors\":{\"background\":\"#262421\",\"planet\":[\"#9c0b34\",\"#f54363\",\"#e4aeff\"],\"cloud\":[\"#fff1a8\",\"#ff3ea5\"],\"satellite\":[\"#62ff29\",\"#c9ff17\"],\"star\":[\"#fff4e6\",\"#665c52\"]},\"noiseMode\":\"domain-warping\",\"diameter\":59,\"hasClouds\":true,\"cloudNoiseMode\":\"domain-warping\",\"mainLapMs\":4673,\"cloudLapMs\":4491,\"hasRing\":false,\"satellites\":[{\"diameter\":6,\"color\":\"#62ff29\",\"speed\":0.660044,\"orbitX\":55,\"orbitY\":14,\"initialAngle\":277,\"rotation\":-61},{\"diameter\":6,\"color\":\"#c9ff17\",\"speed\":1.124018,\"orbitX\":50,\"orbitY\":10,\"initialAngle\":23,\"rotation\":-2},{\"diameter\":7,\"color\":\"#62ff29\",\"speed\":1.218156,\"orbitX\":49,\"orbitY\":10,\"initialAngle\":127,\"rotation\":-57},{\"diameter\":7,\"color\":\"#c9ff17\",\"speed\":0.886216,\"orbitX\":46,\"orbitY\":12,\"initialAngle\":185,\"rotation\":70}],\"starCount\":34,\"specialEditionId\":null,\"cloudWeights\":[2,3,3],\"cloudDirection\":1,\"planetType\":\"nebula\"}",
+    "visualTraitsHash": "0x2e4f8bc4e1d47f8a8bc4a6e645727058040c3af5843fcd844f4fbc147c45a8e4",
+    "firstFrameSha256": "0x6c0e90dbb960ad286724436680e02f5208698b9f216dba5924bd63e23e09c292",
+    "middleFrameSha256": "0xf415b2a380437c431ddd0be0e2da89b3e3e6051c5fafd48934f212f579707907",
+    "gifSha256": "0x0ce3204e8ba081ac1b90bdfe43f8ba193aa65a8b8c69f46e94f11d5a89e785cf",
+    "gifBytes": 156787
   },
   {
     "name": "ticket-1001",
@@ -42,14 +42,14 @@
       "originTxHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     },
     "seed": "0x807ff97665650eda7139513463fd305a0fb9244518529c2b0f3e243e55fa000d",
-    "canonicalTraitsJson": "{\"name\":\"Criubos\",\"typeId\":\"rocky\",\"type\":\"Rocky\",\"palette\":{\"colors\":[\"#1f2421\",\"#4a4f49\",\"#777b75\",\"#aaa69c\"],\"coolorsUrl\":\"https://coolors.co/1f2421-4a4f49-777b75-aaa69c\"},\"terrain\":\"ridged\",\"satelliteCount\":1,\"hasRing\":false,\"minerals\":38,\"rarity\":\"Common\",\"season\":1,\"specialEditionId\":null}",
-    "traitsHash": "0x7d5ce64153a0f49323b8207c814c916c85a650a21fbb9d712a758c5d480e58be",
-    "canonicalVisualTraitsJson": "{\"generatorVersion\":2,\"paletteType\":\"analogous\",\"typePalette\":[\"#1f2421\",\"#4a4f49\",\"#777b75\",\"#aaa69c\"],\"paletteProfile\":0,\"paletteWeights\":[15,10,6,4,1,6],\"baseHue\":61,\"colors\":{\"background\":\"#212126\",\"planet\":[\"#262b28\",\"#515650\",\"#828680\"],\"cloud\":[\"#ffffed\",\"#cccbbc\"],\"satellite\":[\"#f8fafc\",\"#94a3b8\"],\"star\":[\"#e6e6ff\",\"#555266\"]},\"noiseMode\":\"ridged\",\"diameter\":60,\"hasClouds\":false,\"cloudNoiseMode\":null,\"mainLapMs\":4239,\"cloudLapMs\":null,\"hasRing\":false,\"satellites\":[{\"diameter\":4,\"color\":\"#515650\",\"speed\":0.055954,\"orbitX\":48,\"orbitY\":8,\"initialAngle\":109,\"rotation\":-14}],\"starCount\":34,\"specialEditionId\":null,\"planetType\":\"rocky\"}",
-    "visualTraitsHash": "0xf6c116b85fcfd634fbb44376061d303a06f02915013545f25b3d7dc478dfb8f8",
-    "firstFrameSha256": "0x77672a3c736e6d29ca7fe392c19d86c49604e5d59da8cb6a636300456b991052",
-    "middleFrameSha256": "0xe737787205e1d0333f076360b07213481587ebd9b5e495ed1e5d44d0d3822ec9",
-    "gifSha256": "0x066727e0b61e276fa47b8bc9cbacec4c457c9c1c1101353b588f0f9083682942",
-    "gifBytes": 645957
+    "canonicalTraitsJson": "{\"name\":\"Criubos\",\"typeId\":\"rocky\",\"type\":\"Rocky\",\"palette\":{\"name\":\"Grayscale Harmony\",\"colors\":[\"#9db5b2\",\"#6f6866\",\"#38302e\"],\"coolorsUrl\":\"https://coolors.co/9db5b2-6f6866-38302e\"},\"terrain\":\"simplex\",\"satelliteCount\":1,\"hasRing\":false,\"minerals\":38,\"rarity\":\"Common\",\"season\":1,\"specialEditionId\":null}",
+    "traitsHash": "0x55d0554acdc98ba68a6c01a9b870677f08236d22248d996c3231fdac9f65dc81",
+    "canonicalVisualTraitsJson": "{\"generatorVersion\":2,\"paletteType\":\"analogous\",\"typePalette\":[\"#9db5b2\",\"#6f6866\",\"#38302e\"],\"paletteProfile\":0,\"paletteWeights\":[15,10,6,4,1,6],\"baseHue\":61,\"colors\":{\"background\":\"#212126\",\"planet\":[\"#766f6d\",\"#a4bcb9\",\"#433b39\"],\"cloud\":[\"#ffffed\",\"#cccbbc\"],\"satellite\":[\"#f8fafc\",\"#94a3b8\"],\"star\":[\"#e6e6ff\",\"#555266\"]},\"noiseMode\":\"simplex\",\"diameter\":60,\"hasClouds\":false,\"cloudNoiseMode\":null,\"mainLapMs\":4239,\"cloudLapMs\":null,\"hasRing\":false,\"satellites\":[{\"diameter\":4,\"color\":\"#a4bcb9\",\"speed\":0.055954,\"orbitX\":48,\"orbitY\":8,\"initialAngle\":109,\"rotation\":-14}],\"starCount\":34,\"specialEditionId\":null,\"planetType\":\"rocky\"}",
+    "visualTraitsHash": "0x352b84e80ae8e66eb0caf34610ec928de3a30cffc4dd9d221299638803ee4cae",
+    "firstFrameSha256": "0x58974303ddc5591baf139ff6fc3ae22697aa1507916c34418303ff528cb869d9",
+    "middleFrameSha256": "0x37e9956a3e27995100381064faf4a867703850c2ed6d5832ea3c7075a798484b",
+    "gifSha256": "0x866e18ea2753ec24fa183c784cf089962e84ba0c32e364a20f4a88b9c112c6f1",
+    "gifBytes": 106406
   },
   {
     "name": "ticket-4242",
@@ -68,13 +68,13 @@
       "originTxHash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
     },
     "seed": "0x083952ca941b95f42f99d4bbe365735e28ca80ea4be4146cdb10b1046f3528d2",
-    "canonicalTraitsJson": "{\"name\":\"Briuurus\",\"typeId\":\"oceanic\",\"type\":\"Oceanic\",\"palette\":{\"colors\":[\"#1236d8\",\"#0077ff\",\"#21c7ff\",\"#d6f8ff\"],\"coolorsUrl\":\"https://coolors.co/1236d8-0077ff-21c7ff-d6f8ff\"},\"terrain\":\"ocean-currents\",\"satelliteCount\":1,\"hasRing\":false,\"minerals\":16,\"rarity\":\"Common\",\"season\":1,\"specialEditionId\":null}",
-    "traitsHash": "0x10d9b788ff3e5b640f86cc76e933e9ff0c31af5f1cd7834703308f240c883c6f",
-    "canonicalVisualTraitsJson": "{\"generatorVersion\":2,\"paletteType\":\"analogous\",\"typePalette\":[\"#1236d8\",\"#0077ff\",\"#21c7ff\",\"#d6f8ff\"],\"paletteProfile\":5,\"paletteWeights\":[10,6,4,1,6,15],\"baseHue\":117,\"colors\":{\"background\":\"#262126\",\"planet\":[\"#1a3ee0\",\"#0178ff\",\"#24caff\"],\"cloud\":[\"#f0f9ff\",\"#7dd3fc\"],\"satellite\":[\"#f71f1b\",\"#fa1e85\"],\"star\":[\"#ffe6fd\",\"#645266\"]},\"noiseMode\":\"ocean-currents\",\"diameter\":56,\"hasClouds\":true,\"cloudNoiseMode\":\"domain-warping\",\"mainLapMs\":4669,\"cloudLapMs\":6280,\"hasRing\":false,\"satellites\":[{\"diameter\":5,\"color\":\"#f71f1b\",\"speed\":0.593952,\"orbitX\":51,\"orbitY\":11,\"initialAngle\":131,\"rotation\":-31}],\"starCount\":22,\"specialEditionId\":null,\"cloudWeights\":[2,5,2],\"planetType\":\"oceanic\"}",
-    "visualTraitsHash": "0xad296dd5bdabd20e22112a08d2cd1984d55ab4a717cbb9b7c39b391f942c7f5b",
-    "firstFrameSha256": "0x0379a4754ccb2539c957bb12a88992fb0bc17baf6bc6275bf39a615c386b82f9",
-    "middleFrameSha256": "0x2d921e2da4e4f9c670c5ebb1139a9d0d91556343796ce5e87b9b9f51756b6c46",
-    "gifSha256": "0x78ab46c919c4191ba3b7de7a2793dfed7d9918bba0dd8cacbffdbc513ba40daf",
-    "gifBytes": 500309
+    "canonicalTraitsJson": "{\"name\":\"Briuurus\",\"typeId\":\"oceanic\",\"type\":\"Oceanic\",\"palette\":{\"name\":\"Blue Gradient: Sky to Azure\",\"colors\":[\"#64b5f6\",\"#42a5f5\",\"#2196f3\"],\"coolorsUrl\":\"https://coolors.co/64b5f6-42a5f5-2196f3\"},\"terrain\":\"ocean-currents\",\"satelliteCount\":1,\"hasRing\":false,\"minerals\":16,\"rarity\":\"Common\",\"season\":1,\"specialEditionId\":null}",
+    "traitsHash": "0xff4c4e805a9a642ec741dae2be21758b1d4044064c7b7ef4d3749fa0115065eb",
+    "canonicalVisualTraitsJson": "{\"generatorVersion\":2,\"paletteType\":\"analogous\",\"typePalette\":[\"#64b5f6\",\"#42a5f5\",\"#2196f3\"],\"paletteProfile\":5,\"paletteWeights\":[10,6,4,1,6,15],\"baseHue\":117,\"colors\":{\"background\":\"#262126\",\"planet\":[\"#4aadfd\",\"#3788c9\",\"#52c7ff\"],\"cloud\":[\"#f0f9ff\",\"#7dd3fc\"],\"satellite\":[\"#f08080\",\"#fec89a\"],\"star\":[\"#ffe6fd\",\"#645266\"]},\"noiseMode\":\"ocean-currents\",\"diameter\":56,\"hasClouds\":true,\"cloudNoiseMode\":\"domain-warping\",\"mainLapMs\":4669,\"cloudLapMs\":7941,\"hasRing\":false,\"satellites\":[{\"diameter\":5,\"color\":\"#f08080\",\"speed\":0.593952,\"orbitX\":51,\"orbitY\":11,\"initialAngle\":131,\"rotation\":-31}],\"starCount\":22,\"specialEditionId\":null,\"cloudWeights\":[2,5,2],\"planetType\":\"oceanic\"}",
+    "visualTraitsHash": "0x2c31c636eb4a0ae834a142c23712876b3a713a41b378b926187a43f7612d3e7e",
+    "firstFrameSha256": "0x768bc8c0aa3e861ebafc879d45bf906c7d0f080892ab80b2a1f9c489a304d6ff",
+    "middleFrameSha256": "0x58287e0d9acde747c04b4e7049b1a46c2e257b1be4d721b2f7d671ed03fe072c",
+    "gifSha256": "0x034d9cc517bf6117eff4cb98bf4188513e7281a4f63f0f5a59afb022474bfe28",
+    "gifBytes": 116934
   }
 ]

@@ -59,6 +59,7 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
   const [createdOrder, setCreatedOrder] = useState<PersistedBulkOrder | null>(null);
   const [provenanceError, setProvenanceError] = useState<Error | null>(null);
   const [submissionError, setSubmissionError] = useState<Error | null>(null);
+  const [cancellationError, setCancellationError] = useState<Error | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
 
   const minimum = useReadContract({
@@ -238,13 +239,20 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
     }
   };
 
-  const cancelOrder = () => {
-    if (!address || activeOrder.data !== true) return;
-    cancel.writeContract({
-      address: BATCH_PURCHASE_FACILITATOR_ADDRESS,
-      abi: batchOrderAbi,
-      functionName: 'cancelBatchOrder',
-    });
+  const cancelOrder = async () => {
+    if (!address || !publicClient || activeOrder.data !== true) return;
+    setCancellationError(null);
+    try {
+      const simulation = await publicClient.simulateContract({
+        account: address,
+        address: BATCH_PURCHASE_FACILITATOR_ADDRESS,
+        abi: batchOrderAbi,
+        functionName: 'cancelBatchOrder',
+      });
+      cancel.writeContract(simulation.request);
+    } catch (error) {
+      setCancellationError(error instanceof Error ? error : new Error('Bulk order cancellation failed.'));
+    }
   };
 
   return {
@@ -277,8 +285,11 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
       isMining: cancelReceipt.isLoading,
       isPending: cancel.isPending || cancelReceipt.isLoading,
       isSuccess: cancelReceipt.isSuccess,
-      error: cancel.error ?? cancelReceipt.error,
-      reset: cancel.reset,
+       error: cancellationError ?? cancel.error ?? cancelReceipt.error,
+       reset: () => {
+         cancel.reset();
+         setCancellationError(null);
+       },
     },
   };
 }

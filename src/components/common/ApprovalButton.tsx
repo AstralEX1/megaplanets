@@ -49,7 +49,10 @@ export function ApprovalButton({
   children?: ReactNode;
 }) {
   const { address } = useAccount();
-  const { allowance, refetch } = useUsdcAllowance(address, spender);
+  const { allowance, error: allowanceError, isLoading: isAllowanceLoading, refetch } = useUsdcAllowance(
+    address,
+    spender,
+  );
 
   const { writeContract, data: txHash, isPending, error, reset } = useWriteContract();
   const { isSuccess, isLoading } = useWaitForTransactionReceipt({
@@ -72,8 +75,27 @@ export function ApprovalButton({
     reset();
   }, [isSuccess, txHash, refetch, onApproved, reset]);
 
-  // We only swap to the Approve CTA when we KNOW the allowance is short.
-  // Undefined allowance (loading, no wallet, or amount = 0) → fall through.
+  const requiresAllowance = !!address && amount > 0n;
+  if (requiresAllowance && isAllowanceLoading) {
+    return (
+      <Button variant="secondary" size="md" disabled className="w-full">
+        Checking USDC approval…
+      </Button>
+    );
+  }
+
+  if (requiresAllowance && allowanceError) {
+    return (
+      <div className="space-y-1">
+        <Button variant="secondary" size="md" disabled className="w-full">
+          Could not check USDC approval
+        </Button>
+        <p className="text-xs text-rose-600 dark:text-rose-400">Retry after your RPC connection recovers.</p>
+      </div>
+    );
+  }
+
+  // Only show the Approve CTA when the resolved allowance is insufficient.
   const needsApproval = !!address && amount > 0n && allowance !== undefined && allowance < amount;
 
   if (!needsApproval) return <>{children}</>;

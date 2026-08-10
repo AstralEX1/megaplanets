@@ -20,7 +20,7 @@ contract MegaPlanetsTest is Test {
         planets = new MegaPlanets(owner, signer, address(tickets));
     }
 
-    function testMintMintsFreePlanetWithTicketIdAndImmutableUri() external {
+    function testMintMintsFreePlanetWithSequentialIdAndTicketProvenance() external {
         MintVoucherLib.MintVoucher memory voucher = _voucher(alice, 101, "ipfs://planet-101");
         tickets.mint(alice, voucher.ticketId);
         bytes memory signature = _signature(voucher);
@@ -28,9 +28,11 @@ contract MegaPlanetsTest is Test {
         vm.prank(alice);
         planets.mint(voucher, signature);
 
-        assertEq(planets.ownerOf(101), alice);
-        assertEq(planets.tokenURI(101), "ipfs://planet-101");
+        assertEq(planets.ownerOf(1), alice);
+        assertEq(planets.tokenURI(1), "ipfs://planet-101");
         assertTrue(planets.planetMinted(101));
+        assertEq(planets.planetTokenIdByTicketId(101), 1);
+        assertEq(planets.ticketIdByPlanetTokenId(1), 101);
         assertEq(address(planets).balance, 0);
     }
 
@@ -47,8 +49,34 @@ contract MegaPlanetsTest is Test {
         vm.prank(alice);
         planets.mintBatch(vouchers, signatures);
 
-        assertEq(planets.ownerOf(201), alice);
-        assertEq(planets.ownerOf(202), alice);
+        assertEq(planets.ownerOf(1), alice);
+        assertEq(planets.ownerOf(2), alice);
+        assertEq(planets.planetTokenIdByTicketId(201), 1);
+        assertEq(planets.planetTokenIdByTicketId(202), 2);
+    }
+
+    function testMintAfterBatchUsesTheNextSequentialPlanetId() external {
+        MintVoucherLib.MintVoucher[] memory vouchers = new MintVoucherLib.MintVoucher[](2);
+        bytes[] memory signatures = new bytes[](2);
+        vouchers[0] = _voucher(alice, 203, "ipfs://planet-203");
+        vouchers[1] = _voucher(alice, 204, "ipfs://planet-204");
+        tickets.mint(alice, 203);
+        tickets.mint(alice, 204);
+        signatures[0] = _signature(vouchers[0]);
+        signatures[1] = _signature(vouchers[1]);
+        vm.prank(alice);
+        planets.mintBatch(vouchers, signatures);
+
+        MintVoucherLib.MintVoucher memory nextVoucher = _voucher(alice, 205, "ipfs://planet-205");
+        tickets.mint(alice, 205);
+        bytes memory nextSignature = _signature(nextVoucher);
+        vm.prank(alice);
+        planets.mint(nextVoucher, nextSignature);
+
+        assertEq(planets.planetTokenIdByTicketId(203), 1);
+        assertEq(planets.planetTokenIdByTicketId(204), 2);
+        assertEq(planets.planetTokenIdByTicketId(205), 3);
+        assertEq(planets.ticketIdByPlanetTokenId(3), 205);
     }
 
     function testMintRejectsEth() external {
@@ -153,20 +181,11 @@ contract MegaPlanetsTest is Test {
         bytes memory signature = _signature(voucher);
         vm.prank(bob);
         planets.mint(voucher, signature);
-        assertEq(planets.ownerOf(112), bob);
+        assertEq(planets.ownerOf(1), bob);
+        assertEq(planets.ticketIdByPlanetTokenId(1), 112);
     }
 
-    function testSpecialMintAndOwnershipControls() external {
-        uint256 editionId = 7;
-        uint256 tokenId = planets.SPECIAL_TOKEN_PREFIX() | editionId;
-        vm.prank(alice);
-        vm.expectRevert();
-        planets.mintSpecial(alice, editionId, "ipfs://special-7");
-        vm.prank(owner);
-        planets.mintSpecial(alice, editionId, "ipfs://special-7");
-        assertEq(planets.ownerOf(tokenId), alice);
-        assertEq(planets.tokenURI(tokenId), "ipfs://special-7");
-
+    function testMetadataSignerAndOwnershipControls() external {
         vm.prank(owner);
         planets.setMetadataSigner(bob);
         assertEq(planets.metadataSigner(), bob);

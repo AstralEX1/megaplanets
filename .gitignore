@@ -1,6 +1,8 @@
 # dependencies
 node_modules
 .pnpm-store
+pnpm-cache/
+pnpm/
 
 # build output
 dist
@@ -8,6 +10,7 @@ dist
 # Foundry compiler output and cache (the canonical ABI is tracked separately).
 contracts/out/
 contracts/cache/
+.tools/
 dist-ssr
 
 # env
@@ -15,6 +18,10 @@ dist-ssr
 .env.local
 .env.*.local
 !.env.example
+
+# local API state and generated client
+.data/
+api/generated/
 
 # editor
 .vscode/*

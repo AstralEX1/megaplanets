@@ -10,8 +10,9 @@
  *             react-query's error state.
  * ---
  */
+import { useState } from 'react';
 import { parseAbi } from 'viem';
-import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
+import { useAccount, usePublicClient, useReadContract, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import {
   JACKPOT_AUTO_SUBSCRIPTION_ADDRESS,
   REFERRAL_SPLIT_FULL,
@@ -40,12 +41,14 @@ export type SubscriptionInfo = {
 
 export function useSubscribe() {
   const { address } = useAccount();
+  const publicClient = usePublicClient();
 
   const create = useWriteContract();
   const createReceipt = useWaitForTransactionReceipt({ hash: create.data });
 
   const cancel = useWriteContract();
   const cancelReceipt = useWaitForTransactionReceipt({ hash: cancel.data });
+  const [preparationError, setPreparationError] = useState<Error | null>(null);
 
   // Reads getSubscriptionInfo. Reverts with NoActiveSubscription() when none —
   // surfaces as a query error; consumers can treat error as "no active sub".
@@ -59,34 +62,53 @@ export function useSubscribe() {
 
   const hasActiveSubscription = info.isSuccess && !!info.data;
 
-  const createSubscription = (args: {
+  const createSubscription = async (args: {
     totalDays: number;
     dynamicCount: number;
     staticTickets: CustomTicket[];
   }) => {
-    if (!address) return;
-    create.writeContract({
-      address: JACKPOT_AUTO_SUBSCRIPTION_ADDRESS,
-      abi,
-      functionName: 'createSubscription',
-      args: [
-        address,
-        BigInt(args.totalDays),
-        BigInt(args.dynamicCount),
-        args.staticTickets.map((t) => ({ normals: t.normals, bonusball: t.bonusball })),
-        [REFERRER_ADDRESS],
-        [...REFERRAL_SPLIT_FULL],
-        TICKET_SOURCE,
-      ],
-    });
+    if (!address || !publicClient) return;
+    setPreparationError(null);
+    try {
+      const simulation = await publicClient.simulateContract({
+        account: address,
+        address: JACKPOT_AUTO_SUBSCRIPTION_ADDRESS,
+        abi,
+        functionName: 'createSubscription',
+        args: [
+          address,
+          BigInt(args.totalDays),
+          BigInt(args.dynamicCount),
+          args.staticTickets.map((t) => ({ normals: t.normals, bonusball: t.bonusball })),
+          [REFERRER_ADDRESS],
+          [...REFERRAL_SPLIT_FULL],
+          TICKET_SOURCE,
+        ],
+      });
+      create.writeContract(simulation.request);
+    } catch (error) {
+      setPreparationError(
+        error instanceof Error ? error : new Error('Subscription preparation failed.'),
+      );
+    }
   };
 
-  const cancelSubscription = () => {
-    cancel.writeContract({
-      address: JACKPOT_AUTO_SUBSCRIPTION_ADDRESS,
-      abi,
-      functionName: 'cancelSubscription',
-    });
+  const cancelSubscription = async () => {
+    if (!address || !publicClient) return;
+    setPreparationError(null);
+    try {
+      const simulation = await publicClient.simulateContract({
+        account: address,
+        address: JACKPOT_AUTO_SUBSCRIPTION_ADDRESS,
+        abi,
+        functionName: 'cancelSubscription',
+      });
+      cancel.writeContract(simulation.request);
+    } catch (error) {
+      setPreparationError(
+        error instanceof Error ? error : new Error('Subscription cancellation failed.'),
+      );
+    }
   };
 
   return {
@@ -102,8 +124,11 @@ export function useSubscribe() {
       /** Combined "in-flight" flag. */
       isPending: create.isPending || createReceipt.isLoading,
       isSuccess: createReceipt.isSuccess,
-      error: create.error ?? createReceipt.error,
-      reset: create.reset,
+       error: preparationError ?? create.error ?? createReceipt.error,
+       reset: () => {
+         create.reset();
+         setPreparationError(null);
+       },
     },
     cancel: {
       txHash: cancel.data,
@@ -112,8 +137,11 @@ export function useSubscribe() {
       /** Combined "in-flight" flag. */
       isPending: cancel.isPending || cancelReceipt.isLoading,
       isSuccess: cancelReceipt.isSuccess,
-      error: cancel.error ?? cancelReceipt.error,
-      reset: cancel.reset,
+       error: preparationError ?? cancel.error ?? cancelReceipt.error,
+       reset: () => {
+         cancel.reset();
+         setPreparationError(null);
+       },
     },
   };
 }

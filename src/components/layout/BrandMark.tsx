@@ -22,11 +22,11 @@ export function BrandMark({ className }: { className?: string }) {
       aria-hidden="true"
       className={`shrink-0 ${className ?? ''}`.trim()}
     >
-      <rect width="32" height="32" fill="#7139a8" />
-      <rect x="4" y="4" width="24" height="24" fill="#1de0f1" />
+      <rect width="32" height="32" fill="#ffb84d" />
+      <rect x="4" y="4" width="24" height="24" fill="#6e7bff" />
       <path
         d="M9 22V10h3.4l3.3 7.2L19 10h3.4v12h-2.4v-7.6l-2.7 5.7h-2L12.6 14.4V22z"
-        fill="#111532"
+        fill="#f7f2e8"
       />
     </svg>
   );
