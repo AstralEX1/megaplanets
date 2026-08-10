@@ -1,5 +1,13 @@
 import type { ExpeditionStep } from '@/components/expedition/ExpeditionSteps';
 
+const MIN_EXPEDITION_QUANTITY = 1;
+const MAX_EXPEDITION_QUANTITY = 50;
+
+export function clampExpeditionQuantity(value: number) {
+  const finiteValue = Number.isFinite(value) ? Math.trunc(value) : MIN_EXPEDITION_QUANTITY;
+  return Math.min(MAX_EXPEDITION_QUANTITY, Math.max(MIN_EXPEDITION_QUANTITY, finiteValue));
+}
+
 /**
  * Pure mapping from verifiable purchase state to presentation state.
  * It deliberately contains no timers or random result generation.

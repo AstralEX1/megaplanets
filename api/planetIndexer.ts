@@ -16,6 +16,7 @@ import {
 } from '@megaplanets/planet-generator';
 import { BASE_SEPOLIA_CHAIN_ID, SEASON_1_ID } from './config';
 import type { PrismaClient } from './generated/prisma/client';
+import { refreshWalletMiningRates } from './miningStore';
 import type { Stage2Config } from './stage2Config';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
@@ -339,10 +340,22 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
           logIndex: event.logIndex,
         },
       });
+      if (from !== ZERO_ADDRESS) {
+        await refreshWalletMiningRates(transaction, from, event.blockTimestamp);
+      }
       await transaction.planet.update({
         where: { id: planet.id },
         data: { ownerAddress: to },
       });
+      if (from !== ZERO_ADDRESS) {
+        await transaction.planetAccrualState.updateMany({
+          where: { planetId: planet.id, ownerAddress: from },
+          data: { ownerAddress: to, startedAt: event.blockTimestamp },
+        });
+      }
+      if (to !== ZERO_ADDRESS) {
+        await refreshWalletMiningRates(transaction, to, event.blockTimestamp);
+      }
     });
   }
 
@@ -485,14 +498,15 @@ export async function indexPlanetEvents(
           satelliteCount: descriptor.traits.satelliteCount,
           hasRing: descriptor.traits.hasRing,
         };
-        const metadataUri = await client.readContract({ address, abi: TOKEN_URI_ABI, functionName: 'tokenURI', args: [args.tokenId], blockNumber: log.blockNumber });
+        // tokenURI is immutable after mint, so latest state avoids requiring an archive RPC.
+        const metadataUri = await client.readContract({ address, abi: TOKEN_URI_ABI, functionName: 'tokenURI', args: [args.tokenId] });
         if (keccak256(stringToHex(metadataUri)) !== args.metadataHash) {
           throw new Error(`Planet ${args.tokenId} metadata URI hash is invalid.`);
         }
         if (await store.recordMinted({ ...identity, ...args, traits, metadataUri })) eventsProcessed += 1;
       } else if (log.kind === 'special') {
         const args = log.args as { tokenId: bigint; editionId: bigint; recipient: Address; seasonId: Hex };
-        const metadataUri = await client.readContract({ address, abi: TOKEN_URI_ABI, functionName: 'tokenURI', args: [args.tokenId], blockNumber: log.blockNumber });
+        const metadataUri = await client.readContract({ address, abi: TOKEN_URI_ABI, functionName: 'tokenURI', args: [args.tokenId] });
         if (await store.recordSpecial({ ...identity, ...args, metadataUri })) eventsProcessed += 1;
       } else {
         const args = log.args as { tokenId: bigint; from: Address; to: Address };

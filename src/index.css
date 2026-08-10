@@ -11,22 +11,22 @@
 }
 
 :root {
-  --background: #080b14;
+  --background: #030307;
   --bg: var(--background);
-  --surface: #111726;
-  --surface-raised: #171f30;
-  --surface-hover: #1d2638;
-  --border: #2b3549;
-  --border-strong: #3b4860;
-  --text-primary: #f7f2e8;
-  --text-secondary: #929caf;
+  --surface: #090a12;
+  --surface-raised: #10111d;
+  --surface-hover: #171827;
+  --border: #252636;
+  --border-strong: #3a3c52;
+  --text-primary: #f4f7ff;
+  --text-secondary: #969aad;
   --text-disabled: #5f687a;
   --text: var(--text-primary);
   --text-muted: var(--text-secondary);
-  --primary: #ffb84d;
-  --primary-hover: #ffc96b;
-  --primary-foreground: #17110a;
-  --accent: #6e7bff;
+  --primary: #f4f7ff;
+  --primary-hover: #ffffff;
+  --primary-foreground: #0a0a10;
+  --accent: #aeb9ff;
   --rare: #b28cff;
   --success: #50d2a0;
   --warning: #ffb84d;
@@ -49,4 +49,5 @@
   .card-pad { @apply card p-4; }
   .card-pad-lg { @apply card p-6; }
   .pixel-frame { clip-path: polygon(0 6px, 6px 6px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px)); }
+  .space-shell { background-color: var(--background); background-image: radial-gradient(circle at 18% 20%, rgba(117, 130, 255, 0.12) 0 1px, transparent 1.5px), radial-gradient(circle at 76% 14%, rgba(255, 255, 255, 0.1) 0 1px, transparent 1.5px), radial-gradient(circle at 62% 72%, rgba(133, 106, 255, 0.08) 0 1px, transparent 1.5px), radial-gradient(ellipse at 50% -20%, #111326 0%, var(--background) 48%); background-size: 170px 170px, 230px 230px, 310px 310px, 100% 100%; }
 }

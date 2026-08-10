@@ -41,7 +41,7 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 };
 
 const BASE_CLASSES =
-  'font-hud uppercase tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+  'font-hud uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-50';
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;

@@ -6,7 +6,6 @@ import { Button } from '@/components/common/Button';
 import { TxStatus } from '@/components/common/TxStatus';
 import { UsdcAmount } from '@/components/common/UsdcAmount';
 import { ExpeditionConfigurator } from '@/components/explore/ExpeditionConfigurator';
-import type { QuantityPreset } from '@/components/explore/QuantityPresets';
 import { BulkProgress } from '@/components/lottery/BulkProgress';
 import { MintPlanetBatchButton } from '@/components/planets/MintPlanetBatchButton';
 import { MintPlanetButton } from '@/components/planets/MintPlanetButton';
@@ -16,16 +15,14 @@ import { PLANET_SEASON } from '@/config/planetSeason';
 import { useBulkPurchase } from '@/hooks/useBulkPurchase';
 import { useBuyTickets } from '@/hooks/useBuyTickets';
 import { useJackpotState } from '@/hooks/useJackpotState';
+import { clampExpeditionQuantity } from '@/lib/expeditionFlow';
 import { BULK_THRESHOLD, type CustomTicket, isValidTicket, totalCost } from '@/lib/tickets';
-
-const presets = [10, 50, 100] as const;
 
 /** Purchase orchestration stays here; the configurator owns presentation-only controls. */
 export function Play() {
   const { isConnected } = useAccount();
   const { state, drawingId, phase, refetch: refetchJackpot } = useJackpotState();
-  const [count, setCount] = useState(10);
-  const [selectedPreset, setSelectedPreset] = useState<QuantityPreset>(10);
+  const [count, setCount] = useState(3);
   const [automaticQuickPick, setAutomaticQuickPick] = useState(true);
   const [staticTickets, setStaticTickets] = useState<readonly CustomTicket[]>([]);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -57,15 +54,10 @@ export function Play() {
   }, [confirmedTickets]);
 
   const setQuantity = (value: number) => {
-    const next = Math.min(100, Math.max(1, Math.trunc(Number.isFinite(value) ? value : count)));
+    const next = clampExpeditionQuantity(value);
     setCount(next);
-    setSelectedPreset(presets.includes(next as (typeof presets)[number]) ? next as (typeof presets)[number] : 'custom');
     if (next > BULK_THRESHOLD) { setStaticTickets([]); setAutomaticQuickPick(true); }
     else setStaticTickets((current) => current.slice(0, next));
-  };
-  const selectPreset = (preset: Exclude<QuantityPreset, null>) => {
-    setSelectedPreset(preset);
-    if (preset !== 'custom') setQuantity(preset);
   };
   const launch = () => { setSummaryOpen(false); if (isBulk) void bulk.createOrder(); else if (bounds) void direct.buy({ customTickets: staticTickets, count, bounds }); };
 
@@ -73,7 +65,7 @@ export function Play() {
     <DrawingStatusBanner drawingId={drawingId} phase={phase} />
     {!isConnected && <Notice>{COPY.connectToBuy}</Notice>}
     {phase !== 'open' && <Notice>{COPY.ticketsPaused}. Wait for the next drawing to open.</Notice>}
-    {confirmedTickets.length > 0 ? <PlanetsFoundGrid planets={discoveredPlanets} onReveal={() => setRevealOpen(true)} /> : <ExpeditionConfigurator quantity={count} selectedPreset={selectedPreset} total={total} bounds={bounds} manuallyEditedTickets={staticTickets} automaticQuickPick={automaticQuickPick} disabled={checkoutDisabled} onQuantityChange={setQuantity} onPresetChange={selectPreset} onAutomaticQuickPickChange={setAutomaticQuickPick} onTicketsChange={setStaticTickets} onExplore={() => setSummaryOpen(true)} />}
+    {confirmedTickets.length > 0 ? <PlanetsFoundGrid planets={discoveredPlanets} onReveal={() => setRevealOpen(true)} /> : <ExpeditionConfigurator quantity={count} total={total} bounds={bounds} manuallyEditedTickets={staticTickets} automaticQuickPick={automaticQuickPick} disabled={checkoutDisabled} onQuantityChange={setQuantity} onAutomaticQuickPickChange={setAutomaticQuickPick} onTicketsChange={setStaticTickets} onExplore={() => setSummaryOpen(true)} />}
     {isBulk && bulk.minimumTicketCount !== undefined && !meetsBulkMinimum && <Notice>Megapot requires at least {bulk.minimumTicketCount.toString()} tickets for this order.</Notice>}
     {bulk.hasActiveOrder && activeBatch && <section className="mx-auto max-w-[560px] rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"><div className="flex items-center justify-between gap-3"><div><p className="font-hud font-semibold text-[var(--text-primary)]">Order in progress</p><p className="mt-1 text-xs text-[var(--text-secondary)]">Tickets appear after their confirmed keeper transactions.</p></div>{bulk.createdOrder && <a className="text-sm font-semibold text-[var(--accent)]" href={`${EXPLORER_TX_URL}${bulk.createdOrder.creationTxHash}`} target="_blank" rel="noreferrer">View transaction</a>}</div><div className="mt-4"><BulkProgress totalTickets={activeBatch.totalTicketsOrdered} remainingTickets={activeBatch.remainingTickets} remainingUSDC={activeBatch.remainingUSDC} /></div><Button variant="secondary" size="sm" onClick={bulk.cancelOrder} disabled={bulk.cancel.isPending} className="mt-4">Cancel remaining order</Button><TxStatus hash={bulk.cancel.txHash} isPending={bulk.cancel.isPending} isSuccess={bulk.cancel.isSuccess} error={bulk.cancel.error} /></section>}
     {summaryOpen && <SummaryDialog count={count} total={total} ticketPrice={state?.ticketPrice} automaticQuickPick={automaticQuickPick} disabled={checkoutDisabled} approvalSpender={approvalSpender} approvalAmount={approvalAmount} onApproved={refetchJackpot} onBack={() => setSummaryOpen(false)} onLaunch={launch} />}

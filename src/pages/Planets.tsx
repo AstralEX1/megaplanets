@@ -1,7 +1,6 @@
 import {
   derivePlanetPreview,
   type PlanetPreview,
-  serializePlanetInput,
 } from '@megaplanets/planet-generator';
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount } from 'wagmi';
@@ -21,11 +20,6 @@ import {
   PURCHASED_TICKETS_UPDATED_EVENT,
   readPersistedPurchasedTickets,
 } from '@/lib/purchaseReceipt';
-
-type GifState =
-  | { status: 'idle' | 'loading'; url: null; error: null }
-  | { status: 'ready'; url: string; error: null }
-  | { status: 'error'; url: null; error: string };
 
 const INITIAL_PREVIEW_COUNT = 12;
 const PREVIEW_PAGE_SIZE = 12;
@@ -86,11 +80,12 @@ export function Planets({ onNavigate }: { onNavigate: (key: NavKey) => void }) {
     () => new Set(indexed.planets.map((planet) => planet.tokenId)),
     [indexed.planets],
   );
+  const [visiblePreviewCount, setVisiblePreviewCount] = useState(INITIAL_PREVIEW_COUNT);
   const gallery = useMemo(() => {
     const previews: PlanetPreview[] = [];
     let ignoredCount = 0;
     if (!PLANET_SEASON) return { previews, ignoredCount };
-    for (const ticket of tickets) {
+    for (const ticket of tickets.slice(0, visiblePreviewCount)) {
       try {
         previews.push(
           derivePlanetPreview(
@@ -110,11 +105,8 @@ export function Planets({ onNavigate }: { onNavigate: (key: NavKey) => void }) {
       }
     }
     return { previews, ignoredCount };
-  }, [tickets]);
+  }, [tickets, visiblePreviewCount]);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
-  const [visiblePreviewCount, setVisiblePreviewCount] = useState(INITIAL_PREVIEW_COUNT);
-  const [retryNonce, setRetryNonce] = useState(0);
-  const [gif, setGif] = useState<GifState>({ status: 'idle', url: null, error: null });
   const [revealedTicketIds, setRevealedTicketIds] = useState<ReadonlySet<string>>(() => new Set());
 
   useEffect(() => {
@@ -131,49 +123,13 @@ export function Planets({ onNavigate }: { onNavigate: (key: NavKey) => void }) {
     ({ descriptor }) => descriptor.input.ticketId.toString() === selectedTicketId,
   );
   const selectedTicket = tickets.find((ticket) => ticket.ticketId.toString() === selectedTicketId);
-  const visiblePreviews = gallery.previews.slice(0, visiblePreviewCount);
+  const visiblePreviews = gallery.previews;
   const isRevealed = (ticketId: string) => indexedTokenIds.has(ticketId) || revealedTicketIds.has(ticketId);
   const selectedIsRevealed = selected ? isRevealed(selected.descriptor.input.ticketId.toString()) : false;
   const unrevealed = gallery.previews.filter((preview) => !isRevealed(preview.descriptor.input.ticketId.toString()));
   const markRevealed = (ticketIds: readonly bigint[]) => {
     setRevealedTicketIds((current) => new Set([...current, ...ticketIds.map(String)]));
   };
-
-  useEffect(() => {
-    if (!selected || !selectedIsRevealed) {
-      setGif({ status: 'idle', url: null, error: null });
-      return;
-    }
-    const requestId = `${selected.descriptor.seed}:${retryNonce}`;
-    const worker = new Worker(new URL('../workers/planetGif.worker.ts', import.meta.url), {
-      type: 'module',
-    });
-    let objectUrl: string | null = null;
-    setGif({ status: 'loading', url: null, error: null });
-    worker.onmessage = (
-      event: MessageEvent<
-        { requestId: string; gif: ArrayBuffer } | { requestId: string; error: string }
-      >,
-    ) => {
-      if (event.data.requestId !== requestId) return;
-      if ('error' in event.data) {
-        setGif({ status: 'error', url: null, error: event.data.error });
-        return;
-      }
-      objectUrl = URL.createObjectURL(new Blob([event.data.gif], { type: 'image/gif' }));
-      setGif({ status: 'ready', url: objectUrl, error: null });
-    };
-    worker.onerror = (event) =>
-      setGif({ status: 'error', url: null, error: event.message || 'GIF worker failed.' });
-    worker.postMessage({
-      requestId,
-      input: serializePlanetInput(selected.descriptor.input),
-    });
-    return () => {
-      worker.terminate();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [selected, retryNonce, selectedIsRevealed]);
 
   if (!isConnected || !address) {
     return (
@@ -284,14 +240,14 @@ export function Planets({ onNavigate }: { onNavigate: (key: NavKey) => void }) {
               );
             })}
           </div>
-          {gallery.previews.length > visiblePreviews.length && (
+          {tickets.length > visiblePreviews.length && (
             <Button
               variant="secondary"
               size="sm"
               className="mt-4"
               onClick={() => setVisiblePreviewCount((count) => count + PREVIEW_PAGE_SIZE)}
             >
-              Show 12 more ({gallery.previews.length - visiblePreviews.length} remaining)
+              Show 12 more ({tickets.length - visiblePreviews.length} remaining)
             </Button>
           )}
         </section>
@@ -302,30 +258,10 @@ export function Planets({ onNavigate }: { onNavigate: (key: NavKey) => void }) {
                 <div className="grid aspect-square place-items-center bg-black text-xs uppercase tracking-[0.2em] text-zinc-600">
                   Planet signal hidden
                 </div>
-              ) : gif.status === 'ready' ? (
-                <img
-                  src={gif.url}
-                  alt={`Animated ${selected.descriptor.traits.name}`}
-                  className="aspect-square w-full"
-                  style={{ imageRendering: 'pixelated' }}
-                />
               ) : (
                 <PlanetThumbnail descriptor={selected.visual} />
               )}
             </div>
-            {selectedIsRevealed && gif.status === 'error' && (
-              <div className="rounded-lg border border-rose-900 bg-rose-950/50 px-3 py-2 text-sm text-rose-200">
-                <p>{gif.error}</p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => setRetryNonce((value) => value + 1)}
-                >
-                  Retry GIF
-                </Button>
-              </div>
-            )}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-xl font-semibold">
@@ -336,15 +272,6 @@ export function Planets({ onNavigate }: { onNavigate: (key: NavKey) => void }) {
                   {selected.descriptor.input.drawingId.toString()}
                 </p>
               </div>
-              {selectedIsRevealed && gif.status === 'ready' && (
-                <a
-                  href={gif.url}
-                  download={`megaplanet-${selected.descriptor.input.ticketId.toString()}.gif`}
-                  className="pixel-frame bg-brand-primary-600 px-3 py-2 text-sm font-semibold text-white"
-                >
-                  Download GIF
-                </a>
-              )}
             </div>
             {selectedIsRevealed && <dl className="grid grid-cols-2 gap-3 text-sm">
               <div>

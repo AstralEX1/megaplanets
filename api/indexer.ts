@@ -1,6 +1,6 @@
 import { createPublicClient, http, stringToHex, type Log } from 'viem';
 import { baseSepolia } from 'viem/chains';
-import { MEGAPLANETS_SOURCE, type Stage5Config } from './config';
+import { MEGAPLANETS_SOURCE } from './config';
 import { BASE_SEPOLIA_JACKPOT, decodeEligibleTicket, TICKET_PURCHASED_ABI } from './eligibility';
 import type { EligibilityStore } from './store';
 
@@ -15,11 +15,13 @@ export type EligibilityIndexResult = {
   ticketsIndexed: number;
 };
 
+export type TicketIndexerConfig = { rpcUrl: string; launchBlock: bigint };
+
 /**
  * Indexes finalized canonical purchase events in bounded chunks. This function is deliberately
  * not invoked by the HTTP server; a scheduler must call it with a durable store.
  */
-export async function indexEligibleTickets(config: Stage5Config, store: EligibilityStore, options: EligibilityIndexerOptions = {}): Promise<EligibilityIndexResult> {
+export async function indexEligibleTickets(config: TicketIndexerConfig, store: EligibilityStore, options: EligibilityIndexerOptions = {}): Promise<EligibilityIndexResult> {
   const confirmations = options.confirmations ?? 6n;
   const blockRange = options.blockRange ?? 2_000n;
   if (confirmations < 0n || blockRange < 1n) throw new Error('Indexer confirmations and blockRange must be valid positive values.');

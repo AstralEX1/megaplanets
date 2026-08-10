@@ -1,16 +1,46 @@
+import { useState } from 'react';
+import { ApprovalButton } from '@/components/common/ApprovalButton';
 import type { CustomTicket, TicketBounds } from '@/lib/tickets';
-import { CompactPlanetDial } from './CompactPlanetDial';
-import { CoordinatesDisclosure } from './CoordinatesDisclosure';
+import { CoordinatesPanel } from './CoordinatesDisclosure';
 import { ExploreButton } from './ExploreButton';
-import { QuantityPresets, type QuantityPreset } from './QuantityPresets';
-import { QuantityStepper } from './QuantityStepper';
+import { CompactPlanetDial } from './CompactPlanetDial';
 
-export type ConfiguratorState = { quantity: number; selectedPreset: QuantityPreset; coordinatesOpen: boolean; automaticQuickPick: boolean; manuallyEditedTickets: readonly CustomTicket[] };
+const PLANET_ACCENTS = [
+  { key: 'near', borderClass: 'border-[#b28cff]' },
+  { key: 'middle', borderClass: '-ml-13 border-[#8d77d2]' },
+  { key: 'far', borderClass: '-ml-13 border-[#6e62a0]' },
+] as const;
 
-export function ExpeditionConfigurator({ quantity, selectedPreset, total, bounds, manuallyEditedTickets, automaticQuickPick, disabled, onQuantityChange, onPresetChange, onAutomaticQuickPickChange, onTicketsChange, onExplore }: { quantity: number; selectedPreset: QuantityPreset; total: bigint; bounds: TicketBounds | null; manuallyEditedTickets: readonly CustomTicket[]; automaticQuickPick: boolean; disabled: boolean; onQuantityChange: (value: number) => void; onPresetChange: (preset: Exclude<QuantityPreset, null>) => void; onAutomaticQuickPickChange: (value: boolean) => void; onTicketsChange: (tickets: readonly CustomTicket[]) => void; onExplore: () => void }) {
-  return <section className="mx-auto w-full max-w-[560px] rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
-    <p className="mb-1 text-center font-hud text-xs font-bold tracking-[0.14em] text-[var(--text-secondary)]">SELECT EXPEDITION</p>
-    <CompactPlanetDial quantity={quantity} onChange={onQuantityChange} />
-    <div className="space-y-3"><QuantityPresets quantity={quantity} selectedPreset={selectedPreset} onSelect={onPresetChange} onQuantityChange={onQuantityChange} /><QuantityStepper quantity={quantity} onChange={onQuantityChange} /><ExploreButton quantity={quantity} total={total} disabled={disabled} onClick={onExplore} /><CoordinatesDisclosure quantity={quantity} bounds={bounds} manuallyEditedTickets={manuallyEditedTickets} automaticQuickPick={automaticQuickPick} onAutomaticQuickPickChange={onAutomaticQuickPickChange} onTicketsChange={onTicketsChange} /></div>
+function PlanetSilhouettes({ quantity }: { quantity: number }) {
+  return <div className="flex h-[260px] items-center justify-center pt-6">
+    {PLANET_ACCENTS.slice(0, Math.min(quantity, 3)).map((planet, index) => <div key={planet.key} role="img" className={`grid h-[190px] w-[190px] shrink-0 place-items-center rounded-full border-2 bg-[var(--surface-raised)] text-7xl font-semibold text-[var(--text-primary)] shadow-[0_0_0_8px_var(--background)] ${planet.borderClass}`} aria-label={`Unrevealed planet ${index + 1}`}>?</div>)}
+  </div>;
+}
+
+export function ExpeditionConfigurator({ quantity, total, bounds, manuallyEditedTickets, automaticQuickPick, disabled, approvalSpender, approvalAmount, onApproved, onQuantityChange, onAutomaticQuickPickChange, onTicketsChange, onExplore }: { quantity: number; total: bigint; bounds: TicketBounds | null; manuallyEditedTickets: readonly CustomTicket[]; automaticQuickPick: boolean; disabled: boolean; approvalSpender?: `0x${string}`; approvalAmount?: bigint; onApproved?: () => void; onQuantityChange: (value: number) => void; onAutomaticQuickPickChange: (value: boolean) => void; onTicketsChange: (tickets: readonly CustomTicket[]) => void; onExplore: () => void }) {
+  const [coordinatesOpen, setCoordinatesOpen] = useState(false);
+  const coordinatesLabel = coordinatesOpen ? 'Close coordinates' : 'Open coordinates';
+
+  return <section className="mx-auto w-full max-w-[1120px] px-4 py-10 sm:px-6">
+    <div className="flex w-full items-center justify-center">
+      <div className="w-full max-w-[560px] shrink-0">
+        <div className="flex flex-col items-center">
+          <h1 className="text-center font-hud text-4xl font-bold tracking-[-0.05em] text-[var(--text-primary)]">Start an expedition!</h1>
+          <PlanetSilhouettes quantity={quantity} />
+          <div className="w-full pt-5"><CompactPlanetDial quantity={quantity} onChange={onQuantityChange} /></div>
+          <div className="w-full pt-5">{approvalSpender !== undefined && approvalAmount !== undefined ? <ApprovalButton spender={approvalSpender} amount={approvalAmount} onApproved={onApproved}><ExploreButton quantity={quantity} total={total} disabled={disabled} onClick={onExplore} /></ApprovalButton> : <ExploreButton quantity={quantity} total={total} disabled={disabled} onClick={onExplore} />}</div>
+        </div>
+      </div>
+      <button type="button" aria-label={coordinatesLabel} aria-expanded={coordinatesOpen} onClick={() => setCoordinatesOpen((open) => !open)} className={`hidden h-40 w-14 shrink-0 items-center justify-center bg-[var(--background)] text-4xl text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-raised)] md:flex ${coordinatesOpen ? 'border-l border-[var(--border)]' : ''}`}>
+        <span aria-hidden>{coordinatesOpen ? '‹' : '›'}</span>
+      </button>
+      <div className={`hidden shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out md:block ${coordinatesOpen ? 'opacity-100' : 'opacity-0'}`} style={{ width: coordinatesOpen ? 430 : 0 }}>
+        {coordinatesOpen && <CoordinatesPanel quantity={quantity} bounds={bounds} manuallyEditedTickets={manuallyEditedTickets} automaticQuickPick={automaticQuickPick} onAutomaticQuickPickChange={onAutomaticQuickPickChange} onTicketsChange={onTicketsChange} />}
+      </div>
+    </div>
+    <div className="mt-5 w-full md:hidden">
+      <button type="button" aria-label={coordinatesLabel} aria-expanded={coordinatesOpen} onClick={() => setCoordinatesOpen((open) => !open)} className="cursor-target flex min-h-12 w-full items-center justify-between border-t border-[var(--border)] pt-3 font-hud text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)]"><span>{coordinatesOpen ? '⌄ Hide coordinates' : '› Choose coordinates'}</span><span className="text-xs normal-case tracking-normal text-[var(--text-secondary)]">Optional</span></button>
+      {coordinatesOpen && <div className="mt-3 border border-[var(--border-strong)]"><CoordinatesPanel quantity={quantity} bounds={bounds} manuallyEditedTickets={manuallyEditedTickets} automaticQuickPick={automaticQuickPick} onAutomaticQuickPickChange={onAutomaticQuickPickChange} onTicketsChange={onTicketsChange} /></div>}
+    </div>
   </section>;
 }

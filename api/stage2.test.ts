@@ -89,4 +89,78 @@ describe('Stage 2 wallet authentication and Planet API', () => {
     expect((await app.request('/planets/456')).status).toBe(200);
     expect((await app.request('/planets/not-a-token')).status).toBe(400);
   });
+
+  it('returns a Planet mining snapshot as decimal strings', async () => {
+    const store = new MemoryStage2Store();
+    const app = createStage2Routes({
+      loadConfig: () => config,
+      getStore: () => store,
+      now: () => new Date('2026-08-10T20:00:00.000Z'),
+      getMining: async (_config, tokenId, now) => ({
+        tokenId,
+        ownerAddress: account.address.toLowerCase(),
+        baseMineralsPerDay: '42000000',
+        multiplierBps: '10500',
+        pendingMicros: '123456',
+        earnedMicros: '654321',
+        activeSince: now.toISOString(),
+      }),
+    });
+
+    const response = await app.request('/planets/456/mining');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      mining: {
+        tokenId: '456',
+        ownerAddress: account.address.toLowerCase(),
+        baseMineralsPerDay: '42000000',
+        multiplierBps: '10500',
+        pendingMicros: '123456',
+        earnedMicros: '654321',
+        activeSince: '2026-08-10T20:00:00.000Z',
+      },
+    });
+  });
+
+  it('returns the authenticated wallet mining aggregate', async () => {
+    const timestamp = new Date('2026-08-10T20:00:00.000Z');
+    const store = new MemoryStage2Store();
+    const app = createStage2Routes({
+      loadConfig: () => config,
+      getStore: () => store,
+      now: () => timestamp,
+      random: (length) => Buffer.alloc(length, length === 16 ? 1 : 2),
+      getWalletMining: async (_prisma, ownerAddress) => ({
+        ownerAddress,
+        ownedPlanetCount: 2,
+        pendingMicros: '3100000',
+        earnedMicros: '10100000',
+      }),
+    });
+    const nonceResponse = await app.request('/auth/nonce', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ address: account.address }),
+    });
+    const challenge = (await nonceResponse.json()) as { message: string; nonce: string };
+    const signature = await account.signMessage({ message: challenge.message });
+    const verified = await app.request('/auth/verify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ address: account.address, nonce: challenge.nonce, signature }),
+    });
+
+    const response = await app.request('/me/mining', { headers: { cookie: verified.headers.get('set-cookie') ?? '' } });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      mining: {
+        ownerAddress: account.address.toLowerCase(),
+        ownedPlanetCount: 2,
+        pendingMicros: '3100000',
+        earnedMicros: '10100000',
+      },
+    });
+  });
 });

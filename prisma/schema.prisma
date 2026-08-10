@@ -119,6 +119,8 @@ model Planet {
   createdAt          DateTime                 @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime                 @updatedAt @db.Timestamptz(3)
   ownershipHistory   PlanetOwnershipHistory[]
+  accrualState       PlanetAccrualState?
+  mineralLedger      MineralLedgerEntry[]
   ticketPurchase     TicketPurchase?          @relation(fields: [ticketPurchaseId], references: [id], onDelete: Restrict)
 
   @@unique([chainId, contractAddress, tokenId])
@@ -144,6 +146,40 @@ model PlanetOwnershipHistory {
   @@index([planetId, blockNumber])
   @@index([toAddress, blockTimestamp])
   @@map("planet_ownership_history")
+}
+
+model PlanetAccrualState {
+  id            String   @id @default(uuid()) @db.Uuid
+  planetId      String   @unique @db.Uuid
+  ownerAddress  String   @db.VarChar(42)
+  startedAt     DateTime @db.Timestamptz(3)
+  multiplierBps Int
+  remainder     BigInt   @default(0)
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+  planet        Planet   @relation(fields: [planetId], references: [id], onDelete: Restrict)
+
+  @@index([ownerAddress, startedAt])
+  @@map("planet_accrual_state")
+}
+
+model MineralLedgerEntry {
+  id                  String   @id @default(uuid()) @db.Uuid
+  planetId            String   @db.Uuid
+  ownerAddress        String   @db.VarChar(42)
+  startedAt           DateTime @db.Timestamptz(3)
+  endedAt             DateTime @db.Timestamptz(3)
+  baseMineralsPerDay  BigInt
+  multiplierBps       Int
+  amountMicros        BigInt
+  fractionalRemainder BigInt   @default(0)
+  createdAt           DateTime @default(now()) @db.Timestamptz(3)
+  planet              Planet   @relation(fields: [planetId], references: [id], onDelete: Restrict)
+
+  @@unique([planetId, ownerAddress, startedAt, endedAt])
+  @@index([ownerAddress, endedAt])
+  @@index([planetId, endedAt])
+  @@map("mineral_ledger")
 }
 
 model ProcessedBlockchainEvent {

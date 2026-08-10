@@ -22,12 +22,16 @@ export function BrandMark({ className }: { className?: string }) {
       aria-hidden="true"
       className={`shrink-0 ${className ?? ''}`.trim()}
     >
-      <rect width="32" height="32" fill="#ffb84d" />
-      <rect x="4" y="4" width="24" height="24" fill="#6e7bff" />
-      <path
-        d="M9 22V10h3.4l3.3 7.2L19 10h3.4v12h-2.4v-7.6l-2.7 5.7h-2L12.6 14.4V22z"
-        fill="#f7f2e8"
-      />
+      <rect x="8" y="2" width="16" height="4" fill="#f4f7ff" />
+      <rect x="4" y="6" width="24" height="20" fill="#f4f7ff" />
+      <rect x="8" y="26" width="16" height="4" fill="#f4f7ff" />
+      <rect x="8" y="6" width="16" height="20" fill="#536bff" />
+      <rect x="4" y="10" width="4" height="12" fill="#8396ff" />
+      <rect x="24" y="10" width="4" height="12" fill="#263a9f" />
+      <rect x="12" y="6" width="8" height="4" fill="#a8b4ff" />
+      <rect x="8" y="10" width="8" height="8" fill="#7488ff" />
+      <rect x="16" y="18" width="8" height="8" fill="#3546ba" />
+      <rect x="12" y="22" width="4" height="4" fill="#dbe1ff" />
     </svg>
   );
 }

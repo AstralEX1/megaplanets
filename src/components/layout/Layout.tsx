@@ -15,7 +15,7 @@
  */
 import type { ReactNode } from 'react';
 import { COPY } from '@/config/copy';
-import Galaxy from '@/components/Galaxy/Galaxy';
+import { TargetCursor } from '@/components/common/TargetCursor';
 import { BrandMark } from './BrandMark';
 import { Footer } from './Footer';
 import { MobileWalletBar } from './MobileWalletBar';
@@ -32,22 +32,8 @@ export function Layout({
   children: ReactNode;
 }) {
   return (
-    <div className="relative isolate min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 opacity-[0.12]">
-        <Galaxy
-          starSpeed={0.1}
-          density={1.2}
-          hueShift={360}
-          speed={0.5}
-          glowIntensity={0.4}
-          saturation={0.5}
-          mouseRepulsion={false}
-          repulsionStrength={0.5}
-          twinkleIntensity={0.2}
-          rotationSpeed={0}
-          transparent
-        />
-      </div>
+    <div className="space-shell relative isolate min-h-screen text-[var(--text)]">
+      <TargetCursor spinDuration={2} hideDefaultCursor parallaxOn cursorColor="#F4F7FF" cursorColorOnTarget="#B28CFF" />
       <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--background)]">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <a

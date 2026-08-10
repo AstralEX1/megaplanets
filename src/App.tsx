@@ -26,7 +26,12 @@ const Lab = import.meta.env.DEV
   : null;
 
 export default function App() {
-  const [active, setActive] = useState<NavKey>('home');
+  const [active, setActive] = useState<NavKey>(() => {
+    if (window.location.pathname === '/play') return 'play';
+    if (window.location.pathname === '/planets') return 'planets';
+    if (window.location.pathname === '/leaderboard') return 'history';
+    return 'home';
+  });
 
   let page: ReactNode;
   switch (active) {
