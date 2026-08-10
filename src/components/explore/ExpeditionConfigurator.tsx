@@ -39,7 +39,7 @@ export function ExpeditionConfigurator({ quantity, total, bounds, manuallyEdited
       </div>
     </div>
     <div className="mt-5 w-full md:hidden">
-      <button type="button" aria-label={coordinatesLabel} aria-expanded={coordinatesOpen} onClick={() => setCoordinatesOpen((open) => !open)} className="cursor-target flex min-h-12 w-full items-center justify-between border-t border-[var(--border)] pt-3 font-hud text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)]"><span>{coordinatesOpen ? '⌄ Hide coordinates' : '› Choose coordinates'}</span><span className="text-xs normal-case tracking-normal text-[var(--text-secondary)]">Optional</span></button>
+      <button type="button" aria-label={coordinatesLabel} aria-expanded={coordinatesOpen} onClick={() => setCoordinatesOpen((open) => !open)} className="flex min-h-12 w-full items-center justify-between border-t border-[var(--border)] pt-3 font-hud text-sm font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)]"><span>{coordinatesOpen ? '⌄ Hide coordinates' : '› Choose coordinates'}</span><span className="text-xs normal-case tracking-normal text-[var(--text-secondary)]">Optional</span></button>
       {coordinatesOpen && <div className="mt-3 border border-[var(--border-strong)]"><CoordinatesPanel quantity={quantity} bounds={bounds} manuallyEditedTickets={manuallyEditedTickets} automaticQuickPick={automaticQuickPick} onAutomaticQuickPickChange={onAutomaticQuickPickChange} onTicketsChange={onTicketsChange} /></div>}
     </div>
   </section>;

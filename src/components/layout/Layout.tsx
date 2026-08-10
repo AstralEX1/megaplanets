@@ -15,7 +15,6 @@
  */
 import type { ReactNode } from 'react';
 import { COPY } from '@/config/copy';
-import { TargetCursor } from '@/components/common/TargetCursor';
 import { BrandMark } from './BrandMark';
 import { Footer } from './Footer';
 import { MobileWalletBar } from './MobileWalletBar';
@@ -33,7 +32,6 @@ export function Layout({
 }) {
   return (
     <div className="space-shell relative isolate min-h-screen text-[var(--text)]">
-      <TargetCursor spinDuration={2} hideDefaultCursor parallaxOn cursorColor="#F4F7FF" cursorColorOnTarget="#B28CFF" />
       <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--background)]">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <a
