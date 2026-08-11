@@ -9,8 +9,8 @@ function elapsedMilliseconds(startedAt: Date, endedAt: Date): bigint {
   return BigInt(elapsed);
 }
 
-/** Settles active rates, then updates the same-type bonus for one wallet. */
-export async function refreshWalletMiningRates(
+/** Settles active mining intervals without changing the current composition's rates. */
+export async function settleWalletMiningRates(
   transaction: Prisma.TransactionClient,
   ownerAddress: string,
   effectiveAt: Date,
@@ -21,9 +21,6 @@ export async function refreshWalletMiningRates(
   });
   if (planets.length === 0) return;
 
-  const multipliers = getSameTypeMultipliers(
-    planets.map((planet) => ({ planetId: planet.id, planetType: planet.planetType ?? '' })),
-  );
   const states = await transaction.planetAccrualState.findMany({
     where: { planetId: { in: planets.map((planet) => planet.id) } },
   });
@@ -31,13 +28,7 @@ export async function refreshWalletMiningRates(
 
   for (const planet of planets) {
     const state = statesByPlanet.get(planet.id);
-    const multiplierBps = Number(multipliers[planet.id]);
-    if (!state) {
-      await transaction.planetAccrualState.create({
-        data: { planetId: planet.id, ownerAddress, startedAt: effectiveAt, multiplierBps },
-      });
-      continue;
-    }
+    if (!state) continue;
     const elapsed = elapsedMilliseconds(state.startedAt, effectiveAt);
     if (elapsed > 0n) {
       const accrued = accrueMinerals({
@@ -55,27 +46,74 @@ export async function refreshWalletMiningRates(
           baseMineralsPerDay: planet.baseMineralsPerDay ?? 0n,
           multiplierBps: state.multiplierBps,
           amountMicros: accrued.minerals,
+          fractionalRemainder: accrued.remainder,
         },
       });
       await transaction.planetAccrualState.update({
         where: { planetId: planet.id },
-        data: { startedAt: effectiveAt, multiplierBps, remainder: accrued.remainder },
+        data: { startedAt: effectiveAt, remainder: accrued.remainder },
       });
-    } else if (state.multiplierBps !== multiplierBps) {
-      await transaction.planetAccrualState.update({ where: { planetId: planet.id }, data: { multiplierBps } });
     }
   }
+}
+
+/** Reprices a wallet from its current ownership composition without settling it. */
+export async function repriceWalletMiningRates(
+  transaction: Prisma.TransactionClient,
+  ownerAddress: string,
+  effectiveAt: Date,
+): Promise<void> {
+  const planets = await transaction.planet.findMany({
+    where: { ownerAddress, baseMineralsPerDay: { not: null }, planetType: { not: null } },
+    select: { id: true, planetType: true },
+  });
+  const multipliers = getSameTypeMultipliers(
+    planets.map((planet) => ({ planetId: planet.id, planetType: planet.planetType ?? '' })),
+  );
+  const states = await transaction.planetAccrualState.findMany({
+    where: { planetId: { in: planets.map((planet) => planet.id) } },
+  });
+  const statesByPlanet = new Map(states.map((state) => [state.planetId, state]));
+  for (const planet of planets) {
+    const multiplierBps = Number(multipliers[planet.id]);
+    const state = statesByPlanet.get(planet.id);
+    if (!state) {
+      await transaction.planetAccrualState.create({
+        data: { planetId: planet.id, ownerAddress, startedAt: effectiveAt, multiplierBps },
+      });
+    } else if (state.multiplierBps !== multiplierBps || state.ownerAddress !== ownerAddress) {
+      await transaction.planetAccrualState.update({
+        where: { planetId: planet.id },
+        data: { ownerAddress, multiplierBps },
+      });
+    }
+  }
+}
+
+/** Settles the pre-change composition then refreshes rates for the same composition. */
+export async function refreshWalletMiningRates(
+  transaction: Prisma.TransactionClient,
+  ownerAddress: string,
+  effectiveAt: Date,
+): Promise<void> {
+  await settleWalletMiningRates(transaction, ownerAddress, effectiveAt);
+  await repriceWalletMiningRates(transaction, ownerAddress, effectiveAt);
 }
 
 /** Starts mining for indexed planets that predate the mining rollout, without retroactive accrual. */
 export async function initializeMissingMiningStates(prisma: PrismaClient, startedAt: Date): Promise<number> {
   const owners = await prisma.planet.findMany({
-    where: { baseMineralsPerDay: { not: null }, planetType: { not: null }, accrualState: null },
+    where: {
+      ownerAddress: { not: '0x0000000000000000000000000000000000000000' },
+      baseMineralsPerDay: { not: null },
+      planetType: { not: null },
+      accrualState: null,
+    },
     select: { ownerAddress: true },
     distinct: ['ownerAddress'],
   });
   for (const { ownerAddress } of owners) {
-    await prisma.$transaction((transaction) => refreshWalletMiningRates(transaction, ownerAddress, startedAt));
+    await prisma.$transaction((transaction) => repriceWalletMiningRates(transaction, ownerAddress, startedAt));
   }
   return owners.length;
 }

@@ -16,7 +16,7 @@ import {
 } from '@megaplanets/planet-generator';
 import { BASE_SEPOLIA_CHAIN_ID } from './config';
 import type { PrismaClient } from './generated/prisma/client';
-import { refreshWalletMiningRates } from './miningStore';
+import { repriceWalletMiningRates, settleWalletMiningRates } from './miningStore';
 import type { Stage2Config } from './stage2Config';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
@@ -224,7 +224,7 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
           tokenId: event.tokenId.toString(),
           ticketId: event.ticketId.toString(),
           kind: 'NORMAL',
-          ownerAddress: getAddress(event.recipient).toLowerCase(),
+          ownerAddress: ZERO_ADDRESS,
           seed: event.traits.seed,
           traitsHash: event.traits.traitsHash,
           metadataHash: event.metadataHash,
@@ -275,22 +275,22 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
           logIndex: event.logIndex,
         },
       });
-      if (from !== ZERO_ADDRESS) {
-        await refreshWalletMiningRates(transaction, from, event.blockTimestamp);
-      }
+      if (from !== ZERO_ADDRESS) await settleWalletMiningRates(transaction, from, event.blockTimestamp);
+      if (to !== ZERO_ADDRESS && to !== from) await settleWalletMiningRates(transaction, to, event.blockTimestamp);
       await transaction.planet.update({
         where: { id: planet.id },
         data: { ownerAddress: to },
       });
-      if (from !== ZERO_ADDRESS) {
+      if (from !== ZERO_ADDRESS && to !== ZERO_ADDRESS) {
         await transaction.planetAccrualState.updateMany({
           where: { planetId: planet.id, ownerAddress: from },
           data: { ownerAddress: to, startedAt: event.blockTimestamp },
         });
+      } else if (to === ZERO_ADDRESS) {
+        await transaction.planetAccrualState.deleteMany({ where: { planetId: planet.id } });
       }
-      if (to !== ZERO_ADDRESS) {
-        await refreshWalletMiningRates(transaction, to, event.blockTimestamp);
-      }
+      if (from !== ZERO_ADDRESS) await repriceWalletMiningRates(transaction, from, event.blockTimestamp);
+      if (to !== ZERO_ADDRESS && to !== from) await repriceWalletMiningRates(transaction, to, event.blockTimestamp);
     });
   }
 

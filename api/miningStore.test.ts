@@ -1,6 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import type { PrismaClient } from './generated/prisma/client';
-import { getWalletMiningSnapshot } from './miningStore';
+import { getWalletMiningSnapshot, settleWalletMiningRates } from './miningStore';
+
+describe('settleWalletMiningRates', () => {
+  it('persists the fractional remainder in each settlement ledger entry', async () => {
+    const state = {
+      id: 'state-1', planetId: 'planet-1', ownerAddress: '0x0000000000000000000000000000000000000001',
+      startedAt: new Date('2026-08-10T00:00:00.000Z'), multiplierBps: 10_000, remainder: 0n,
+    };
+    const entries: Array<{ fractionalRemainder: bigint }> = [];
+    const transaction = {
+      planet: { findMany: async () => [{ id: 'planet-1', baseMineralsPerDay: 1n, planetType: 'GAIA' }] },
+      planetAccrualState: {
+        findMany: async () => [state],
+        update: async ({ data }: { data: Partial<typeof state> }) => Object.assign(state, data),
+      },
+      mineralLedgerEntry: { create: async ({ data }: { data: { fractionalRemainder: bigint } }) => entries.push(data) },
+    } as never;
+
+    await settleWalletMiningRates(transaction, state.ownerAddress, new Date('2026-08-10T00:00:00.001Z'));
+
+    expect(entries).toEqual([expect.objectContaining({ fractionalRemainder: 10_000_000_000n })]);
+    expect(state.remainder).toBe(10_000_000_000n);
+  });
+});
 
 describe('getWalletMiningSnapshot', () => {
   it('includes settled earnings from transferred Planets and pending earnings from current Planets', async () => {
