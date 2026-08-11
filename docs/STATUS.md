@@ -18,9 +18,8 @@ tests.
 It is not yet a releasable end-to-end testnet product. Historical V1 deployments are no
 longer part of the active product and the repository intentionally has no default
 MegaPlanets contract address. The checked-in contract, ABI, database model, and current
-product specification target an undeployed ERC721A V2. The API, database, and indexer also
-have no checked-in production deployment configuration or recorded successful chain
-rehearsal.
+product specification target the deployed seasonless ERC721A V2. The API, database, and
+indexer still have no checked-in runtime activation or production backfill configuration.
 
 ## Deployment identity record
 
@@ -37,13 +36,20 @@ OpenZeppelin `ERC721`; the current `contracts/src/MegaPlanets.sol` uses ERC721A 
 introduced after that deployment. This V1 address must never be assigned to an active V2
 configuration variable.
 
+The seasonless ERC721A V2 was deployed separately at
+`0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` by transaction
+`0xe29aa681e25ba222df04a1acdb2d2e48d2c47ac7cc1d46da0f2e8920ea9f9b6c` in block
+`45,347,860` on chain ID `84532`. The receipt succeeded, used `2,095,655` gas, and
+Sourcify reports an exact source match. Frontend and API runtime activation remain
+disabled pending indexer/E2E readiness and BaseScan verification.
+
 ## Layer-by-layer state
 
 | Layer | Implemented now | Readiness |
 | --- | --- | --- |
 | Megapot purchases | Direct 1-10 custom/quick-pick purchases, all-random keeper bulk orders for 11-50, exact USDC approvals, dynamic draw bounds, `MEGAPLANETS_V1`, and canonical `TicketPurchased` receipt decoding | Implemented and unit-tested; real wallet and keeper execution still need an end-to-end rehearsal |
 | Planet generator | DOM-free deterministic V3 generator, namespaced randomness, seasonless metadata, 128x128 GIF renderer, web worker, serialization/integrity checks, and regenerated golden fixtures | Complete local checkpoint; final art/economy parameters still require product sign-off |
-| Contract V2 | Seasonless ERC721A, sequential token IDs from 1, bidirectional ticket/Planet mappings, atomic batches up to 50, EIP-712 v2 vouchers, live ticket ownership checks, and Foundry unit/fuzz/invariant tests | Local checkpoint only; the known `0xa94b...d744` deployment is V1, and no V2 address or deployment block is recorded |
+| Contract V2 | Seasonless ERC721A, sequential token IDs from 1, bidirectional ticket/Planet mappings, atomic batches up to 50, EIP-712 v2 vouchers, live ticket ownership checks, and Foundry unit/fuzz/invariant tests | Deployed to Base Sepolia at `0x7a29...f9f2`; Sourcify exact match; BaseScan verification and runtime activation remain pending |
 | Voucher service | Hono endpoint validates the canonical purchase receipt, derives metadata, pins to Pinata, signs EIP-712 vouchers, caches results, and rate-limits/coalesces requests | Suitable for local/single-process use; production secrets, shared rate limiting, wallet authentication policy, and hosting are not complete |
 | PostgreSQL/indexer | Prisma migrations for tickets, vouchers, Planets, ownership, processed events, cursors, mining ledger, and leaderboard; separate finalized-log runner with bounded ranges and Planet-stream reorg detection | Implemented locally; no production database/backfill evidence, no indexer health endpoint, and rollback coverage is incomplete |
 | Mining | Lazy fixed-point accrual, immutable ledger segments, same-Type multipliers of 0/5/10/15%, per-Planet and wallet snapshots | Core calculations are tested; transfer/burn bonus recomputation and reorg rollback need correction before scores are authoritative |
@@ -66,11 +72,10 @@ configuration variable.
 
 ### P0 - required before another public testnet mint
 
-1. Deploy and verify the ERC721A V2 only after separate explicit broadcast approval.
-   The non-broadcast simulation is complete; record its address, deployment block, owner,
-   metadata signer, bytecode/ABI match, and transaction after deployment.
-2. Keep the active contract address unset until the V2 deployment gate passes, then update
-   frontend, API, indexer, and deployment-block configuration atomically.
+1. Complete BaseScan verification for the deployed ERC721A V2 and retain the deployment
+   receipt, source match, and constructor arguments as the deployment record.
+2. Keep the active contract address unset until the NFT indexer and E2E deployment gate
+   passes; then update frontend, API, indexer, and deployment-block configuration atomically.
 3. Deploy PostgreSQL, apply all Prisma migrations, configure the API and a long-running
    indexer, then backfill from the correct V2 deployment block.
 4. Run a controlled Base Sepolia rehearsal covering direct purchase, keeper bulk purchase,
@@ -121,6 +126,12 @@ The seasonless rewrite and pre-deployment checks completed on 2026-08-11:
   address is `0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2`; its preflight code is empty.
   Estimated deployment gas is `2,724,351`, or approximately `0.000029967861 ETH` at the
   simulated gas price. The deployer balance was `0.059719758516987409 ETH`.
+- Approved broadcast completed successfully at `0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2`,
+  transaction `0xe29aa681e25ba222df04a1acdb2d2e48d2c47ac7cc1d46da0f2e8920ea9f9b6c`,
+  block `45,347,860`, with `2,095,655` gas used. Read-only checks confirm code size
+  8,723 bytes, the approved owner/signer/ticket NFT, EIP-712 `MegaPlanets / 2`, and
+  `totalSupply() = 0`. Sourcify verification returned `exact_match`.
 
-No on-chain transaction has been broadcast by this task. The frontend and API V2 runtime
-address remain unset.
+The frontend and API V2 runtime address remain unset. BaseScan verification is the only
+remaining deployment-record check; no minting or other application transaction has been
+broadcast by this task.
