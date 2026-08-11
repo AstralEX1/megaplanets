@@ -12,9 +12,8 @@ MegaPlanets ERC721A V2 while runtime activation stays disabled.
 - Ticket source: `MEGAPLANETS_V1`
 - Ticket launch block: `44,997,183`
 - Sourcify status: `exact_match`
-- BaseScan status: pending until the local rehearsal environment provides
-  `BASESCAN_API_KEY`; that
-  pending/completed status alone does not authorize runtime activation
+- BaseScan status: verified on 2026-08-11 using the local gitignored rehearsal
+  environment; that status alone does not authorize runtime activation
 
 ## Exact commands
 
@@ -48,9 +47,8 @@ runtime until all of the following are true together:
 
 1. The deployment record above still matches on-chain owner, metadata signer,
    ticket NFT, bytecode, and ABI expectations.
-2. Sourcify evidence is retained and BaseScan verification has either completed
-   or is explicitly recorded as still pending because no session key was
-   available. BaseScan verification by itself never authorizes activation.
+2. Sourcify evidence is retained and BaseScan verification has completed.
+   BaseScan verification by itself never authorizes activation.
 3. Task 2 reorg-safe replay, Task 3 mining transition fixes, and Task 4 test
    coverage have passed.
 4. Task 5 rehearsal has backfilled a disposable PostgreSQL database, rerun

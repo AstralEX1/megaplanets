@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ -z "${BASESCAN_API_KEY:-}" ]]; then
-  echo 'Set BASESCAN_API_KEY in the session environment before running this script.' >&2
+  echo 'Set BASESCAN_API_KEY in the local environment before running this script.' >&2
   exit 1
 fi
 

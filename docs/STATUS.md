@@ -41,16 +41,15 @@ The seasonless ERC721A V2 was deployed separately at
 `0xe29aa681e25ba222df04a1acdb2d2e48d2c47ac7cc1d46da0f2e8920ea9f9b6c` in block
 `45,347,860` on chain ID `84532`. The receipt succeeded, used `2,095,655` gas, and
 Sourcify reports an exact source match. Frontend and API runtime activation remain
-disabled pending indexer/E2E readiness and BaseScan verification.
+disabled pending indexer/E2E readiness.
 
 The checked-in deployment/verification commands are:
 
 - `cd contracts && ./script/deploy-v2-approved.sh`
-- `cd contracts && BASESCAN_API_KEY=... ./script/verify-v2-basescan.sh`
+- `set -a; . .env.local; set +a; (cd contracts && ./script/verify-v2-basescan.sh)`
 
-BaseScan verification must be attempted only with `BASESCAN_API_KEY` loaded from
-the gitignored local `.env.local`; verification remains pending until that command
-has run successfully.
+BaseScan verification completed successfully with `BASESCAN_API_KEY` loaded from
+the gitignored local `.env.local`.
 BaseScan verification by itself does not authorize runtime activation. The runtime
 activation gate remains env-only: do not check in defaults, and do not set frontend
 `VITE_MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` plus
@@ -65,7 +64,7 @@ pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 | --- | --- | --- |
 | Megapot purchases | Direct 1-10 custom/quick-pick purchases, all-random keeper bulk orders for 11-50, exact USDC approvals, dynamic draw bounds, `MEGAPLANETS_V1`, and canonical `TicketPurchased` receipt decoding | Implemented and unit-tested; real wallet and keeper execution still need an end-to-end rehearsal |
 | Planet generator | DOM-free deterministic V3 generator, namespaced randomness, seasonless metadata, 128x128 GIF renderer, web worker, serialization/integrity checks, and regenerated golden fixtures | Complete local checkpoint; final art/economy parameters still require product sign-off |
-| Contract V2 | Seasonless ERC721A, sequential token IDs from 1, bidirectional ticket/Planet mappings, atomic batches up to 50, EIP-712 v2 vouchers, live ticket ownership checks, and Foundry unit/fuzz/invariant tests | Deployed to Base Sepolia at `0x7a29...f9f2`; Sourcify exact match; BaseScan verification and runtime activation remain pending |
+| Contract V2 | Seasonless ERC721A, sequential token IDs from 1, bidirectional ticket/Planet mappings, atomic batches up to 50, EIP-712 v2 vouchers, live ticket ownership checks, and Foundry unit/fuzz/invariant tests | Deployed to Base Sepolia at `0x7a29...f9f2`; Sourcify exact match; BaseScan verified; runtime activation remains pending |
 | Voucher service | Hono endpoint validates the canonical purchase receipt, derives metadata, pins to Pinata, signs EIP-712 vouchers, caches results, and rate-limits/coalesces requests | Suitable for local/single-process use; production secrets, shared rate limiting, wallet authentication policy, and hosting are not complete |
 | PostgreSQL/indexer | Prisma migrations for tickets, vouchers, Planets, ownership, processed events, cursors, mining ledger, and leaderboard; separate finalized-log runner with bounded ranges and Planet-stream reorg detection | Implemented locally; no production database/backfill evidence, no indexer health endpoint, and rollback coverage is incomplete |
 | Mining | Lazy fixed-point accrual, immutable ledger segments, same-Type multipliers of 0/5/10/15%, per-Planet and wallet snapshots | Core calculations are tested; transfer/burn bonus recomputation and reorg rollback need correction before scores are authoritative |
@@ -148,7 +147,7 @@ The seasonless rewrite and pre-deployment checks completed on 2026-08-11:
   8,723 bytes, the approved owner/signer/ticket NFT, EIP-712 `MegaPlanets / 2`, and
   `totalSupply() = 0`. Sourcify verification returned `exact_match`.
 
-The frontend and backend V2 runtime envs remain unset. BaseScan verification is still
-pending in sessions without `BASESCAN_API_KEY`, and even a successful BaseScan check does
-not by itself authorize activation before the rehearsal gate passes. No minting or other
+The frontend and backend V2 runtime envs remain unset. BaseScan verification completed,
+and even a successful BaseScan check does not by itself authorize activation before the
+rehearsal gate passes. No minting or other
 application transaction has been broadcast by this task.

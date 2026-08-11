@@ -35,14 +35,13 @@ The active seasonless ERC721A V2 deployment record is Base Sepolia contract
 `45,347,860`, with Sourcify `exact_match`. The exact script commands are:
 
 - `cd contracts && ./script/deploy-v2-approved.sh`
-- `cd contracts && BASESCAN_API_KEY=... ./script/verify-v2-basescan.sh`
+- `set -a; . .env.local; set +a; (cd contracts && ./script/verify-v2-basescan.sh)`
 
-The verification script must only run when the current session already provides
-`BASESCAN_API_KEY`; otherwise it exits without attempting a network verification.
+The verification script must only run when the local gitignored `.env.local`
+provides `BASESCAN_API_KEY`; otherwise it exits without attempting a network
+verification.
 
-BaseScan remains pending in any session that does not already provide
-`BASESCAN_API_KEY`, and BaseScan verification by itself does not authorize runtime
-activation.
+BaseScan verification by itself does not authorize runtime activation.
 
 The API must continue to fail closed by default. Do not add checked-in runtime defaults
 for V2 activation. Only after the full rehearsal gate passes may runtime env activate V2

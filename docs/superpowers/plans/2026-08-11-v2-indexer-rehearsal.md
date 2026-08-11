@@ -29,8 +29,8 @@ rehearsal gates pass.
 ### Task 1: Deployment closure and durable documentation
 
 Reconcile the committed deployment scripts, Base Sepolia deployment identity,
-Sourcify evidence, and BaseScan-pending status. Attempt BaseScan verification only
-when a session-provided API key is available. Document the exact commands and
+Sourcify evidence, and BaseScan status. Attempt BaseScan verification only when
+the local gitignored `.env.local` provides an API key. Document the exact commands and
 runtime activation gate in this plan, `docs/STATUS.md`, `api/README.md`, and the
 appropriate runbook.
 
