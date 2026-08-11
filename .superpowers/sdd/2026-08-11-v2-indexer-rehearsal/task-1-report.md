@@ -53,7 +53,7 @@ sed -n '1,220p' api/README.md
 sed -n '1,220p' contracts/README.md
 sed -n '1,220p' contracts/script/deploy-v2-approved.sh
 sed -n '1,220p' contracts/script/verify-v2-basescan.sh
-printenv | rg '^BASESCAN(_API_KEY)?='
+if [[ -n "${BASESCAN_API_KEY+x}" ]]; then echo BASESCAN_API_KEY_PRESENT; else echo BASESCAN_API_KEY_ABSENT; fi
 sed -n '68,140p' .env.example
 sed -n '1,140p' api/config.ts
 sed -n '140,210p' src/config/contracts.ts
@@ -73,8 +73,9 @@ git diff --stat
 
 ## Command output highlights
 
-- `printenv | rg '^BASESCAN(_API_KEY)?='` returned no matches, so no live
-  BaseScan verification attempt was made.
+- `if [[ -n "${BASESCAN_API_KEY+x}" ]]; then echo BASESCAN_API_KEY_PRESENT; else echo BASESCAN_API_KEY_ABSENT; fi`
+  returned `BASESCAN_API_KEY_ABSENT`, so no live BaseScan verification attempt
+  was made.
 - `bash -n contracts/script/deploy-v2-approved.sh contracts/script/verify-v2-basescan.sh`
   exited `0`.
 - `git diff --check` exited `0`.
@@ -102,3 +103,56 @@ git diff --stat
 2. `docs/superpowers/plans/2026-08-11-v2-indexer-rehearsal.md` was already
    untracked when this task began; it was updated in place because Task 1
    explicitly required the plan document to carry the command/gate record.
+
+## Fix round 1 report
+
+### Scope
+
+Addressed review findings limited to Task 1:
+
+1. aligned the activation gate wording across `api/README.md`,
+   `docs/STATUS.md`, and `docs/V2_INDEXER_REHEARSAL_RUNBOOK.md`;
+2. removed the unsafe `printenv`-based procedure from this report and replaced
+   it with a presence-only check; and
+3. updated stale audit wording in `docs/STATUS.md`.
+
+### Changed files
+
+- `api/README.md`
+- `docs/STATUS.md`
+- `docs/V2_INDEXER_REHEARSAL_RUNBOOK.md`
+- `.superpowers/sdd/2026-08-11-v2-indexer-rehearsal/task-1-report.md`
+
+### Commands run
+
+```sh
+sed -n '1,220p' api/README.md
+sed -n '1,240p' docs/STATUS.md
+sed -n '1,240p' docs/V2_INDEXER_REHEARSAL_RUNBOOK.md
+sed -n '1,260p' .superpowers/sdd/2026-08-11-v2-indexer-rehearsal/task-1-report.md
+bash -n contracts/script/deploy-v2-approved.sh contracts/script/verify-v2-basescan.sh
+git diff --check
+if [[ -n "${BASESCAN_API_KEY+x}" ]]; then echo BASESCAN_API_KEY_PRESENT; else echo BASESCAN_API_KEY_ABSENT; fi
+rg -n "VITE_MEGAPLANETS_CONTRACT_ADDRESS|MEGAPLANETS_CONTRACT_ADDRESS|MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860|MEGAPLANETS_LAUNCH_BLOCK=44997183|TICKET_SOURCE=MEGAPLANETS_V1|BaseScan verification by itself" api/README.md docs/STATUS.md docs/V2_INDEXER_REHEARSAL_RUNBOOK.md
+```
+
+### Output highlights
+
+- `bash -n contracts/script/deploy-v2-approved.sh contracts/script/verify-v2-basescan.sh`
+  exited `0`.
+- `git diff --check` exited `0`.
+- `if [[ -n "${BASESCAN_API_KEY+x}" ]]; then echo BASESCAN_API_KEY_PRESENT; else echo BASESCAN_API_KEY_ABSENT; fi`
+  returned `BASESCAN_API_KEY_ABSENT`.
+- The final `rg -n ...` check confirmed all three docs now mention:
+  - frontend `VITE_MEGAPLANETS_CONTRACT_ADDRESS`;
+  - backend `MEGAPLANETS_CONTRACT_ADDRESS`;
+  - `MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860`;
+  - `MEGAPLANETS_LAUNCH_BLOCK=44997183`;
+  - `TICKET_SOURCE=MEGAPLANETS_V1`; and
+  - the rule that BaseScan verification by itself does not authorize
+    activation.
+
+### Concerns
+
+BaseScan verification is still pending because this Tuesday, August 11, 2026
+session does not provide `BASESCAN_API_KEY`.

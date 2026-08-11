@@ -40,10 +40,16 @@ The active seasonless ERC721A V2 deployment record is Base Sepolia contract
 The verification script must only run when the current session already provides
 `BASESCAN_API_KEY`; otherwise it exits without attempting a network verification.
 
+BaseScan remains pending in any session that does not already provide
+`BASESCAN_API_KEY`, and BaseScan verification by itself does not authorize runtime
+activation.
+
 The API must continue to fail closed by default. Do not add checked-in runtime defaults
-for V2 activation. Only after the rehearsal gate passes may runtime env set
-`MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` and
-`MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` together, while leaving
+for V2 activation. Only after the full rehearsal gate passes may runtime env activate V2
+by setting the frontend env `VITE_MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2`
+and the backend envs
+`MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` plus
+`MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` together, while keeping
 `MEGAPLANETS_LAUNCH_BLOCK=44997183` and `TICKET_SOURCE=MEGAPLANETS_V1` unchanged.
 
 ## Production limitations

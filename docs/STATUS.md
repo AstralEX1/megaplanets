@@ -1,6 +1,6 @@
 # Development Status
 
-Last audited: 2026-08-11 at commit `e0e0e1a` (`main`).
+Last updated: 2026-08-11. The historical full-audit baseline was commit `e0e0e1a` (`main`).
 
 This document is the current implementation snapshot. Product intent remains in
 [`PRODUCT_SPEC.md`](./PRODUCT_SPEC.md), architectural boundaries remain in
@@ -49,11 +49,14 @@ The checked-in deployment/verification commands are:
 - `cd contracts && BASESCAN_API_KEY=... ./script/verify-v2-basescan.sh`
 
 BaseScan verification must be attempted only from a session that already provides
-`BASESCAN_API_KEY`; this audit session did not include that key, so BaseScan remains
-pending. The runtime activation gate remains env-only: do not check in defaults, and do
-not set `VITE_MEGAPLANETS_CONTRACT_ADDRESS`, `MEGAPLANETS_CONTRACT_ADDRESS`, or
+`BASESCAN_API_KEY`; this session did not include that key, so BaseScan remains pending.
+BaseScan verification by itself does not authorize runtime activation. The runtime
+activation gate remains env-only: do not check in defaults, and do not set frontend
+`VITE_MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` plus
+backend `MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` and
 `MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` until the V2 indexer rehearsal gates
-pass together.
+pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
+`TICKET_SOURCE=MEGAPLANETS_V1` unchanged.
 
 ## Layer-by-layer state
 
@@ -144,6 +147,7 @@ The seasonless rewrite and pre-deployment checks completed on 2026-08-11:
   8,723 bytes, the approved owner/signer/ticket NFT, EIP-712 `MegaPlanets / 2`, and
   `totalSupply() = 0`. Sourcify verification returned `exact_match`.
 
-The frontend and API V2 runtime address remain unset. BaseScan verification is the only
-remaining deployment-record check; no minting or other application transaction has been
-broadcast by this task.
+The frontend and backend V2 runtime envs remain unset. BaseScan verification is still
+pending in sessions without `BASESCAN_API_KEY`, and even a successful BaseScan check does
+not by itself authorize activation before the rehearsal gate passes. No minting or other
+application transaction has been broadcast by this task.
