@@ -43,6 +43,18 @@ The seasonless ERC721A V2 was deployed separately at
 Sourcify reports an exact source match. Frontend and API runtime activation remain
 disabled pending indexer/E2E readiness and BaseScan verification.
 
+The checked-in deployment/verification commands are:
+
+- `cd contracts && ./script/deploy-v2-approved.sh`
+- `cd contracts && BASESCAN_API_KEY=... ./script/verify-v2-basescan.sh`
+
+BaseScan verification must be attempted only from a session that already provides
+`BASESCAN_API_KEY`; this audit session did not include that key, so BaseScan remains
+pending. The runtime activation gate remains env-only: do not check in defaults, and do
+not set `VITE_MEGAPLANETS_CONTRACT_ADDRESS`, `MEGAPLANETS_CONTRACT_ADDRESS`, or
+`MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` until the V2 indexer rehearsal gates
+pass together.
+
 ## Layer-by-layer state
 
 | Layer | Implemented now | Readiness |

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-printf 'BASESCAN_API_KEY (hidden): '
-read -r -s BASESCAN_API_KEY
-printf '\n'
+if [[ -z "${BASESCAN_API_KEY:-}" ]]; then
+  echo 'Set BASESCAN_API_KEY in the session environment before running this script.' >&2
+  exit 1
+fi
 
 cd "$(dirname "$0")/.."
 ARGS=$(cast abi-encode \

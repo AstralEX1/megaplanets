@@ -3,7 +3,8 @@
 # MegaPlanets contracts
 
 `MegaPlanets` is the ERC721A-based V2 implementation prepared for a clean Base
-Sepolia deployment. It is not deployed as of the current repository audit.
+Sepolia deployment. The approved V2 broadcast has already been recorded on Base
+Sepolia and remains runtime-gated until the indexer rehearsal passes.
 
 Historical V1 deployments are no longer supported or configured. Their source is retained
 as `src/MegaPlanetsV1.sol` only to explain old testnet data during migration; all new work
@@ -16,6 +17,14 @@ was deployed successfully at block `44,999,871` by transaction
 but its runtime is V1: it exposes `mintSpecial`/`SPECIAL_TOKEN_PREFIX` and lacks the V2
 `totalSupply` and ticket-to-Planet mapping selectors. Never configure this address as V2.
 
+The seasonless ERC721A V2 is deployed at
+[`0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2`](https://sepolia.basescan.org/address/0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2)
+by transaction
+[`0xe29aa681e25ba222df04a1acdb2d2e48d2c47ac7cc1d46da0f2e8920ea9f9b6c`](https://sepolia.basescan.org/tx/0xe29aa681e25ba222df04a1acdb2d2e48d2c47ac7cc1d46da0f2e8920ea9f9b6c)
+in block `45,347,860` on chain ID `84532`. Sourcify reports an exact source
+match. BaseScan verification remains pending and must be attempted only from a
+session that already provides `BASESCAN_API_KEY`.
+
 ## Local commands
 
 ```sh
@@ -25,11 +34,20 @@ forge build
 forge inspect MegaPlanets abi --json > abi/MegaPlanets.json
 ```
 
+The deployment record in this repository comes from these exact commands:
+
+```sh
+cd contracts
+./script/deploy-v2-approved.sh
+BASESCAN_API_KEY=... ./script/verify-v2-basescan.sh
+```
+
 The pinned dependencies are OpenZeppelin Contracts, ERC721A v4.3.0, and
 forge-std v1.16.2. `abi/MegaPlanets.json` is generated from the V2 contract
 with Foundry. Regenerate it after every public interface change. The deployment
-script is preparation-only; do not use `--broadcast` without explicit
-authorization.
+script is the recorded approved broadcast path; do not rerun `--broadcast`
+without explicit authorization. The verification script now fails closed unless
+`BASESCAN_API_KEY` is already present in the current session environment.
 
 ## V2 voucher API
 
@@ -69,4 +87,8 @@ Before configuring any V2 address, record and verify all of the following togeth
 - matching frontend, API, and indexer configuration.
 
 Until that gate passes, `VITE_MEGAPLANETS_CONTRACT_ADDRESS` and the server-side contract
-address/deployment block must remain unset.
+address/deployment block must remain unset. Runtime activation is by environment
+only: set `VITE_MEGAPLANETS_CONTRACT_ADDRESS`,
+`MEGAPLANETS_CONTRACT_ADDRESS`, and `MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860`
+together only after the rehearsal runbook says the gate has passed. Never check
+those values in as defaults.

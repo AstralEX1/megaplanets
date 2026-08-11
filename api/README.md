@@ -27,6 +27,25 @@ This directory contains the current server-side boundary:
 server does not start it. Leaderboard finalization currently runs lazily from leaderboard
 read routes; production should move this responsibility to an explicit operations job.
 
+## V2 deployment closure and runtime gate
+
+The active seasonless ERC721A V2 deployment record is Base Sepolia contract
+`0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2`, transaction
+`0xe29aa681e25ba222df04a1acdb2d2e48d2c47ac7cc1d46da0f2e8920ea9f9b6c`, block
+`45,347,860`, with Sourcify `exact_match`. The exact script commands are:
+
+- `cd contracts && ./script/deploy-v2-approved.sh`
+- `cd contracts && BASESCAN_API_KEY=... ./script/verify-v2-basescan.sh`
+
+The verification script must only run when the current session already provides
+`BASESCAN_API_KEY`; otherwise it exits without attempting a network verification.
+
+The API must continue to fail closed by default. Do not add checked-in runtime defaults
+for V2 activation. Only after the rehearsal gate passes may runtime env set
+`MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` and
+`MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` together, while leaving
+`MEGAPLANETS_LAUNCH_BLOCK=44997183` and `TICKET_SOURCE=MEGAPLANETS_V1` unchanged.
+
 ## Production limitations
 
 The file store is appropriate only for one local process. Production requires PostgreSQL,
