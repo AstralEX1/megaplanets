@@ -30,13 +30,12 @@
 
 ## Planet identity
 
-Season 1 uses one canonical generator whose seed is:
+V2 uses one canonical generator whose seed is:
 
 ```text
 keccak256(
   abi.encode(
     uint16 generatorVersion,
-    bytes32 seasonId,
     uint256 ticketId,
     uint256 drawingId,
     uint8[5] sortedNormals,
@@ -53,7 +52,7 @@ test vectors lock seed, traits hash, metadata JSON, and GIF output.
 
 ## Metadata, minerals, and rarity
 
-Regular Planet metadata exposes Name, Type, Satellites, Minerals, Rarity, Season, and Seed
+Regular Planet metadata exposes Name, Type, Satellites, Minerals, Rarity, and Seed
 in that order, with ticket ID, drawing ID, and origin transaction hash retained as audit
 provenance. The generator configuration determines immutable base `mineralsPerDay` and
 rarity. Rarity is descriptive and does not create a separate production multiplier.

@@ -19,7 +19,7 @@ vi.mock('wagmi', () => ({
   }),
 }));
 vi.mock('@megaplanets/planet-generator', () => ({
-  createSeason1Config: () => ({}),
+  createPlanetConfig: () => ({}),
   derivePlanetPreview: ({ ticketId, drawingId }: { ticketId: bigint; drawingId: bigint }) => ({
     descriptor: {
       input: { ticketId, drawingId },

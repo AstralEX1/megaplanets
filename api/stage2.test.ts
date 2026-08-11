@@ -59,7 +59,6 @@ describe('Stage 2 wallet authentication and Planet API', () => {
       ticketId: '456',
       ownerAddress: account.address.toLowerCase() as `0x${string}`,
       kind: 'NORMAL',
-      seasonId: `0x${'ee'.repeat(32)}`,
       seed: `0x${'aa'.repeat(32)}`,
       traitsHash: `0x${'bb'.repeat(32)}`,
       metadataHash: `0x${'cc'.repeat(32)}`,

@@ -1,4 +1,4 @@
-import { getAddress, stringToHex, type Address, type Hex } from 'viem';
+import { getAddress, stringToHex, type Address } from 'viem';
 import type { PrismaClient } from './generated/prisma/client';
 import { BASE_SEPOLIA_CHAIN_ID, MEGAPLANETS_SOURCE } from './config';
 import { BASE_SEPOLIA_JACKPOT } from './eligibility';
@@ -136,9 +136,9 @@ export class PrismaEligibilityStore implements EligibilityStore {
     });
   }
 
-  async getSnapshot(seasonId: Hex, blockNumber: bigint): Promise<DailySnapshot | undefined> {
+  async getSnapshot(blockNumber: bigint): Promise<DailySnapshot | undefined> {
     const record = await this.prisma.dailySnapshotRecord.findUnique({
-      where: { seasonId_blockNumber: { seasonId: seasonId.toLowerCase(), blockNumber } },
+      where: { blockNumber },
     });
     return record ? deserializeDailySnapshot(record.snapshot as PersistedSnapshot) : undefined;
   }
@@ -146,7 +146,6 @@ export class PrismaEligibilityStore implements EligibilityStore {
   async saveSnapshot(snapshot: DailySnapshot): Promise<void> {
     await this.prisma.dailySnapshotRecord.create({
       data: {
-        seasonId: snapshot.seasonId.toLowerCase(),
         blockNumber: snapshot.blockNumber,
         snapshot: jsonValue(serializeDailySnapshot(snapshot)),
         capturedAt: new Date(snapshot.capturedAt),

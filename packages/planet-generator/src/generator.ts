@@ -2,13 +2,13 @@ import { keccak256, stringToHex } from 'viem';
 import { namedRandom } from './generator-random';
 import { deepFreeze } from './immutable';
 import { normalizePlanetInput } from './input';
-import { validateSeasonConfig } from './season-config';
+import { validatePlanetConfig } from './planet-config';
 import { derivePlanetSeed } from './seed';
 import type {
   PlanetDescriptor,
   PlanetInput,
   PlanetRarity,
-  SeasonConfig,
+  PlanetConfig,
   TypeConfig,
   TypePalette,
 } from './types';
@@ -208,7 +208,7 @@ function getRequired<T>(items: readonly T[], index: number, label: string): T {
   return value;
 }
 
-export function getTypeProfile(config: SeasonConfig, bonusBall: number) {
+export function getTypeProfile(config: PlanetConfig, bonusBall: number) {
   if (!Number.isInteger(bonusBall) || bonusBall < 1 || bonusBall > 255)
     throw new RangeError('bonusBall must be an integer between 1 and 255.');
   if (config.typeWeightProfiles.length === 0) {
@@ -351,7 +351,7 @@ export function derivePlanetName(seed: `0x${string}`): string {
 
 function deriveMinerals(
   seed: `0x${string}`,
-  config: SeasonConfig,
+  config: PlanetConfig,
 ): { rarity: PlanetRarity; minerals: number } {
   const rng = namedRandom(seed, 'minerals');
   const rarity = getRequired(
@@ -370,13 +370,10 @@ function deriveMinerals(
   };
 }
 
-/** Derives pure Season 1 metadata traits without rendering a frame or GIF. */
-export function derivePlanet(input: PlanetInput, config: SeasonConfig): PlanetDescriptor {
-  validateSeasonConfig(config);
+/** Derives pure deterministic metadata traits without rendering a frame or GIF. */
+export function derivePlanet(input: PlanetInput, config: PlanetConfig): PlanetDescriptor {
+  validatePlanetConfig(config);
   const normalized = normalizePlanetInput(input);
-  if (normalized.seasonId.toLowerCase() !== config.seasonId.toLowerCase()) {
-    throw new RangeError('input seasonId must match the Season configuration.');
-  }
 
   const seed = derivePlanetSeed(normalized);
   const typeProfile = getTypeProfile(config, normalized.bonusBall);
@@ -398,7 +395,6 @@ export function derivePlanet(input: PlanetInput, config: SeasonConfig): PlanetDe
     hasRing: satellite.hasRing,
     minerals: mineralResult.minerals,
     rarity: mineralResult.rarity,
-    season: config.season,
     specialEditionId: null,
   } as const;
   const canonicalTraitsJson = JSON.stringify(traits);

@@ -2,18 +2,18 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { sha256, toHex } from 'viem';
 import {
-  createSeason1Config,
+  createPlanetConfig,
   derivePlanetPreview,
   GENERATOR_CONFIG,
   renderPlanetFrame,
   renderPlanetGif,
   serializePlanetInput,
 } from '../src';
-import { GOLDEN_VECTORS, SEASON_ID } from '../tests/golden-vectors';
+import { GOLDEN_VECTORS } from '../tests/golden-vectors';
 
 const fixtureDirectory = fileURLToPath(new URL('../tests/fixtures/', import.meta.url));
 await mkdir(fixtureDirectory, { recursive: true });
-const config = createSeason1Config(SEASON_ID);
+const config = createPlanetConfig();
 const manifest = [];
 
 for (const vector of GOLDEN_VECTORS) {

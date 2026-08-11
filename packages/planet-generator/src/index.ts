@@ -28,12 +28,12 @@ export {
   PALETTE_TYPES,
 } from './render-config';
 export {
-  createSeason1Config,
-  SEASON_1_RARITY_CONFIG,
-  SEASON_1_TYPE_WEIGHT_PROFILES,
-  SEASON_1_TYPES,
-  validateSeasonConfig,
-} from './season-config';
+  createPlanetConfig,
+  PLANET_RARITY_CONFIG,
+  PLANET_TYPE_WEIGHT_PROFILES,
+  PLANET_TYPE_CONFIGS,
+  validatePlanetConfig,
+} from './planet-config';
 export { derivePlanetSeed } from './seed';
 export {
   deserializePlanetDescriptor,
@@ -51,7 +51,7 @@ export type {
   PlanetTraits,
   RarityConfig,
   SatelliteDistribution,
-  SeasonConfig,
+  PlanetConfig,
   SerializedPlanetInput,
   TerrainMode,
   TypeConfig,

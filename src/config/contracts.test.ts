@@ -5,6 +5,7 @@ import {
   DEFAULT_REFERRER_ADDRESS,
   EXPLORER_NFT_URL,
   LP_ENABLED,
+  MEGAPLANETS_CONTRACT_ADDRESS,
   parseChainName,
   REFERRAL_SPLIT_FULL,
   REFERRER_ADDRESS,
@@ -34,6 +35,10 @@ describe('MegaPlanets protocol invariants', () => {
 
   it('uses the approved public MegaPlanets referrer by default', () => {
     expect(REFERRER_ADDRESS).toBe(DEFAULT_REFERRER_ADDRESS);
+  });
+
+  it('does not fall back to a historical Planet contract deployment', () => {
+    expect(MEGAPLANETS_CONTRACT_ADDRESS).toBeUndefined();
   });
 
   it('keeps the LP surface disabled for the MVP', () => {

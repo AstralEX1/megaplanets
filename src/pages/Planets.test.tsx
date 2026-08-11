@@ -135,7 +135,7 @@ vi.mock('@megaplanets/planet-generator', () => ({
     visual: { input: { ticketId }, traits: { hasClouds: true } },
   }),
 }));
-vi.mock('@/config/planetSeason', () => ({ PLANET_SEASON: { seasonId: '0x01' } }));
+vi.mock('@/config/planetConfig', () => ({ PLANET_CONFIG: {} }));
 vi.mock('@/hooks/useEligiblePlanetTickets', () => ({
   useEligiblePlanetTickets: () => ({ tickets: state.tickets, isLoading: false }),
 }));
@@ -319,7 +319,7 @@ describe('Planets', () => {
     expect(screen.getByRole('button', { name: 'Reveal all (18)' })).toBeInTheDocument();
   });
 
-  it('preserves the selected planet while sorting and uses its canonical explorer inputs', () => {
+  it('preserves the selected planet while sorting and uses available canonical explorer inputs', () => {
     render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
 
     screen.getByRole('button', { name: 'Select Kepler' }).click();
@@ -331,10 +331,8 @@ describe('Planets', () => {
       'href',
       `https://sepolia.basescan.org/tx/0x${'1'.repeat(64)}`,
     );
-    expect(screen.getByRole('link', { name: 'NFT BaseScan' })).toHaveAttribute(
-      'href',
-      expect.stringMatching(/\/7$/),
-    );
+    expect(screen.getByText('NFT BaseScan unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'NFT BaseScan' })).not.toBeInTheDocument();
   });
 
   it('opens the full-page detail route when a revealed card is tapped on mobile', () => {

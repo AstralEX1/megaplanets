@@ -12,7 +12,6 @@ The seed is the Keccak-256 hash of standard Solidity ABI encoding:
 keccak256(
   abi.encode(
     uint16(generatorVersion),
-    bytes32(seasonId),
     uint256(ticketId),
     uint256(drawingId),
     uint8[5](ascendingNormals),
@@ -22,7 +21,7 @@ keccak256(
 )
 ```
 
-`seasonId` and `originTxHash` must be 32-byte hex values. IDs are positive `uint256`
+`originTxHash` must be a 32-byte hex value. IDs are positive `uint256`
 values. Five unique `uint8` normal balls are sorted before encoding. `drawingId` is
 identity only and never caps minerals or rarity; `ticketId` keeps tickets from one batch
 distinct. Named random streams isolate name, Type, terrain, satellites, minerals, and
@@ -30,7 +29,7 @@ visual decisions.
 
 ## Traits and metadata
 
-The ten Season 1 Types are Nebula, Desert, Triplex, Toxic, Void, Gaia, Volcanic, Gas
+The ten Planet Types are Nebula, Desert, Triplex, Toxic, Void, Gaia, Volcanic, Gas
 Giant, Rocky, and Oceanic. Each immutable `TypeVisualProfile` stores the deterministic
 palette variants, terrain weights, clouds, satellites, size, and rotation constraints
 for exactly one Type. Bonus balls select cyclic profiles in Type-roster order: the
@@ -44,7 +43,7 @@ catalogue suffix. They are not selected from a finite list. Regular procedural p
 always contain `specialEditionId: null`.
 
 Public metadata attributes are ordered exactly as Name, Type, Satellites, Minerals,
-Rarity, Season, Seed. The public `Season` value is the number `1`. Ticket ID, drawing ID, origin transaction hash, season ID,
+Rarity, Seed. Ticket ID, drawing ID, and origin transaction hash,
 and traits hash remain audit provenance outside the public attribute list. `Satellites`
 is always the numeric number of rendered satellite sprites. For a ring, it is the
 number of rendered ring particles; the `hasRing` flag remains an internal canonical
@@ -79,7 +78,7 @@ The visual layer supports simplex, ridged, domain-warped, striped, and gradation
 Pure extension samplers add turbulence, banded, cratered, ocean-current, cellular, and
 polar-cap modes. Lab uses the same weighted Type profile as canonical previews, so it
 can show every valid terrain variation instead of a fixed first mode. New palette and
-terrain behavior belongs in immutable Season configuration and requires reviewed golden
+terrain behavior belongs in immutable Planet configuration and requires reviewed golden
 outputs.
 
 ## Integration and verification

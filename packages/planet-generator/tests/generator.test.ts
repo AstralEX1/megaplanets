@@ -4,7 +4,7 @@ import { sha256, toHex } from 'viem';
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildPlanetMetadata,
-  createSeason1Config,
+  createPlanetConfig,
   createTerrainNoiseSampler,
   deriveOriginalCavityColors,
   derivePlanet,
@@ -21,12 +21,12 @@ import {
   normalizePlanetInput,
   renderPlanetFrame,
   renderPlanetGif,
-  SEASON_1_RARITY_CONFIG,
-  SEASON_1_TYPE_WEIGHT_PROFILES,
-  SEASON_1_TYPES,
+  PLANET_RARITY_CONFIG,
+  PLANET_TYPE_WEIGHT_PROFILES,
+  PLANET_TYPE_CONFIGS,
   serializePlanetDescriptor,
   serializePlanetInput,
-  validateSeasonConfig,
+  validatePlanetConfig,
 } from '../src';
 import { GOLDEN_VECTORS } from './golden-vectors';
 
@@ -85,13 +85,11 @@ function inspectGif(bytes: Uint8Array) {
   return { width, height, frames, durationMs, repeat };
 }
 
-const SEASON_ID = '0xee23bca2927e52eeb944320241d7a6e41726dcb3f169d972044bdafe95b4b15b' as const;
 const ORIGIN_A = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as const;
 const ORIGIN_B = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as const;
 
-const CONFIG = createSeason1Config(SEASON_ID);
+const CONFIG = createPlanetConfig();
 const INPUT = {
-  seasonId: SEASON_ID,
   ticketId: 456n,
   drawingId: 123n,
   normals: [29, 7, 22, 2, 14],
@@ -103,53 +101,50 @@ describe('generator canonical seed', () => {
   it('normalizes normals and ABI-encodes all identity inputs', () => {
     expect(normalizePlanetInput(INPUT).normals).toEqual([2, 7, 14, 22, 29]);
     expect(derivePlanetSeed(INPUT)).toBe(
-      '0x36516ec3b920e0904c2f3a39c637c9b1522fafc1d066e4e11e8461fdf127bcfa',
+      '0x278d8d88d58248dd1db8a97efb860b26eb670b532f73fac2df2421479b76731e',
     );
     expect(derivePlanetSeed({ ...INPUT, normals: [2, 7, 14, 22, 29] })).toBe(
-      '0x36516ec3b920e0904c2f3a39c637c9b1522fafc1d066e4e11e8461fdf127bcfa',
+      '0x278d8d88d58248dd1db8a97efb860b26eb670b532f73fac2df2421479b76731e',
     );
     expect(derivePlanetSeed({ ...INPUT, originTxHash: ORIGIN_B })).toBe(
-      '0x138e822d43d5bc3d500b7bbeb925a58934b19de7039bc5bd3e1f866ecffe446f',
+      '0xaefff91061635db3f689a67a8f41debc2ae684eb7515066141f45a9b6f8abb56',
     );
     expect(derivePlanetSeed({ ...INPUT, ticketId: 457n })).toBe(
-      '0x3967c7d1faabb0f8d752cae62f8cfcc9233c4434c4bbb08d580c321d690d2bc9',
+      '0x6bd7f12837b50602a3a339a4930ac93d32ec2879986e1567a2b22bf1396a6ad4',
     );
   });
 
   it('rejects invalid bytes32 and canonical input', () => {
     expect(() => normalizePlanetInput({ ...INPUT, originTxHash: '0x1234' })).toThrow(/bytes32/);
-    expect(() => normalizePlanetInput({ ...INPUT, seasonId: '0x1234' })).toThrow(/bytes32/);
     expect(() => normalizePlanetInput({ ...INPUT, normals: [2, 2, 14, 22, 29] })).toThrow(/unique/);
   });
 
   it('canonicalizes bytes32 casing and drops unexpected runtime input properties', () => {
     const normalized = normalizePlanetInput({
       ...INPUT,
-      seasonId: SEASON_ID.toUpperCase().replace('0X', '0x') as `0x${string}`,
       originTxHash: ORIGIN_A.toUpperCase().replace('0X', '0x') as `0x${string}`,
       injected: 'not-canonical',
     } as unknown as typeof INPUT);
-    expect(normalized.seasonId).toBe(SEASON_ID);
     expect(normalized.originTxHash).toBe(ORIGIN_A);
     expect('injected' in normalized).toBe(false);
   });
 });
 
-describe('generator Season 1 traits', () => {
+describe('generator Planet traits', () => {
   it('gives the bonus-ball Type 55% weight and every other Type 5%', () => {
     for (let bonusBall = 1; bonusBall <= 24; bonusBall += 1) {
       const profile = getTypeProfile(CONFIG, bonusBall);
       expect(profile).toBe(
-        SEASON_1_TYPE_WEIGHT_PROFILES[(bonusBall - 1) % SEASON_1_TYPE_WEIGHT_PROFILES.length],
+        PLANET_TYPE_WEIGHT_PROFILES[(bonusBall - 1) % PLANET_TYPE_WEIGHT_PROFILES.length],
       );
       expect(profile.weights.filter((weight) => weight === 55)).toHaveLength(1);
       expect(profile.weights.filter((weight) => weight === 5)).toHaveLength(9);
     }
   });
 
-  it('rejects Type profile weight drift and validates Season 1 rarity configuration', () => {
+  it('rejects Type profile weight drift and validates Planet rarity configuration', () => {
     expect(() =>
-      validateSeasonConfig({
+      validatePlanetConfig({
         ...CONFIG,
         typeWeightProfiles: CONFIG.typeWeightProfiles.map((profile, index) =>
           index === 0 ? { ...profile, weights: [55, 6, 5, 5, 5, 5, 5, 5, 5, 4] } : profile,
@@ -157,7 +152,7 @@ describe('generator Season 1 traits', () => {
       }),
     ).toThrow(/matching Type 55/);
     expect(
-      SEASON_1_RARITY_CONFIG.map(({ rarity, weight, min, max }) => [rarity, weight, min, max]),
+      PLANET_RARITY_CONFIG.map(({ rarity, weight, min, max }) => [rarity, weight, min, max]),
     ).toEqual([
       ['Common', 70, 10, 39],
       ['Uncommon', 20, 40, 79],
@@ -174,7 +169,7 @@ describe('generator Season 1 traits', () => {
       (CONFIG.types as unknown as { publicName: string }[])[0] = { publicName: 'Mutated' };
     }).toThrow();
     expect(() =>
-      validateSeasonConfig({
+      validatePlanetConfig({
         ...CONFIG,
         rarity: CONFIG.rarity.map((entry) =>
           entry.rarity === 'Common' ? { ...entry, weight: 69 } : entry,
@@ -182,7 +177,7 @@ describe('generator Season 1 traits', () => {
       }),
     ).toThrow(/canonical configuration/);
     expect(() =>
-      validateSeasonConfig({
+      validatePlanetConfig({
         ...CONFIG,
         rarity: CONFIG.rarity.map((entry) =>
           entry.rarity === 'Common'
@@ -200,7 +195,7 @@ describe('generator Season 1 traits', () => {
   });
 
   it('freezes ten cosmic Types with Coolors-sourced palettes and matching terrain profiles', () => {
-    expect(SEASON_1_TYPES.map((type) => type.publicName)).toEqual([
+    expect(PLANET_TYPE_CONFIGS.map((type) => type.publicName)).toEqual([
       'Nebula',
       'Desert',
       'Triplex',
@@ -213,33 +208,33 @@ describe('generator Season 1 traits', () => {
       'Oceanic',
     ]);
     expect(
-      SEASON_1_TYPES.every((type) =>
+      PLANET_TYPE_CONFIGS.every((type) =>
         type.visual.paletteVariants.every((variant) =>
           variant.coolorsUrl.startsWith('https://coolors.co/'),
         ),
       ),
     ).toBe(true);
     expect(
-      SEASON_1_TYPES.find((type) => type.id === 'volcanic')?.visual.terrainWeights[0]?.mode,
+      PLANET_TYPE_CONFIGS.find((type) => type.id === 'volcanic')?.visual.terrainWeights[0]?.mode,
     ).toBe('turbulence');
     expect(
-      SEASON_1_TYPES.find((type) => type.id === 'gas-giant')?.visual.terrainWeights[0]?.mode,
+      PLANET_TYPE_CONFIGS.find((type) => type.id === 'gas-giant')?.visual.terrainWeights[0]?.mode,
     ).toBe('banded');
-    expect(SEASON_1_TYPES.find((type) => type.id === 'rocky')?.visual.terrainWeights[0]?.mode).toBe(
+    expect(PLANET_TYPE_CONFIGS.find((type) => type.id === 'rocky')?.visual.terrainWeights[0]?.mode).toBe(
       'simplex',
     );
     expect(
-      SEASON_1_TYPES.find((type) => type.id === 'oceanic')?.visual.terrainWeights[0]?.mode,
+      PLANET_TYPE_CONFIGS.find((type) => type.id === 'oceanic')?.visual.terrainWeights[0]?.mode,
     ).toBe('ocean-currents');
-    expect(SEASON_1_TYPES.find((type) => type.id === 'triplex')?.visual.terrainWeights).toEqual([
+    expect(PLANET_TYPE_CONFIGS.find((type) => type.id === 'triplex')?.visual.terrainWeights).toEqual([
       { mode: 'gradation', weight: 1 },
     ]);
     expect(
-      SEASON_1_TYPES.filter((type) => type.id !== 'triplex')
+      PLANET_TYPE_CONFIGS.filter((type) => type.id !== 'triplex')
         .flatMap((type) => type.visual.terrainWeights.map((terrain) => terrain.mode))
         .join(','),
     ).not.toContain('gradation');
-    const volcanic = SEASON_1_TYPES.find((type) => type.id === 'volcanic');
+    const volcanic = PLANET_TYPE_CONFIGS.find((type) => type.id === 'volcanic');
     expect(
       volcanic?.visual.paletteVariants.every((variant) =>
         variant.colors.every((color) => {
@@ -261,7 +256,7 @@ describe('generator Season 1 traits', () => {
     for (let index = 1; index <= 1_000; index += 1) {
       const descriptor = derivePlanet({ ...INPUT, ticketId: BigInt(index), drawingId: 1n }, CONFIG);
       seen.add(descriptor.traits.rarity);
-      const range = SEASON_1_RARITY_CONFIG.find(
+      const range = PLANET_RARITY_CONFIG.find(
         (entry) => entry.rarity === descriptor.traits.rarity,
       );
       expect(range).toBeDefined();
@@ -337,11 +332,11 @@ describe('generator Season 1 traits', () => {
 
   it('selects all declared palette variants and preserves Type-only visual mechanics', () => {
     const configuredType = (id: string) => {
-      const type = SEASON_1_TYPES.find((candidate) => candidate.id === id);
+      const type = PLANET_TYPE_CONFIGS.find((candidate) => candidate.id === id);
       if (!type) throw new Error(`Missing configured Type: ${id}`);
       return type;
     };
-    for (const type of SEASON_1_TYPES) {
+    for (const type of PLANET_TYPE_CONFIGS) {
       const selected = new Set<string>();
       for (
         let ticketId = 1;
@@ -390,7 +385,7 @@ describe('generator Season 1 traits', () => {
   });
 
   it('uses every configured terrain in canonical and Lab Type previews', () => {
-    for (const type of SEASON_1_TYPES) {
+    for (const type of PLANET_TYPE_CONFIGS) {
       const expected = new Set(type.visual.terrainWeights.map((entry) => entry.mode));
       const canonical = new Set<string>();
       const lab = new Set<string>();
@@ -413,7 +408,7 @@ describe('generator Season 1 traits', () => {
 
   it('keeps volcanic ash gray and prevents forbidden rings', () => {
     for (const typeId of ['gaia', 'rocky', 'volcanic'] as const) {
-      const type = SEASON_1_TYPES.find((candidate) => candidate.id === typeId);
+      const type = PLANET_TYPE_CONFIGS.find((candidate) => candidate.id === typeId);
       if (!type) throw new Error(`Missing configured Type: ${typeId}`);
       for (let ticketId = 1; ticketId <= 1_000; ticketId += 1) {
         expect(
@@ -426,10 +421,10 @@ describe('generator Season 1 traits', () => {
       derivePlanetPreviewForType({ ...INPUT, ticketId: BigInt(index + 1) }, CONFIG, 'volcanic'),
     ).find((preview) => preview.visual.traits.hasClouds);
     expect(volcanic).toBeDefined();
-    expect(volcanic?.visual.traits.colors.cloud).toEqual(['#aaa69c', '#4a4642']);
+    expect(volcanic?.visual.traits.colors.cloud).toEqual(['#9a9d9c', '#45484d']);
   });
 
-  it('samples every original and Season 1 terrain mode deterministically', () => {
+  it('samples every original and Planet terrain mode deterministically', () => {
     const modes = [
       'simplex',
       'ridged',
@@ -464,13 +459,15 @@ describe('generator public metadata', () => {
   it('uses the required public attribute order and keeps technical provenance out of attributes', () => {
     const descriptor = derivePlanet(INPUT, CONFIG);
     const metadata = buildPlanetMetadata(descriptor, CONFIG);
+    expect(metadata.description).toBe(
+      `MegaPlanet ${descriptor.traits.name}, deterministically generated from Megapot ticket #456.`,
+    );
     expect(metadata.attributes.map((attribute) => attribute.trait_type)).toEqual([
       'Name',
       'Type',
       'Satellites',
       'Minerals',
       'Rarity',
-      'Season',
       'Seed',
     ]);
     expect(
@@ -482,10 +479,6 @@ describe('generator public metadata', () => {
       trait_type: 'Satellites',
       value: descriptor.traits.satelliteCount,
     });
-    expect(metadata.attributes.find((attribute) => attribute.trait_type === 'Season')).toEqual({
-      trait_type: 'Season',
-      value: 1,
-    });
     expect(
       metadata.attributes.some((attribute) => attribute.trait_type === ('Terrain' as never)),
     ).toBe(false);
@@ -493,7 +486,6 @@ describe('generator public metadata', () => {
       ticketId: '456',
       drawingId: '123',
       originTxHash: ORIGIN_A,
-      seasonId: SEASON_ID,
       specialEditionId: null,
       traitsHash: descriptor.traitsHash,
     });
@@ -517,11 +509,11 @@ describe('canonical trait and GIF consistency', () => {
 
   it('covers every configured Type through canonical deterministic selection', () => {
     const seen = new Map<string, ReturnType<typeof derivePlanetPreview>>();
-    for (let ticketId = 1; ticketId <= 10_000 && seen.size < SEASON_1_TYPES.length; ticketId += 1) {
+    for (let ticketId = 1; ticketId <= 10_000 && seen.size < PLANET_TYPE_CONFIGS.length; ticketId += 1) {
       const preview = derivePlanetPreview({ ...INPUT, ticketId: BigInt(ticketId) }, CONFIG);
       seen.set(preview.descriptor.traits.typeId, preview);
     }
-    expect([...seen.keys()].sort()).toEqual(SEASON_1_TYPES.map((type) => type.id).sort());
+    expect([...seen.keys()].sort()).toEqual(PLANET_TYPE_CONFIGS.map((type) => type.id).sort());
     for (const preview of seen.values()) {
       expect(preview.visual.traits.planetType).toBe(preview.descriptor.traits.typeId);
       expect(preview.visual.traits.typePalette).toEqual(preview.descriptor.traits.palette.colors);
@@ -566,7 +558,7 @@ describe('generator GIF fixtures', () => {
   const manifest = JSON.parse(readFileSync(`${fixtureDirectory}manifest.json`, 'utf8')) as Array<
     Record<string, unknown>
   >;
-  const config = createSeason1Config(SEASON_ID);
+  const config = createPlanetConfig();
 
   it.each(GOLDEN_VECTORS)('reproduces $name byte-for-byte', ({ name, input }) => {
     const preview = derivePlanetPreview(input, config);

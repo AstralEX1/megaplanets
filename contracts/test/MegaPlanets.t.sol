@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import { Test } from "forge-std/Test.sol";
 import { MegaPlanets } from "../src/MegaPlanets.sol";
-import { MintVoucherLib } from "../src/libraries/MintVoucherLib.sol";
+import { MintVoucherV2Lib } from "../src/libraries/MintVoucherV2Lib.sol";
 import { MockJackpotTicketNFT } from "./mocks/MockJackpotTicketNFT.sol";
 
 contract MegaPlanetsTest is Test {
@@ -21,7 +21,7 @@ contract MegaPlanetsTest is Test {
     }
 
     function testMintMintsFreePlanetWithSequentialIdAndTicketProvenance() external {
-        MintVoucherLib.MintVoucher memory voucher = _voucher(alice, 101, "ipfs://planet-101");
+        MintVoucherV2Lib.MintVoucher memory voucher = _voucher(alice, 101, "ipfs://planet-101");
         tickets.mint(alice, voucher.ticketId);
         bytes memory signature = _signature(voucher);
 
@@ -37,7 +37,7 @@ contract MegaPlanetsTest is Test {
     }
 
     function testMintBatchMintsEveryVoucherAtomically() external {
-        MintVoucherLib.MintVoucher[] memory vouchers = new MintVoucherLib.MintVoucher[](2);
+        MintVoucherV2Lib.MintVoucher[] memory vouchers = new MintVoucherV2Lib.MintVoucher[](2);
         bytes[] memory signatures = new bytes[](2);
         vouchers[0] = _voucher(alice, 201, "ipfs://planet-201");
         vouchers[1] = _voucher(alice, 202, "ipfs://planet-202");
@@ -56,7 +56,7 @@ contract MegaPlanetsTest is Test {
     }
 
     function testMintAfterBatchUsesTheNextSequentialPlanetId() external {
-        MintVoucherLib.MintVoucher[] memory vouchers = new MintVoucherLib.MintVoucher[](2);
+        MintVoucherV2Lib.MintVoucher[] memory vouchers = new MintVoucherV2Lib.MintVoucher[](2);
         bytes[] memory signatures = new bytes[](2);
         vouchers[0] = _voucher(alice, 203, "ipfs://planet-203");
         vouchers[1] = _voucher(alice, 204, "ipfs://planet-204");
@@ -67,7 +67,7 @@ contract MegaPlanetsTest is Test {
         vm.prank(alice);
         planets.mintBatch(vouchers, signatures);
 
-        MintVoucherLib.MintVoucher memory nextVoucher = _voucher(alice, 205, "ipfs://planet-205");
+        MintVoucherV2Lib.MintVoucher memory nextVoucher = _voucher(alice, 205, "ipfs://planet-205");
         tickets.mint(alice, 205);
         bytes memory nextSignature = _signature(nextVoucher);
         vm.prank(alice);
@@ -80,7 +80,7 @@ contract MegaPlanetsTest is Test {
     }
 
     function testMintRejectsEth() external {
-        MintVoucherLib.MintVoucher memory voucher = _voucher(alice, 102, "ipfs://planet-102");
+        MintVoucherV2Lib.MintVoucher memory voucher = _voucher(alice, 102, "ipfs://planet-102");
         tickets.mint(alice, 102);
         vm.deal(alice, 1 ether);
         bytes memory signature = _signature(voucher);
@@ -92,7 +92,7 @@ contract MegaPlanetsTest is Test {
     }
 
     function testMintRejectsWrongSignerAndExpiredVoucher() external {
-        MintVoucherLib.MintVoucher memory voucher = _voucher(alice, 103, "ipfs://planet-103");
+        MintVoucherV2Lib.MintVoucher memory voucher = _voucher(alice, 103, "ipfs://planet-103");
         tickets.mint(alice, 103);
         bytes memory invalidSignature = _signatureWith(0xB0B, voucher);
         vm.prank(alice);
@@ -108,19 +108,11 @@ contract MegaPlanetsTest is Test {
         planets.mint(voucher, expiredSignature);
     }
 
-    function testMintRejectsRecipientSeasonAndMetadataTampering() external {
-        MintVoucherLib.MintVoucher memory voucher = _voucher(alice, 105, "ipfs://planet-105");
+    function testMintRejectsRecipientAndMetadataTampering() external {
+        MintVoucherV2Lib.MintVoucher memory voucher = _voucher(alice, 105, "ipfs://planet-105");
         tickets.mint(alice, 105);
         bytes memory signature = _signature(voucher);
         vm.prank(bob);
-        vm.expectRevert();
-        planets.mint(voucher, signature);
-
-        voucher = _voucher(alice, 106, "ipfs://planet-106");
-        voucher.seasonId = bytes32(uint256(9));
-        tickets.mint(alice, 106);
-        signature = _signature(voucher);
-        vm.prank(alice);
         vm.expectRevert();
         planets.mint(voucher, signature);
 
@@ -133,8 +125,21 @@ contract MegaPlanetsTest is Test {
         planets.mint(voucher, signature);
     }
 
+    function testUsesEip712VersionTwoAndSeasonlessVoucherType() external {
+        MintVoucherV2Lib.MintVoucher memory voucher = _voucher(alice, 113, "ipfs://planet-113");
+        bytes32 digest = planets.hashVoucher(voucher);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_KEY, digest);
+        vm.startPrank(alice);
+        tickets.mint(alice, 113);
+        planets.mint(voucher, abi.encodePacked(r, s, v));
+        vm.stopPrank();
+
+        assertEq(planets.totalSupply(), 1);
+        assertEq(planets.ticketIdByPlanetTokenId(1), 113);
+    }
+
     function testMintRejectsUsedNonOwnerAndBurnedTickets() external {
-        MintVoucherLib.MintVoucher memory voucher = _voucher(alice, 108, "ipfs://planet-108");
+        MintVoucherV2Lib.MintVoucher memory voucher = _voucher(alice, 108, "ipfs://planet-108");
         tickets.mint(alice, 108);
         bytes memory signature = _signature(voucher);
         vm.prank(alice);
@@ -160,7 +165,7 @@ contract MegaPlanetsTest is Test {
     }
 
     function testBatchRejectsDuplicatesAndLeavesAllTicketsUnminted() external {
-        MintVoucherLib.MintVoucher[] memory vouchers = new MintVoucherLib.MintVoucher[](2);
+        MintVoucherV2Lib.MintVoucher[] memory vouchers = new MintVoucherV2Lib.MintVoucher[](2);
         bytes[] memory signatures = new bytes[](2);
         vouchers[0] = _voucher(alice, 111, "ipfs://planet-111");
         vouchers[1] = _voucher(alice, 111, "ipfs://planet-111-b");
@@ -174,7 +179,7 @@ contract MegaPlanetsTest is Test {
     }
 
     function testTicketTransferBeforeMintUsesCurrentOwner() external {
-        MintVoucherLib.MintVoucher memory voucher = _voucher(bob, 112, "ipfs://planet-112");
+        MintVoucherV2Lib.MintVoucher memory voucher = _voucher(bob, 112, "ipfs://planet-112");
         tickets.mint(alice, 112);
         vm.prank(alice);
         tickets.transferFrom(alice, bob, 112);
@@ -197,12 +202,11 @@ contract MegaPlanetsTest is Test {
     function _voucher(address recipient, uint256 ticketId, string memory uri)
         internal
         view
-        returns (MintVoucherLib.MintVoucher memory)
+        returns (MintVoucherV2Lib.MintVoucher memory)
     {
-        return MintVoucherLib.MintVoucher({
+        return MintVoucherV2Lib.MintVoucher({
             recipient: recipient,
             ticketId: ticketId,
-            seasonId: planets.seasonId(),
             drawingId: 12,
             originTxHash: keccak256("origin"),
             seed: keccak256("seed"),
@@ -213,7 +217,7 @@ contract MegaPlanetsTest is Test {
         });
     }
 
-    function _signature(MintVoucherLib.MintVoucher memory voucher)
+    function _signature(MintVoucherV2Lib.MintVoucher memory voucher)
         internal
         view
         returns (bytes memory)
@@ -221,7 +225,7 @@ contract MegaPlanetsTest is Test {
         return _signatureWith(SIGNER_KEY, voucher);
     }
 
-    function _signatureWith(uint256 privateKey, MintVoucherLib.MintVoucher memory voucher)
+    function _signatureWith(uint256 privateKey, MintVoucherV2Lib.MintVoucher memory voucher)
         internal
         view
         returns (bytes memory)

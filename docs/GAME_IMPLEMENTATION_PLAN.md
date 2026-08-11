@@ -17,9 +17,8 @@ colony levels, expeditions, referral prize pools, Merkle rewards, and mainnet
 deployment. The ERC721A V2 collection is the one
 explicitly approved exception because it enables gas-efficient Planet batch minting.
 
-The deployed Base Sepolia MegaPlanets V1 contract remains available for existing
-test tokens, but it is non-upgradeable. ERC721A therefore requires a clean
-Base Sepolia V2 deployment before the public testnet release.
+Historical Base Sepolia V1 deployments are no longer part of the active product.
+ERC721A requires a clean Base Sepolia V2 deployment before the public testnet release.
 
 V2 Planet token IDs are sequential, starting at `1`. Each token retains its
 Megapot provenance through immutable bidirectional ticket-to-Planet mappings.
@@ -35,7 +34,7 @@ mintBatch(MintVoucher[] vouchers, bytes[] signatures)
 
 It mints up to 50 ticket-backed Planet NFTs to the connected wallet in one
 atomic Base Sepolia transaction. Every voucher is verified before any token is
-minted: recipient, expiry, season, immutable metadata hash, signer, current
+minted: recipient, expiry, immutable metadata hash, signer, current
 Megapot ticket ownership, duplicate ticket IDs, and prior mint state. The
 contract then calls ERC721A `_safeMint(recipient, quantity)` once.
 
@@ -75,7 +74,8 @@ Establish a reviewable MVP baseline without deleting unreviewed user work.
 
 1. Review the dirty worktree file-by-file before deleting anything. Existing
    changes may belong to the user and must not be reset wholesale.
-2. Record the V1 deployment block and prepare a separate V2 deployment block.
+2. Keep historical V1 configuration out of active runtime paths and record the V2
+   deployment block only after the approved V2 deployment.
 3. Pin ERC721A v4.3.0, verify V2's ticket-to-token mappings and keep its ABI,
    indexer, and frontend batch control aligned.
 4. Update outdated architecture and product documents to the scope lock.
@@ -197,7 +197,7 @@ Run the API and indexer safely as separate testnet services.
 
 ### Required environment categories
 
-- Public frontend configuration: chain, RPC URL, V2 contract address, season,
+- Public frontend configuration: chain, RPC URL, V2 contract address,
   and API base URL.
 - Server-only configuration: database URLs, managed RPC URL, Pinata JWT,
   metadata signer private key, V2 deployment block, and allowed application

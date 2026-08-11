@@ -10,7 +10,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { IJackpotTicketNFT } from "./interfaces/IJackpotTicketNFT.sol";
 import { MintVoucherLib } from "./libraries/MintVoucherLib.sol";
 
-/// @notice The deployed Base Sepolia V1 implementation retained for source verification only.
+/// @notice Unsupported historical V1 implementation retained only to interpret old testnet data.
 contract MegaPlanetsV1 is ERC721, EIP712, Ownable, ReentrancyGuard {
     using MintVoucherLib for MintVoucherLib.MintVoucher;
 

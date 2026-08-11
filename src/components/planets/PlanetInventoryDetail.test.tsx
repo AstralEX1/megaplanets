@@ -20,7 +20,7 @@ const preview = {
 describe('PlanetInventoryDetail', () => {
   afterEach(cleanup);
 
-  it('shows revealed planet details with claim and canonical explorer links', () => {
+  it('shows revealed planet details with ticket provenance while V2 is unconfigured', () => {
     const onClaim = vi.fn();
     const { container } = render(<PlanetInventoryDetail preview={preview} tokenId="7" ticketTxHash={`0x${'1'.repeat(64)}`} revealed mining={{ tokenId: '7', baseMineralsPerDay: '24', multiplierBps: '10500', effectiveMineralsPerDayMicros: '25200000', pendingMicros: '1000000', earnedMicros: '10100000', activeSince: '2026-08-10T00:00:00.000Z' }} miningAsOf="2026-08-10T00:00:01.000Z" ticketStatus={{ kind: 'claim', amount: 12_500_000n, ticketId: 24n }} mintAction={null} onClaim={onClaim} />);
 
@@ -45,13 +45,8 @@ describe('PlanetInventoryDetail', () => {
     );
     expect(ticketExplorerLink).toHaveAttribute('target', '_blank');
     expect(ticketExplorerLink).toHaveAttribute('rel', 'noreferrer');
-    const nftExplorerLink = screen.getByRole('link', { name: 'NFT BaseScan' });
-    expect(nftExplorerLink).toHaveAttribute(
-      'href',
-      expect.stringMatching(/\/nft\/0xa94b947256fa977e63a7970cdf513fdd7632d744\/7$/i),
-    );
-    expect(nftExplorerLink).toHaveAttribute('target', '_blank');
-    expect(nftExplorerLink).toHaveAttribute('rel', 'noreferrer');
+    expect(screen.getByText('NFT BaseScan unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'NFT BaseScan' })).not.toBeInTheDocument();
     expect(container.querySelector('[data-density="compact"]')).toBeInTheDocument();
 
     screen.getByRole('button', { name: 'Claim ($12.50)' }).click();

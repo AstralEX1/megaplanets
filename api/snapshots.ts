@@ -1,4 +1,4 @@
-import { SEASON_1_ID, type Stage5Config } from './config';
+import type { Stage5Config } from './config';
 import { getPlanetHoldingsAtBlock } from './holdings';
 import { createDailySnapshot, type DailySnapshot, type PlanetHolding } from './scoring';
 import type { EligibilityStore } from './store';
@@ -13,8 +13,8 @@ export function selectFinalizedBlock(latestBlock: bigint, confirmations = 6n): b
 /** Captures one reproducible score report. A scheduler may call this later; the API never does. */
 export async function captureDailySnapshot(store: EligibilityStore, source: SnapshotSource, now = () => new Date(), confirmations = 6n): Promise<DailySnapshot> {
   const blockNumber = selectFinalizedBlock(await source.getLatestBlock(), confirmations);
-  if (await store.getSnapshot(SEASON_1_ID, blockNumber)) throw new Error(`Snapshot for block ${blockNumber} already exists.`);
-  const snapshot = createDailySnapshot({ seasonId: SEASON_1_ID, blockNumber, capturedAt: now().toISOString(), holdings: await source.getHoldingsAtBlock(blockNumber) });
+  if (await store.getSnapshot(blockNumber)) throw new Error(`Snapshot for block ${blockNumber} already exists.`);
+  const snapshot = createDailySnapshot({ blockNumber, capturedAt: now().toISOString(), holdings: await source.getHoldingsAtBlock(blockNumber) });
   await store.saveSnapshot(snapshot);
   return snapshot;
 }

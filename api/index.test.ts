@@ -30,7 +30,6 @@ const requestBody = { transactionHash: ticket.originTxHash, logIndex: 4 };
 const voucher: MintVoucher = {
   recipient: ticket.recipient,
   ticketId: ticket.ticketId,
-  seasonId: `0x${'ee'.repeat(32)}`,
   drawingId: ticket.drawingId,
   originTxHash: ticket.originTxHash,
   seed: `0x${'aa'.repeat(32)}`,

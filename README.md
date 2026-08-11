@@ -1,18 +1,20 @@
 # MegaPlanets
 
 MegaPlanets is a Base Sepolia MVP built on the Megapot protocol. A user buys a
-Megapot ticket, then uses that ticket to mint a deterministic collectible planet.
+Megapot ticket, reveals a deterministic collectible Planet, and earns off-chain minerals
+for the weekly leaderboard.
 
-This repository contains the Stage 4 contract checkpoint and Stage 5 voucher-service
-groundwork. A user can buy one to ten direct tickets or create an all-random bulk order
-for eleven to fifty tickets on Base Sepolia, using exact USDC approvals. Confirmed
-MegaPlanets tickets render as deterministic 512x512 animated pixel-art Planets.
+The repository contains working local implementations for direct and keeper bulk ticket
+purchases, canonical receipt provenance, deterministic animated Planet generation,
+voucher-backed individual and batch minting, PostgreSQL indexing, passive mining,
+same-Type bonuses, and weekly leaderboards.
 
-Planet minting is intentionally disabled until a server-side voucher service is configured
-with `VITE_PLANET_API_BASE_URL`. That service verifies receipt provenance for the original
-purchase recipient, pins immutable IPFS media/metadata, and signs the mint voucher. The
-repository does not make a claim about a current contract deployment; verify addresses and
-the active metadata signer together before enabling minting.
+The product is not ready for public testnet release. No active MegaPlanets contract is
+configured: the contract and product model target an undeployed ERC721A V2 with sequential
+Planet token IDs, and historical V1 deployments are no longer supported. The production
+API, database, indexer, metadata signer, and end-to-end rehearsal are also still pending.
+See the [current development status](docs/STATUS.md) before enabling minting or deploying
+services.
 
 ## Requirements
 
@@ -25,6 +27,7 @@ the active metadata signer together before enabling minting.
 ```bash
 cp .env.example .env.local
 pnpm install
+pnpm db:generate
 pnpm dev
 ```
 
@@ -42,6 +45,7 @@ pnpm build
 
 ## Project documentation
 
+- [Current development status](docs/STATUS.md)
 - [Product specification](docs/PRODUCT_SPEC.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Technical decisions](docs/DECISIONS.md)
@@ -51,9 +55,10 @@ pnpm build
 
 The Play page supports direct purchases of one to ten tickets and all-random keeper bulk
 orders of eleven to fifty tickets. It stores receipt-confirmed `TicketPurchased` data
-locally and the Planets gallery additionally scans canonical on-chain purchase events for
-the connected original recipient. Ticket transfers are outside the current eligibility
-scope: the voucher service remains bound to that original recipient.
+locally and My Planets validates indexed wallet history plus a bounded recent-chain window
+against canonical receipts. Ticket transfers remain outside the voucher-service
+eligibility scope: vouchers are bound to the original `TicketPurchased` recipient and the
+contract additionally requires that recipient to own the live ticket at mint time.
 
 ## License
 

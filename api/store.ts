@@ -20,7 +20,7 @@ export type EligibilityStore = {
   saveVoucher(prepared: PreparedVoucher): Promise<void>;
   getCursor(): Promise<bigint | undefined>;
   setCursor(blockNumber: bigint): Promise<void>;
-  getSnapshot(seasonId: Hex, blockNumber: bigint): Promise<DailySnapshot | undefined>;
+  getSnapshot(blockNumber: bigint): Promise<DailySnapshot | undefined>;
   saveSnapshot(snapshot: DailySnapshot): Promise<void>;
 };
 
@@ -54,7 +54,7 @@ export type PersistedSnapshot = Omit<DailySnapshot, 'blockNumber' | 'holdings' |
 
 const emptyStore = (): PersistedStore => ({ version: 2, tickets: {}, vouchers: {}, snapshots: {} });
 const voucherKey = (ticketId: bigint, recipient: Address) => `${ticketId}:${getAddress(recipient).toLowerCase()}`;
-const snapshotKey = (seasonId: Hex, blockNumber: bigint) => `${seasonId.toLowerCase()}:${blockNumber}`;
+const snapshotKey = (blockNumber: bigint) => blockNumber.toString();
 
 function serializeTicket(ticket: IndexedTicket): PersistedTicket {
   return { ...ticket, ticketId: ticket.ticketId.toString(), drawingId: ticket.drawingId.toString(), blockNumber: ticket.blockNumber.toString(), logIndex: ticket.logIndex.toString() };
@@ -178,14 +178,14 @@ export class FileEligibilityStore implements EligibilityStore {
     await this.update((store) => { store.cursor = blockNumber.toString(); });
   }
 
-  async getSnapshot(seasonId: Hex, blockNumber: bigint): Promise<DailySnapshot | undefined> {
-    const snapshot = (await this.read()).snapshots[snapshotKey(seasonId, blockNumber)];
+  async getSnapshot(blockNumber: bigint): Promise<DailySnapshot | undefined> {
+    const snapshot = (await this.read()).snapshots[snapshotKey(blockNumber)];
     return snapshot ? deserializeDailySnapshot(snapshot) : undefined;
   }
 
   async saveSnapshot(snapshot: DailySnapshot): Promise<void> {
     await this.update((store) => {
-      const key = snapshotKey(snapshot.seasonId, snapshot.blockNumber);
+      const key = snapshotKey(snapshot.blockNumber);
       if (store.snapshots[key]) throw new Error(`Snapshot ${key} already exists.`);
       store.snapshots[key] = serializeDailySnapshot(snapshot);
     });
@@ -212,9 +212,9 @@ export class MemoryEligibilityStore implements EligibilityStore {
   async saveVoucher(prepared: PreparedVoucher) { this.vouchers.set(voucherKey(prepared.voucher.ticketId, prepared.voucher.recipient), prepared); }
   async getCursor() { return this.cursor; }
   async setCursor(blockNumber: bigint) { this.cursor = blockNumber; }
-  async getSnapshot(seasonId: Hex, blockNumber: bigint) { return this.snapshots.get(snapshotKey(seasonId, blockNumber)); }
+  async getSnapshot(blockNumber: bigint) { return this.snapshots.get(snapshotKey(blockNumber)); }
   async saveSnapshot(snapshot: DailySnapshot) {
-    const key = snapshotKey(snapshot.seasonId, snapshot.blockNumber);
+    const key = snapshotKey(snapshot.blockNumber);
     if (this.snapshots.has(key)) throw new Error(`Snapshot ${key} already exists.`);
     this.snapshots.set(key, snapshot);
   }

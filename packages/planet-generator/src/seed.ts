@@ -9,7 +9,6 @@ export function derivePlanetSeed(input: PlanetInput): Hex {
     encodeAbiParameters(
       [
         { type: 'uint16', name: 'generatorVersion' },
-        { type: 'bytes32', name: 'seasonId' },
         { type: 'uint256', name: 'ticketId' },
         { type: 'uint256', name: 'drawingId' },
         { type: 'uint8[5]', name: 'normals' },
@@ -18,7 +17,6 @@ export function derivePlanetSeed(input: PlanetInput): Hex {
       ],
       [
         GENERATOR_VERSION,
-        normalized.seasonId,
         normalized.ticketId,
         normalized.drawingId,
         normalized.normals,

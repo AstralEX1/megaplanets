@@ -1,9 +1,8 @@
 import { deepFreeze } from './immutable';
-import { assertBytes32 } from './input';
 import type {
   RarityConfig,
   SatelliteDistribution,
-  SeasonConfig,
+  PlanetConfig,
   TerrainMode,
   TypeConfig,
   TypePalette,
@@ -22,7 +21,7 @@ function palette(
   };
 }
 
-export const SEASON_1_RARITY_CONFIG = deepFreeze([
+export const PLANET_RARITY_CONFIG = deepFreeze([
   {
     rarity: 'Common',
     weight: 70,
@@ -88,7 +87,7 @@ const GAS_GIANT_SATELLITES = [
 ] as const satisfies readonly SatelliteDistribution[];
 
 /** Every Type owns every renderer-facing decision in one immutable visual profile. */
-export const SEASON_1_TYPES = deepFreeze([
+export const PLANET_TYPE_CONFIGS = deepFreeze([
   {
     id: 'nebula',
     publicName: 'Nebula',
@@ -393,25 +392,23 @@ export const SEASON_1_TYPES = deepFreeze([
 ] as const satisfies readonly TypeConfig[]);
 
 /**
- * One bonus-ball bucket per Season 1 Type. The matching Type weighs 55%; each other
+ * One bonus-ball bucket per Planet Type. The matching Type weighs 55%; each other
  * Type weighs 5%. Bonus balls above ten wrap through this ordered list.
  */
-export const SEASON_1_TYPE_WEIGHT_PROFILES = deepFreeze(
-  SEASON_1_TYPES.map((type, profileIndex) => ({
+export const PLANET_TYPE_WEIGHT_PROFILES = deepFreeze(
+  PLANET_TYPE_CONFIGS.map((type, profileIndex) => ({
     id: `bonus-${profileIndex + 1}-${type.id}`,
-    weights: SEASON_1_TYPES.map((_, typeIndex) => (typeIndex === profileIndex ? 55 : 5)),
+    weights: PLANET_TYPE_CONFIGS.map((_, typeIndex) => (typeIndex === profileIndex ? 55 : 5)),
   })) as readonly TypeWeightProfile[],
 );
 
-export function createSeason1Config(seasonId: `0x${string}`): SeasonConfig {
-  const config: SeasonConfig = {
-    seasonId,
-    season: 1,
-    types: SEASON_1_TYPES,
-    typeWeightProfiles: SEASON_1_TYPE_WEIGHT_PROFILES,
-    rarity: SEASON_1_RARITY_CONFIG,
+export function createPlanetConfig(): PlanetConfig {
+  const config: PlanetConfig = {
+    types: PLANET_TYPE_CONFIGS,
+    typeWeightProfiles: PLANET_TYPE_WEIGHT_PROFILES,
+    rarity: PLANET_RARITY_CONFIG,
   };
-  validateSeasonConfig(config);
+  validatePlanetConfig(config);
   return deepFreeze(config);
 }
 
@@ -442,7 +439,7 @@ function validateRarity(rarity: readonly RarityConfig[]) {
     })
   ) {
     throw new RangeError(
-      'Season 1 rarity weights and mineral ranges do not match the canonical configuration.',
+      'Planet rarity weights and mineral ranges do not match the canonical configuration.',
     );
   }
   for (const entry of rarity) {
@@ -519,11 +516,8 @@ function validatePaletteContrast(
   }
 }
 
-export function validateSeasonConfig(config: SeasonConfig): void {
-  assertBytes32(config.seasonId, 'seasonId');
-  if (!Number.isSafeInteger(config.season) || config.season < 1 || config.season > 65_535)
-    throw new RangeError('season must be a positive uint16 value.');
-  if (config.types.length !== 10) throw new RangeError('Season 1 requires exactly ten Types.');
+export function validatePlanetConfig(config: PlanetConfig): void {
+  if (config.types.length !== 10) throw new RangeError('Planet configuration requires exactly ten Types.');
   if (
     new Set(config.types.map((type) => type.id)).size !== 10 ||
     new Set(config.types.map((type) => type.publicName)).size !== 10
@@ -602,7 +596,7 @@ export function validateSeasonConfig(config: SeasonConfig): void {
     }
   }
   if (config.typeWeightProfiles.length !== config.types.length)
-    throw new RangeError('Season 1 requires exactly one Type weight profile per Type.');
+    throw new RangeError('Planet configuration requires exactly one Type weight profile per Type.');
   if (
     new Set(config.typeWeightProfiles.map((profile) => profile.id)).size !== config.types.length
   ) {

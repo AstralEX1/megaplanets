@@ -8,19 +8,16 @@ import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import { IJackpotTicketNFT } from "./interfaces/IJackpotTicketNFT.sol";
-import { MintVoucherLib } from "./libraries/MintVoucherLib.sol";
+import { MintVoucherV2Lib } from "./libraries/MintVoucherV2Lib.sol";
 
 /// @notice Ticket-backed Planet NFT collection optimized for consecutive batch mints.
 /// @dev Each Megapot ticket has exactly one Planet, but ERC721A token IDs are sequential.
 contract MegaPlanets is ERC721A, EIP712, Ownable, ReentrancyGuard {
-    using MintVoucherLib for MintVoucherLib.MintVoucher;
+    using MintVoucherV2Lib for MintVoucherV2Lib.MintVoucher;
 
     uint256 public constant MAX_BATCH_MINT = 50;
-    bytes32 public constant SEASON_1_ID =
-        0xee23bca2927e52eeb944320241d7a6e41726dcb3f169d972044bdafe95b4b15b;
 
     IJackpotTicketNFT public immutable jackpotTicketNFT;
-    bytes32 public immutable seasonId;
     address public metadataSigner;
 
     /// @notice Tracks whether a Megapot ticket has already been converted into a Planet.
@@ -38,7 +35,6 @@ contract MegaPlanets is ERC721A, EIP712, Ownable, ReentrancyGuard {
     error InvalidSignature(address recovered);
     error VoucherExpired(uint256 expiresAt);
     error RecipientMismatch(address recipient, address caller);
-    error InvalidSeason(bytes32 provided);
     error InvalidMetadataHash();
     error EmptyMetadataURI();
     error TicketAlreadyMinted(uint256 ticketId);
@@ -51,7 +47,6 @@ contract MegaPlanets is ERC721A, EIP712, Ownable, ReentrancyGuard {
         uint256 indexed tokenId,
         uint256 indexed ticketId,
         address indexed recipient,
-        bytes32 seasonId,
         bytes32 seed,
         bytes32 metadataHash
     );
@@ -59,13 +54,12 @@ contract MegaPlanets is ERC721A, EIP712, Ownable, ReentrancyGuard {
 
     constructor(address initialOwner, address initialMetadataSigner, address ticketNft)
         ERC721A("MegaPlanets", "MPLANET")
-        EIP712("MegaPlanets", "1")
+        EIP712("MegaPlanets", "2")
         Ownable(initialOwner)
     {
         if (initialMetadataSigner == address(0) || ticketNft == address(0)) revert ZeroAddress();
         metadataSigner = initialMetadataSigner;
         jackpotTicketNFT = IJackpotTicketNFT(ticketNft);
-        seasonId = SEASON_1_ID;
     }
 
     function setMetadataSigner(address newMetadataSigner) external onlyOwner {
@@ -75,7 +69,7 @@ contract MegaPlanets is ERC721A, EIP712, Ownable, ReentrancyGuard {
         emit MetadataSignerUpdated(previousSigner, newMetadataSigner);
     }
 
-    function mint(MintVoucherLib.MintVoucher calldata voucher, bytes calldata signature)
+    function mint(MintVoucherV2Lib.MintVoucher calldata voucher, bytes calldata signature)
         external
         nonReentrant
     {
@@ -88,10 +82,10 @@ contract MegaPlanets is ERC721A, EIP712, Ownable, ReentrancyGuard {
 
     /// @notice Atomically mints one Planet for each valid ticket-backed voucher.
     /// @dev ERC721A assigns consecutive token IDs, minimizing storage writes for batch mints.
-    function mintBatch(MintVoucherLib.MintVoucher[] calldata vouchers, bytes[] calldata signatures)
-        external
-        nonReentrant
-    {
+    function mintBatch(
+        MintVoucherV2Lib.MintVoucher[] calldata vouchers,
+        bytes[] calldata signatures
+    ) external nonReentrant {
         uint256 length = vouchers.length;
         if (length == 0) revert EmptyBatch();
         if (length > MAX_BATCH_MINT) revert BatchTooLarge(length);
@@ -121,7 +115,7 @@ contract MegaPlanets is ERC721A, EIP712, Ownable, ReentrancyGuard {
         return _tokenURIs[tokenId];
     }
 
-    function hashVoucher(MintVoucherLib.MintVoucher calldata voucher)
+    function hashVoucher(MintVoucherV2Lib.MintVoucher calldata voucher)
         external
         view
         returns (bytes32)
@@ -133,15 +127,14 @@ contract MegaPlanets is ERC721A, EIP712, Ownable, ReentrancyGuard {
         return 1;
     }
 
-    function _validateVoucher(MintVoucherLib.MintVoucher calldata voucher, bytes calldata signature)
-        private
-        view
-    {
+    function _validateVoucher(
+        MintVoucherV2Lib.MintVoucher calldata voucher,
+        bytes calldata signature
+    ) private view {
         if (voucher.recipient != msg.sender) {
             revert RecipientMismatch(voucher.recipient, msg.sender);
         }
         if (voucher.expiresAt < block.timestamp) revert VoucherExpired(voucher.expiresAt);
-        if (voucher.seasonId != seasonId) revert InvalidSeason(voucher.seasonId);
         if (bytes(voucher.metadataURI).length == 0) revert EmptyMetadataURI();
         if (keccak256(bytes(voucher.metadataURI)) != voucher.metadataHash) {
             revert InvalidMetadataHash();
@@ -160,21 +153,18 @@ contract MegaPlanets is ERC721A, EIP712, Ownable, ReentrancyGuard {
         }
     }
 
-    function _recordPlanet(MintVoucherLib.MintVoucher calldata voucher, uint256 tokenId) private {
+    function _recordPlanet(MintVoucherV2Lib.MintVoucher calldata voucher, uint256 tokenId) private {
         planetMinted[voucher.ticketId] = true;
         planetTokenIdByTicketId[voucher.ticketId] = tokenId;
         ticketIdByPlanetTokenId[tokenId] = voucher.ticketId;
         _tokenURIs[tokenId] = voucher.metadataURI;
     }
 
-    function _emitPlanetMinted(MintVoucherLib.MintVoucher calldata voucher, uint256 tokenId) private {
+    function _emitPlanetMinted(MintVoucherV2Lib.MintVoucher calldata voucher, uint256 tokenId)
+        private
+    {
         emit PlanetMinted(
-            tokenId,
-            voucher.ticketId,
-            voucher.recipient,
-            voucher.seasonId,
-            voucher.seed,
-            voucher.metadataHash
+            tokenId, voucher.ticketId, voucher.recipient, voucher.seed, voucher.metadataHash
         );
     }
 }

@@ -11,7 +11,7 @@ import { PlanetInventoryDetail } from '@/components/planets/PlanetInventoryDetai
 import { LiveMineralAmount } from '@/components/planets/LiveMineralAmount';
 import { MintPlanetBatchButton } from '@/components/planets/MintPlanetBatchButton';
 import { MintPlanetButton } from '@/components/planets/MintPlanetButton';
-import { PLANET_SEASON } from '@/config/planetSeason';
+import { PLANET_CONFIG } from '@/config/planetConfig';
 import { useEligiblePlanetTickets } from '@/hooks/useEligiblePlanetTickets';
 import { useClaimWinnings } from '@/hooks/useClaimWinnings';
 import { useIndexedPlanets } from '@/hooks/useIndexedPlanets';
@@ -162,20 +162,18 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   const gallery = useMemo(() => {
     const previews: PlanetPreview[] = [];
     let ignoredCount = 0;
-    if (!PLANET_SEASON) return { previews, ignoredCount };
     for (const ticket of tickets) {
       try {
         previews.push(
           derivePlanetPreview(
             {
-              seasonId: PLANET_SEASON.seasonId,
               ticketId: ticket.ticketId,
               drawingId: ticket.drawingId,
               normals: ticket.normals,
               bonusBall: ticket.bonusBall,
               originTxHash: ticket.originTxHash,
             },
-            PLANET_SEASON,
+            PLANET_CONFIG,
           ),
         );
       } catch {
@@ -271,13 +269,6 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   };
 
   if (!isConnected || !address) return <ConnectWalletPrompt />;
-  if (!PLANET_SEASON) {
-    return (
-      <div className="rounded-lg border border-amber-900 bg-amber-950 px-4 py-3 text-sm text-amber-100">
-        Planet generation is unavailable until the deployment Season ID is configured.
-      </div>
-    );
-  }
   if (routePlanetId && indexed.isLoading) {
     return (
       <section className="card-pad mx-auto max-w-xl space-y-3 text-center">

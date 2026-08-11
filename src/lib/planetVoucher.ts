@@ -30,7 +30,6 @@ function parseVoucher(value: unknown): PreparedMintVoucher {
   if (
     !voucher ||
     !isAddress(voucher.recipient) ||
-    !isHex(voucher.seasonId, { strict: true }) ||
     !isHex(voucher.originTxHash, { strict: true }) ||
     !isHex(voucher.seed, { strict: true }) ||
     !isHex(voucher.traitsHash, { strict: true }) ||
@@ -45,7 +44,6 @@ function parseVoucher(value: unknown): PreparedMintVoucher {
       voucher: {
         recipient: getAddress(voucher.recipient),
         ticketId: BigInt(voucher.ticketId),
-        seasonId: voucher.seasonId,
         drawingId: BigInt(voucher.drawingId),
         originTxHash: voucher.originTxHash,
         seed: voucher.seed,

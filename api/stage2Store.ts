@@ -19,7 +19,6 @@ export type IndexedPlanetRecord = {
   ticketId: string | null;
   ownerAddress: Address;
   kind: 'NORMAL' | 'SPECIAL';
-  seasonId: `0x${string}`;
   seed: `0x${string}` | null;
   traitsHash: `0x${string}` | null;
   metadataHash: `0x${string}` | null;
@@ -57,7 +56,6 @@ function serializePlanet(planet: {
   ticketId: { toFixed: (digits?: number) => string } | null;
   ownerAddress: string;
   kind: 'NORMAL' | 'SPECIAL';
-  seasonId: string;
   seed: string | null;
   traitsHash: string | null;
   metadataHash: string | null;
@@ -83,7 +81,6 @@ function serializePlanet(planet: {
     ticketId: planet.ticketId?.toFixed(0) ?? null,
     ownerAddress: planet.ownerAddress as Address,
     kind: planet.kind,
-    seasonId: planet.seasonId as `0x${string}`,
     seed: planet.seed as `0x${string}` | null,
     traitsHash: planet.traitsHash as `0x${string}` | null,
     metadataHash: planet.metadataHash as `0x${string}` | null,

@@ -18,7 +18,7 @@ import {
   JACKPOT_ADDRESS,
 } from '@/config/contracts';
 import { COPY } from '@/config/copy';
-import { PLANET_SEASON } from '@/config/planetSeason';
+import { PLANET_CONFIG } from '@/config/planetConfig';
 import { useBulkPurchase } from '@/hooks/useBulkPurchase';
 import { useBuyTickets } from '@/hooks/useBuyTickets';
 import { useEligiblePlanetTickets } from '@/hooks/useEligiblePlanetTickets';
@@ -171,22 +171,19 @@ export function Play() {
   }, [address, bulk.create.txHash, direct.txHash, session]);
 
   const discoveredPlanets = useMemo<readonly DiscoveredPlanet[]>(() => {
-    const season = PLANET_SEASON;
-    if (!season) return [];
     return confirmedTickets.flatMap((ticket) => {
       try {
         return [
           {
             preview: derivePlanetPreview(
               {
-                seasonId: season.seasonId,
                 ticketId: ticket.ticketId,
                 drawingId: ticket.drawingId,
                 normals: ticket.normals,
                 bonusBall: ticket.bonusBall,
                 originTxHash: ticket.originTxHash,
               },
-              season,
+              PLANET_CONFIG,
             ),
             logIndex: ticket.logIndex,
           },
