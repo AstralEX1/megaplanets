@@ -1,9 +1,9 @@
 # Architecture
 
-## MegaPlanets target architecture
+## MegaPlanets current architecture
 
-The imported frontend remains the integration baseline during Stage 1. The MVP adds
-three boundaries without rewriting the known-good Megapot hooks:
+The imported frontend remains the integration baseline. The MVP now contains three
+implemented boundaries without rewriting the known-good Megapot hooks:
 
 1. `packages/planet-generator` owns deterministic traits, minerals, and GIF
    rendering.
@@ -13,8 +13,13 @@ three boundaries without rewriting the known-good Megapot hooks:
    lazy mineral accounting, same-Type bonuses, and weekly leaderboard calculations.
 
 Writes and live drawing state continue to use Base RPC. Historical Megapot data uses
-the Megapot Data API. Planet eligibility and leaderboard state use the MegaPlanets
-indexer backed by Supabase. Frontend and API deployment targets Vercel.
+the Megapot Data API. Planet eligibility and leaderboard state are designed to use the
+MegaPlanets indexer backed by PostgreSQL/Supabase. No production API, database, or indexer
+deployment is recorded in the repository yet.
+
+Historical V1 deployments are no longer part of the active product and no default Planet
+contract address is configured. The active contract, ABI, database model, and product flow
+target an undeployed ERC721A V2. See [`STATUS.md`](./STATUS.md) for current blockers.
 
 The Planet mint flow is intentionally separate from the Megapot purchase transaction:
 
@@ -33,7 +38,7 @@ requiring Planet and Megapot ticket IDs to match.
 
 ## Deterministic generator boundary
 
-Stage 3 implements `packages/planet-generator` as a DOM-free TypeScript package shared
+`packages/planet-generator` is a DOM-free TypeScript package shared
 by the browser and future metadata backend. The canonical generator hashes Solidity
 ABI-encoded `uint16 generatorVersion`, `bytes32 seasonId`,
 `uint256 ticketId`, `uint256 drawingId`, sorted `uint8[5] normals`, `uint8 bonusBall`,
@@ -43,9 +48,10 @@ does not appear as a public NFT metadata attribute.
 
 The package renders a 128×128 logical pixel scene directly into a 128×128 animated GIF.
 Clients scale the asset with nearest-neighbor rendering when a larger display is needed.
-The frontend loads the package only on the Planets tab and performs GIF encoding in
-a module worker. Until Stage 5 provides the eligibility index, previews are deliberately
-restricted to confirmed `MEGAPLANETS_V1` receipt data stored by the current browser.
+The frontend lazy-loads the Planets tab and performs GIF encoding in a module worker.
+Eligible unrevealed tickets are discovered from indexed wallet history and a bounded recent
+chain window, then revalidated from canonical receipts. Browser-persisted purchase receipts
+are merged in for immediate post-purchase continuity.
 
 For an immediate `Jackpot.buyTickets` transaction, the ticket's origin transaction hash is
 the checkout receipt. For a keeper-executed bulk order, the initial

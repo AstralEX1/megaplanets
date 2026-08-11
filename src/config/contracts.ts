@@ -152,16 +152,11 @@ const ADDRESSES = {
 export const USDC_ADDRESS = ADDRESSES.USDC[CHAIN] as Address;
 export const JACKPOT_ADDRESS = ADDRESSES.Jackpot[CHAIN] as Address;
 const configuredMegaPlanets = import.meta.env.VITE_MEGAPLANETS_CONTRACT_ADDRESS?.trim();
-/** Verified Base Sepolia Season 1 deployment; mainnet still requires explicit configuration. */
-const BASE_SEPOLIA_MEGAPLANETS_CONTRACT: Address =
-  '0xa94b947256fa977E63a7970CDf513FDD7632d744';
-/** Deployed MegaPlanets ERC-721. Undefined until a valid deployment is configured. */
+/** Active MegaPlanets ERC721A V2. Undefined until the V2 deployment gate is complete. */
 export const MEGAPLANETS_CONTRACT_ADDRESS: Address | undefined =
   configuredMegaPlanets && isAddress(configuredMegaPlanets)
     ? getAddress(configuredMegaPlanets)
-    : CHAIN === 'testnet'
-      ? BASE_SEPOLIA_MEGAPLANETS_CONTRACT
-      : undefined;
+    : undefined;
 export const BATCH_PURCHASE_FACILITATOR_ADDRESS = ADDRESSES.BatchPurchaseFacilitator[
   CHAIN
 ] as Address;

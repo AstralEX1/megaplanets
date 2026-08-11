@@ -3,8 +3,18 @@
 # MegaPlanets contracts
 
 `MegaPlanets` is the ERC721A-based V2 implementation prepared for a clean Base
-Sepolia deployment. The already deployed non-upgradeable ERC-721 V1 is retained
-as `src/MegaPlanetsV1.sol` for migration reference and is not modified.
+Sepolia deployment. It is not deployed as of the current repository audit.
+
+Historical V1 deployments are no longer supported or configured. Their source is retained
+as `src/MegaPlanetsV1.sol` only to explain old testnet data during migration; all new work
+targets V2.
+
+The historical Base Sepolia address
+[`0xa94b947256fa977E63a7970CDf513FDD7632d744`](https://sepolia.basescan.org/address/0xa94b947256fa977E63a7970CDf513FDD7632d744)
+was deployed successfully at block `44,999,871` by transaction
+[`0x122fdc39c1c91f5388185c2b843e611d76221d1cddfb1004cdcb7868b0e533ff`](https://sepolia.basescan.org/tx/0x122fdc39c1c91f5388185c2b843e611d76221d1cddfb1004cdcb7868b0e533ff),
+but its runtime is V1: it exposes `mintSpecial`/`SPECIAL_TOKEN_PREFIX` and lacks the V2
+`totalSupply` and ticket-to-Planet mapping selectors. Never configure this address as V2.
 
 ## Local commands
 
@@ -15,7 +25,7 @@ forge build
 forge inspect MegaPlanets abi --json > abi/MegaPlanets.json
 ```
 
-The pinned dependencies are OpenZeppelin Contracts v5.7.0, ERC721A v4.3.0, and
+The pinned dependencies are OpenZeppelin Contracts, ERC721A v4.3.0, and
 forge-std v1.16.2. `abi/MegaPlanets.json` is generated from the V2 contract
 with Foundry. Regenerate it after every public interface change. The deployment
 script is preparation-only; do not use `--broadcast` without explicit
@@ -49,3 +59,16 @@ Each voucher binds the recipient, ticket ID, Season ID, origin transaction hash,
 
 Special-edition minting is not part of V2 or the current testnet MVP. Claimed or
 burned Megapot tickets are never eligible, including in a batch mint.
+
+## Deployment gate
+
+Before configuring any V2 address, record and verify all of the following together:
+
+- deployment transaction and block;
+- runtime bytecode against the checked-in V2 source and ABI;
+- `owner()`, `metadataSigner()`, `jackpotTicketNFT()`, and `seasonId()`;
+- sequential mint and bidirectional provenance behavior on Base Sepolia; and
+- matching frontend, API, and indexer configuration.
+
+Until that gate passes, `VITE_MEGAPLANETS_CONTRACT_ADDRESS` and the server-side contract
+address/deployment block must remain unset.
