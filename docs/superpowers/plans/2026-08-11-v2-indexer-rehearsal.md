@@ -14,8 +14,9 @@ rehearsal gates pass.
 - Target Base Sepolia (chain ID `84532`) only.
 - Keep the V2 address, deployment block, owner/metadata signer, ticket NFT, and
   ticket launch block exact as recorded above and in the deployment evidence.
-- Do not persist or print secrets. A disposable rehearsal database may receive
-  `DATABASE_URL` and `DIRECT_URL` only through the session environment.
+- Do not print secrets. For this rehearsal, `DATABASE_URL`, `DIRECT_URL`, and
+  `BASESCAN_API_KEY` may be stored only in the gitignored local `.env.local`
+  file; never commit that file or copy its values into logs or documentation.
 - Preserve users, authentication nonces, and sessions on every indexer reset.
 - Keep public HTTP response schemas unchanged and keep runtime activation disabled
   until all gates pass.
@@ -36,8 +37,8 @@ appropriate runbook.
 Task 1 documentation must keep these exact commands and gates aligned:
 
 - `cd contracts && ./script/deploy-v2-approved.sh`
-- `cd contracts && BASESCAN_API_KEY=... ./script/verify-v2-basescan.sh`
-- keep BaseScan pending when no session-provided `BASESCAN_API_KEY` exists;
+- `set -a; . .env.local; set +a; (cd contracts && ./script/verify-v2-basescan.sh)`
+- keep BaseScan pending when `.env.local` has no `BASESCAN_API_KEY`;
   BaseScan verification by itself does not authorize runtime activation
 - keep the runtime activation gate env-only: do not check in defaults
 - Only after the full rehearsal gate passes may runtime env activate V2 by

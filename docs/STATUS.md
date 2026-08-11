@@ -48,8 +48,9 @@ The checked-in deployment/verification commands are:
 - `cd contracts && ./script/deploy-v2-approved.sh`
 - `cd contracts && BASESCAN_API_KEY=... ./script/verify-v2-basescan.sh`
 
-BaseScan verification must be attempted only from a session that already provides
-`BASESCAN_API_KEY`; this session did not include that key, so BaseScan remains pending.
+BaseScan verification must be attempted only with `BASESCAN_API_KEY` loaded from
+the gitignored local `.env.local`; verification remains pending until that command
+has run successfully.
 BaseScan verification by itself does not authorize runtime activation. The runtime
 activation gate remains env-only: do not check in defaults, and do not set frontend
 `VITE_MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` plus

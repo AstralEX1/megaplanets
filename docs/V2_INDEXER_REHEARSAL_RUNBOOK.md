@@ -12,7 +12,8 @@ MegaPlanets ERC721A V2 while runtime activation stays disabled.
 - Ticket source: `MEGAPLANETS_V1`
 - Ticket launch block: `44,997,183`
 - Sourcify status: `exact_match`
-- BaseScan status: pending until a session provides `BASESCAN_API_KEY`; that
+- BaseScan status: pending until the local rehearsal environment provides
+  `BASESCAN_API_KEY`; that
   pending/completed status alone does not authorize runtime activation
 
 ## Exact commands
@@ -27,13 +28,18 @@ cd contracts
 BaseScan verification is a separate, opt-in follow-up step:
 
 ```sh
-cd contracts
-BASESCAN_API_KEY=... ./script/verify-v2-basescan.sh
+set -a
+. .env.local
+set +a
+(cd contracts && ./script/verify-v2-basescan.sh)
 ```
 
 `./script/verify-v2-basescan.sh` is intentionally non-interactive. It exits
 without making a network request when `BASESCAN_API_KEY` is absent from the
-current session environment.
+local rehearsal environment.
+
+For the disposable PostgreSQL rehearsal, fill `DATABASE_URL` and `DIRECT_URL`
+in the same gitignored `.env.local` file. Never commit or print those values.
 
 ## Runtime activation gate
 
