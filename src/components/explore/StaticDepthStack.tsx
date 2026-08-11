@@ -1,4 +1,5 @@
-import unrevealedPlanet from '@/assets/unrevealed-planet.png';
+import { useMemo } from 'react';
+import { randomMysteryPlanet } from '@/assets/mystery-planets';
 import { OrbitImages } from './OrbitImages';
 
 const MAX_VISIBLE_PLANETS = 50;
@@ -16,11 +17,14 @@ export function StaticDepthStack({
 }) {
   const capacity = Math.max(1, Math.floor(maxVisiblePlanets));
   const visibleCards = Math.min(Math.max(quantity, 0), capacity);
-  const images = Array.from({ length: visibleCards }, () => unrevealedPlanet);
+  const images = useMemo(
+    () => Array.from({ length: visibleCards }, () => randomMysteryPlanet()),
+    [visibleCards],
+  );
   const itemSize = visibleCards === 1 ? 560 : Math.max(180, 620 - (visibleCards - 1) * 55);
   const radiusX = visibleCards === 1 ? 1 : Math.min(620, Math.max(120, 700 - itemSize / 2 - 20));
-  const radiusY = visibleCards === 1 ? 1 : Math.min(130, Math.max(60, 44 + visibleCards * 4));
-  const visualHeight = 350;
+  const radiusY = visibleCards === 1 ? 1 : Math.min(190, Math.max(90, 72 + visibleCards * 5));
+  const visualHeight = 500;
 
   return (
     <fieldset
