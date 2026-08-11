@@ -11,7 +11,7 @@ export async function runPlanetIndexerCycle(config: Stage2Config) {
   const prisma = getPrismaClient(config.databaseUrl);
   const tickets = await indexEligibleTickets(
     { rpcUrl: config.rpcUrl, launchBlock: MEGAPLANETS_LAUNCH_BLOCK },
-    new PrismaEligibilityStore(prisma),
+    new PrismaEligibilityStore(prisma, config.planetContractAddress),
   );
   const planets = await indexPlanetEvents(config, new PrismaPlanetIndexStore(prisma));
   const miningStatesInitialized = await initializeMissingMiningStates(prisma, new Date());

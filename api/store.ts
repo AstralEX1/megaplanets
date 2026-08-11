@@ -14,19 +14,25 @@ export type PreparedVoucher = {
 
 export type IndexedTicket = EligibleTicket;
 
+export type IndexerCursor = {
+  nextBlock: bigint;
+  lastBlockHash?: Hex;
+};
+
 export type EligibilityStore = {
   saveTicket(ticket: IndexedTicket): Promise<void>;
   getVoucher(ticketId: bigint, recipient: Address, now: bigint): Promise<PreparedVoucher | undefined>;
   saveVoucher(prepared: PreparedVoucher): Promise<void>;
-  getCursor(): Promise<bigint | undefined>;
-  setCursor(blockNumber: bigint): Promise<void>;
+  getCursor(): Promise<IndexerCursor | undefined>;
+  setCursor(nextBlock: bigint, lastBlockHash: Hex): Promise<void>;
+  rewind(fromBlock: bigint): Promise<void>;
   getSnapshot(blockNumber: bigint): Promise<DailySnapshot | undefined>;
   saveSnapshot(snapshot: DailySnapshot): Promise<void>;
 };
 
 type PersistedStore = {
   version: 2;
-  cursor?: string;
+  cursor?: { nextBlock: string; lastBlockHash?: Hex };
   tickets: Record<string, PersistedTicket>;
   vouchers: Record<string, PersistedVoucher>;
   snapshots: Record<string, PersistedSnapshot>;
@@ -169,13 +175,21 @@ export class FileEligibilityStore implements EligibilityStore {
     });
   }
 
-  async getCursor(): Promise<bigint | undefined> {
+  async getCursor(): Promise<IndexerCursor | undefined> {
     const cursor = (await this.read()).cursor;
-    return cursor === undefined ? undefined : BigInt(cursor);
+    return cursor === undefined ? undefined : { nextBlock: BigInt(cursor.nextBlock), lastBlockHash: cursor.lastBlockHash };
   }
 
-  async setCursor(blockNumber: bigint): Promise<void> {
-    await this.update((store) => { store.cursor = blockNumber.toString(); });
+  async setCursor(nextBlock: bigint, lastBlockHash: Hex): Promise<void> {
+    await this.update((store) => { store.cursor = { nextBlock: nextBlock.toString(), lastBlockHash }; });
+  }
+
+  async rewind(_fromBlock: bigint): Promise<void> {
+    await this.update((store) => {
+      store.tickets = {};
+      store.vouchers = {};
+      store.cursor = undefined;
+    });
   }
 
   async getSnapshot(blockNumber: bigint): Promise<DailySnapshot | undefined> {
@@ -196,7 +210,7 @@ export class FileEligibilityStore implements EligibilityStore {
 export class MemoryEligibilityStore implements EligibilityStore {
   private readonly tickets = new Map<string, IndexedTicket>();
   private readonly vouchers = new Map<string, PreparedVoucher>();
-  private cursor: bigint | undefined;
+  private cursor: IndexerCursor | undefined;
   private readonly snapshots = new Map<string, DailySnapshot>();
 
   async saveTicket(ticket: IndexedTicket) {
@@ -211,7 +225,12 @@ export class MemoryEligibilityStore implements EligibilityStore {
   }
   async saveVoucher(prepared: PreparedVoucher) { this.vouchers.set(voucherKey(prepared.voucher.ticketId, prepared.voucher.recipient), prepared); }
   async getCursor() { return this.cursor; }
-  async setCursor(blockNumber: bigint) { this.cursor = blockNumber; }
+  async setCursor(nextBlock: bigint, lastBlockHash: Hex) { this.cursor = { nextBlock, lastBlockHash }; }
+  async rewind(_fromBlock: bigint) {
+    this.tickets.clear();
+    this.vouchers.clear();
+    this.cursor = undefined;
+  }
   async getSnapshot(blockNumber: bigint) { return this.snapshots.get(snapshotKey(blockNumber)); }
   async saveSnapshot(snapshot: DailySnapshot) {
     const key = snapshotKey(snapshot.blockNumber);

@@ -146,35 +146,23 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
 
   async rewind(contractAddress: Address, fromBlock: bigint): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const histories = await transaction.planetOwnershipHistory.findMany({
-        where: { planet: { contractAddress: contractAddress.toLowerCase() }, blockNumber: { gte: fromBlock } },
-        select: { planetId: true },
-      });
-      const affected = [...new Set(histories.map((history) => history.planetId))];
+      const normalizedAddress = contractAddress.toLowerCase();
+      await transaction.leaderboardEntry.deleteMany();
+      await transaction.leaderboardPeriod.deleteMany();
+      await transaction.dailySnapshotRecord.deleteMany();
+      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: { contractAddress: normalizedAddress } } });
+      await transaction.planetAccrualState.deleteMany({ where: { planet: { contractAddress: normalizedAddress } } });
       await transaction.planetOwnershipHistory.deleteMany({
-        where: { planet: { contractAddress: contractAddress.toLowerCase() }, blockNumber: { gte: fromBlock } },
+        where: { planet: { contractAddress: normalizedAddress } },
       });
       await transaction.processedBlockchainEvent.deleteMany({
-        where: { contractAddress: contractAddress.toLowerCase(), blockNumber: { gte: fromBlock } },
+        where: { contractAddress: normalizedAddress },
       });
       await transaction.planet.deleteMany({
-        where: { contractAddress: contractAddress.toLowerCase(), mintBlockNumber: { gte: fromBlock } },
+        where: { contractAddress: normalizedAddress },
       });
-      for (const planetId of affected) {
-        const planet = await transaction.planet.findUnique({ where: { id: planetId } });
-        if (!planet) continue;
-        const latest = await transaction.planetOwnershipHistory.findFirst({
-          where: { planetId },
-          orderBy: [{ blockNumber: 'desc' }, { logIndex: 'desc' }],
-        });
-        if (!latest) throw new Error(`Planet ${planet.tokenId.toFixed(0)} has no canonical ownership history.`);
-        await transaction.planet.update({
-          where: { id: planetId },
-          data: { ownerAddress: latest.toAddress ?? ZERO_ADDRESS },
-        });
-      }
       await transaction.indexerCursor.updateMany({
-        where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: contractAddress.toLowerCase(), stream: STREAM },
+        where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress, stream: STREAM },
         data: { nextBlock: fromBlock, lastBlockHash: null },
       });
     });
@@ -361,8 +349,7 @@ export async function indexPlanetEvents(
   const address = getAddress(config.planetContractAddress);
   const confirmations = options.confirmations ?? 6n;
   const blockRange = options.blockRange ?? 2_000n;
-  const reorgWindow = options.reorgWindow ?? 12n;
-  if (confirmations < 0n || blockRange < 1n || blockRange > 2_000n || reorgWindow < 1n) {
+  if (confirmations < 0n || blockRange < 1n || blockRange > 2_000n) {
     throw new Error('Invalid Planet indexer bounds.');
   }
   const client = createPublicClient({ chain: baseSepolia, transport: http(config.rpcUrl) });
@@ -370,16 +357,17 @@ export async function indexPlanetEvents(
   const throughBlock = latest > confirmations ? latest - confirmations : 0n;
   let cursor = await store.getCursor(address);
   let startBlock = cursor?.nextBlock ?? config.planetDeploymentBlock;
+  let reorgDetected = false;
   if (cursor?.lastBlockHash && startBlock > config.planetDeploymentBlock) {
     const previous = await client.getBlock({ blockNumber: startBlock - 1n });
     if (previous.hash !== cursor.lastBlockHash) {
-      startBlock = startBlock > reorgWindow ? startBlock - reorgWindow : config.planetDeploymentBlock;
-      if (startBlock < config.planetDeploymentBlock) startBlock = config.planetDeploymentBlock;
+      startBlock = config.planetDeploymentBlock;
       await store.rewind(address, startBlock);
       cursor = undefined;
+      reorgDetected = true;
     }
   }
-  if (startBlock > throughBlock) return { throughBlock, eventsProcessed: 0, reorgDetected: cursor === undefined };
+  if (startBlock > throughBlock) return { throughBlock, eventsProcessed: 0, reorgDetected };
 
   const planetConfig = createPlanetConfig();
   let eventsProcessed = 0;
@@ -458,5 +446,5 @@ export async function indexPlanetEvents(
     await store.setCursor(address, toBlock + 1n, finalBlock.hash);
     fromBlock = toBlock + 1n;
   }
-  return { fromBlock: startBlock, throughBlock, eventsProcessed, reorgDetected: cursor === undefined && startBlock !== config.planetDeploymentBlock };
+  return { fromBlock: startBlock, throughBlock, eventsProcessed, reorgDetected };
 }
