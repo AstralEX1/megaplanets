@@ -11,7 +11,6 @@ import type { PlanetMiningSnapshot } from '@/hooks/useWalletMining';
 import { PlanetMiningOverlay } from './PlanetMiningOverlay';
 import { PlanetGif } from './PlanetGif';
 import { PlanetTicketStatusLabel } from './PlanetTicketStatusLabel';
-import { UnrevealedPlanetVisual } from './UnrevealedPlanetVisual';
 
 type PlanetInventoryDetailProps = {
   preview: PlanetPreview;
@@ -104,25 +103,25 @@ export function PlanetInventoryDetail({
   mining,
   miningAsOf,
 }: PlanetInventoryDetailProps) {
+  const ticketExplorerUrl = ticketTxHash ? `${EXPLORER_TX_URL}${ticketTxHash}` : undefined;
+
   if (!revealed) {
     return (
       <section className="rounded-3xl border border-[var(--border-strong)] bg-[var(--surface-raised)] p-4 sm:p-5">
         {onBack ? <button type="button" onClick={onBack} className="mb-4 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">← Back to My Planets</button> : null}
-        <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-          <UnrevealedPlanetVisual className="aspect-square w-full" label="Unrevealed planet" />
-        </div>
-        <div className="mt-5">
-          <p className="font-mono text-xs text-[var(--text-secondary)]">Ticket #{preview.descriptor.input.ticketId.toString()}</p>
-          <div className="mt-3"><TicketLifecycle status={ticketStatus} onClaim={onClaim} pending={statusPending} /></div>
+        <div>
+          <h1 className="font-hud text-2xl font-bold tracking-[-0.04em] text-[var(--text-primary)] sm:text-3xl">Ticket #{preview.descriptor.input.ticketId.toString()}</h1>
+          <span aria-label={`Ticket lifecycle: ${ticketStatus.kind}`} className="mt-3 inline-flex rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]">Ticket lifecycle</span>
         </div>
         <div className="mt-5"><TicketCoordinates preview={preview} /></div>
+        <div className="mt-5"><TicketLifecycle status={ticketStatus} onClaim={onClaim} pending={statusPending} /></div>
+        <div className="mt-5 grid"><ExplorerLink href={ticketExplorerUrl} label="Ticket BaseScan" /></div>
         <div className="mt-5 [&>div>p]:hidden [&>div>button]:w-full">{mintAction}</div>
       </section>
     );
   }
 
   const { descriptor } = preview;
-  const ticketExplorerUrl = ticketTxHash ? `${EXPLORER_TX_URL}${ticketTxHash}` : undefined;
   const nftExplorerUrl = tokenId && MEGAPLANETS_CONTRACT_ADDRESS
     ? `${EXPLORER_NFT_URL}${MEGAPLANETS_CONTRACT_ADDRESS}/${tokenId}`
     : undefined;
