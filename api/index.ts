@@ -23,7 +23,9 @@ type Stage5Dependencies = {
 export type VoucherRateLimiter = { allows: (key: string) => boolean };
 
 /** Small process-local guard for expensive voucher preparation. A deployed service still needs durable edge rate limiting. */
-export function createVoucherRateLimiter(limit = 10, windowMs = 60_000, now = () => Date.now()): VoucherRateLimiter {
+// One wallet can legitimately reveal two full 50-ticket batches and then retry a single ticket
+// inside the same minute. Keep the local guard above that supported UI workload.
+export function createVoucherRateLimiter(limit = 120, windowMs = 60_000, now = () => Date.now()): VoucherRateLimiter {
   const requests = new Map<string, { count: number; resetsAt: number }>();
   return {
     allows(key) {

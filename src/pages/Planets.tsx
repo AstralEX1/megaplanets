@@ -236,6 +236,9 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   const selectedStatus = selected
     ? (ticketStatuses.statuses.get(selected.ticketId) ?? STATUS_UNAVAILABLE)
     : STATUS_UNAVAILABLE;
+  const selectedTicket = selected
+    ? tickets.find((ticket) => ticket.ticketId.toString() === selected.ticketId)
+    : undefined;
   const miningByTokenId = useMemo(
     () => new Map((mining.data?.planets ?? []).map((planet) => [planet.tokenId, planet] as const)),
     [mining.data?.planets],
@@ -262,12 +265,9 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
     if (item.tokenId) onViewPlanet(item.tokenId);
     else setMobileDetailTicketId(item.ticketId);
   };
-  const runSelectedStatusAction = () => {
-    if (selectedStatus.kind === 'claim') {
-      void claim.claim([selectedStatus.ticketId]);
-      return;
-    }
-    onNavigate('history');
+  const claimSelectedTicket = () => {
+    if (selectedStatus.kind !== 'claim') return;
+    void claim.claim([selectedStatus.ticketId]);
   };
 
   if (!isConnected || !address) return <ConnectWalletPrompt />;
@@ -355,14 +355,12 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       <PlanetInventoryDetail
         preview={selected.preview}
         tokenId={selected.tokenId}
+        ticketTxHash={selectedTicket?.originTxHash}
         revealed={selected.revealed}
         ticketStatus={selectedStatus}
         mintAction={mintAction(selected.preview)}
-        onStatusAction={runSelectedStatusAction}
+        onClaim={claimSelectedTicket}
         statusPending={claim.isPending}
-        onViewDetails={
-          selected.tokenId ? () => onViewPlanet(selected.tokenId as string) : undefined
-        }
         onBack={
           routePlanetId
             ? () => onNavigate('planets')

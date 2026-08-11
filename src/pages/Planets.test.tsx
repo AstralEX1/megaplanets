@@ -14,7 +14,7 @@ const state = vi.hoisted(() => ({
       drawingId: 218n,
       normals: [4, 11, 17, 26, 39],
       bonusBall: 66,
-      originTxHash: '0x1234',
+      originTxHash: `0x${'1'.repeat(64)}`,
       logIndex: 0n,
     },
     {
@@ -22,7 +22,7 @@ const state = vi.hoisted(() => ({
       drawingId: 218n,
       normals: [5, 12, 18, 27, 40],
       bonusBall: 67,
-      originTxHash: '0x1235',
+      originTxHash: `0x${'2'.repeat(64)}`,
       logIndex: 1n,
     },
   ],
@@ -35,7 +35,7 @@ const state = vi.hoisted(() => ({
         drawingId: '218',
         normals: [4, 11, 17, 26, 39],
         bonusBall: 66,
-        originTxHash: '0x1234',
+        originTxHash: `0x${'1'.repeat(64)}`,
       },
     },
     {
@@ -46,7 +46,7 @@ const state = vi.hoisted(() => ({
         drawingId: '218',
         normals: [5, 12, 18, 27, 40],
         bonusBall: 67,
-        originTxHash: '0x1235',
+        originTxHash: `0x${'2'.repeat(64)}`,
       },
     },
   ],
@@ -226,7 +226,7 @@ describe('Planets', () => {
         drawingId: 218n,
         normals: [4, 11, 17, 26, 39],
         bonusBall: 66,
-        originTxHash: '0x1234',
+        originTxHash: `0x${'1'.repeat(64)}`,
         logIndex: 0n,
       },
       {
@@ -234,7 +234,7 @@ describe('Planets', () => {
         drawingId: 218n,
         normals: [5, 12, 18, 27, 40],
         bonusBall: 67,
-        originTxHash: '0x1235',
+        originTxHash: `0x${'2'.repeat(64)}`,
         logIndex: 1n,
       },
     ];
@@ -247,7 +247,7 @@ describe('Planets', () => {
           drawingId: '218',
           normals: [4, 11, 17, 26, 39],
           bonusBall: 66,
-          originTxHash: '0x1234',
+          originTxHash: `0x${'1'.repeat(64)}`,
         },
       },
       {
@@ -258,7 +258,7 @@ describe('Planets', () => {
           drawingId: '218',
           normals: [5, 12, 18, 27, 40],
           bonusBall: 67,
-          originTxHash: '0x1235',
+          originTxHash: `0x${'2'.repeat(64)}`,
         },
       },
     ];
@@ -319,17 +319,22 @@ describe('Planets', () => {
     expect(screen.getByRole('button', { name: 'Reveal all (18)' })).toBeInTheDocument();
   });
 
-  it('preserves the selected planet while sorting and routes View details by token ID', () => {
-    const onViewPlanet = vi.fn();
-    render(<Planets onNavigate={vi.fn()} onViewPlanet={onViewPlanet} />);
+  it('preserves the selected planet while sorting and uses its canonical explorer inputs', () => {
+    render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
 
     screen.getByRole('button', { name: 'Select Kepler' }).click();
     fireEvent.change(screen.getByLabelText('Sort planets'), { target: { value: 'rarity' } });
     expect(
       screen.getByRole('button', { name: 'Select Kepler' }).closest('article'),
     ).toHaveAttribute('data-selected', 'true');
-    screen.getByRole('button', { name: 'View details' }).click();
-    expect(onViewPlanet).toHaveBeenCalledWith('7');
+    expect(screen.getByRole('link', { name: 'Ticket BaseScan' })).toHaveAttribute(
+      'href',
+      `https://sepolia.basescan.org/tx/0x${'1'.repeat(64)}`,
+    );
+    expect(screen.getByRole('link', { name: 'NFT BaseScan' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/\/7$/),
+    );
   });
 
   it('opens the full-page detail route when a revealed card is tapped on mobile', () => {
@@ -356,6 +361,11 @@ describe('Planets', () => {
     expect(
       within(detail).getByText('67', { selector: '[data-coordinate="bonus"]' }),
     ).toBeInTheDocument();
+    expect(within(detail).getByRole('link', { name: 'Ticket BaseScan' })).toHaveAttribute(
+      'href',
+      `https://sepolia.basescan.org/tx/0x${'2'.repeat(64)}`,
+    );
+    expect(within(detail).queryByRole('link', { name: 'NFT BaseScan' })).not.toBeInTheDocument();
     expect(within(detail).queryByText('Astra')).not.toBeInTheDocument();
   });
 
@@ -365,6 +375,18 @@ describe('Planets', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select Kepler' }));
     fireEvent.click(screen.getByRole('button', { name: 'Claim ($12.50)' }));
     expect(state.claim).toHaveBeenCalledWith([24n]);
+  });
+
+  it('renders a non-interactive drawn lifecycle state', () => {
+    const onNavigate = vi.fn();
+    render(<Planets onNavigate={onNavigate} onViewPlanet={vi.fn()} />);
+
+    screen.getByRole('button', { name: 'Select Astra' }).click();
+    const detail = screen.getByRole('complementary', { name: 'Selected planet detail' });
+    expect(within(detail).getByText('Drawn')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Drawn' })).not.toBeInTheDocument();
+    expect(state.claim).not.toHaveBeenCalled();
+    expect(onNavigate).not.toHaveBeenCalled();
   });
 
   it('renders a full-page detail route and returns to My Planets', () => {
