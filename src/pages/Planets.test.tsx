@@ -4,14 +4,51 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
-  account: { address: '0x0000000000000000000000000000000000000001' as `0x${string}` | undefined, isConnected: true },
+  account: {
+    address: '0x0000000000000000000000000000000000000001' as `0x${string}` | undefined,
+    isConnected: true,
+  },
   tickets: [
-    { ticketId: 24n, drawingId: 218n, normals: [4, 11, 17, 26, 39], bonusBall: 66, originTxHash: '0x1234', logIndex: 0n },
-    { ticketId: 25n, drawingId: 218n, normals: [5, 12, 18, 27, 40], bonusBall: 67, originTxHash: '0x1235', logIndex: 1n },
+    {
+      ticketId: 24n,
+      drawingId: 218n,
+      normals: [4, 11, 17, 26, 39],
+      bonusBall: 66,
+      originTxHash: '0x1234',
+      logIndex: 0n,
+    },
+    {
+      ticketId: 25n,
+      drawingId: 218n,
+      normals: [5, 12, 18, 27, 40],
+      bonusBall: 67,
+      originTxHash: '0x1235',
+      logIndex: 1n,
+    },
   ],
   planets: [
-    { tokenId: '7', ticketId: '24', mintedAt: '2026-08-01T00:00:00.000Z', ticket: { drawingId: '218', normals: [4, 11, 17, 26, 39], bonusBall: 66, originTxHash: '0x1234' } },
-    { tokenId: '8', ticketId: '25', mintedAt: '2026-08-03T00:00:00.000Z', ticket: { drawingId: '218', normals: [5, 12, 18, 27, 40], bonusBall: 67, originTxHash: '0x1235' } },
+    {
+      tokenId: '7',
+      ticketId: '24',
+      mintedAt: '2026-08-01T00:00:00.000Z',
+      ticket: {
+        drawingId: '218',
+        normals: [4, 11, 17, 26, 39],
+        bonusBall: 66,
+        originTxHash: '0x1234',
+      },
+    },
+    {
+      tokenId: '8',
+      ticketId: '25',
+      mintedAt: '2026-08-03T00:00:00.000Z',
+      ticket: {
+        drawingId: '218',
+        normals: [5, 12, 18, 27, 40],
+        bonusBall: 67,
+        originTxHash: '0x1235',
+      },
+    },
   ],
   indexedLoading: false,
   indexedError: undefined as Error | undefined,
@@ -27,8 +64,24 @@ const state = vi.hoisted(() => ({
     earnedMicros: '10100000',
     effectiveMineralsPerDayMicros: '104000000',
     planets: [
-      { tokenId: '7', baseMineralsPerDay: '24', multiplierBps: '10500', effectiveMineralsPerDayMicros: '25200000', pendingMicros: '1000000', earnedMicros: '4000000', activeSince: '2026-08-10T00:00:00.000Z' },
-      { tokenId: '8', baseMineralsPerDay: '80', multiplierBps: '10000', effectiveMineralsPerDayMicros: '80000000', pendingMicros: '2100000', earnedMicros: '6100000', activeSince: '2026-08-10T00:00:00.000Z' },
+      {
+        tokenId: '7',
+        baseMineralsPerDay: '24',
+        multiplierBps: '10500',
+        effectiveMineralsPerDayMicros: '25200000',
+        pendingMicros: '1000000',
+        earnedMicros: '4000000',
+        activeSince: '2026-08-10T00:00:00.000Z',
+      },
+      {
+        tokenId: '8',
+        baseMineralsPerDay: '80',
+        multiplierBps: '10000',
+        effectiveMineralsPerDayMicros: '80000000',
+        pendingMicros: '2100000',
+        earnedMicros: '6100000',
+        activeSince: '2026-08-10T00:00:00.000Z',
+      },
     ],
   },
 }));
@@ -37,15 +90,45 @@ vi.mock('wagmi', () => ({
   useAccount: () => state.account,
 }));
 vi.mock('@rainbow-me/rainbowkit', () => ({
-  ConnectButton: { Custom: ({ children }: { children: (props: object) => React.ReactNode }) => children({ account: undefined, chain: undefined, mounted: true, openConnectModal: vi.fn() }) },
+  ConnectButton: {
+    Custom: ({ children }: { children: (props: object) => React.ReactNode }) =>
+      children({ account: undefined, chain: undefined, mounted: true, openConnectModal: vi.fn() }),
+  },
 }));
 vi.mock('@megaplanets/planet-generator', () => ({
-  derivePlanetPreview: ({ ticketId, drawingId, normals, bonusBall }: { ticketId: bigint; drawingId: bigint; normals: number[]; bonusBall: number }) => ({
+  derivePlanetPreview: ({
+    ticketId,
+    drawingId,
+    normals,
+    bonusBall,
+  }: {
+    ticketId: bigint;
+    drawingId: bigint;
+    normals: number[];
+    bonusBall: number;
+  }) => ({
     descriptor: {
       input: { ticketId, drawingId, normals, bonusBall },
-      traits: ticketId === 24n
-        ? { name: 'Kepler', type: 'Gaia', terrain: 'pixel-continents', rarity: 'Epic', minerals: 24, satelliteCount: 1, hasRing: false }
-        : { name: 'Astra', type: 'Volcanic', terrain: 'ridged', rarity: 'Legendary', minerals: 80, satelliteCount: 2, hasRing: true },
+      traits:
+        ticketId === 24n
+          ? {
+              name: 'Kepler',
+              type: 'Gaia',
+              terrain: 'pixel-continents',
+              rarity: 'Epic',
+              minerals: 24,
+              satelliteCount: 1,
+              hasRing: false,
+            }
+          : {
+              name: 'Astra',
+              type: 'Volcanic',
+              terrain: 'ridged',
+              rarity: 'Legendary',
+              minerals: 80,
+              satelliteCount: 2,
+              hasRing: true,
+            },
       seed: '0x1234',
       traitsHash: '0x5678',
     },
@@ -53,20 +136,80 @@ vi.mock('@megaplanets/planet-generator', () => ({
   }),
 }));
 vi.mock('@/config/planetSeason', () => ({ PLANET_SEASON: { seasonId: '0x01' } }));
-vi.mock('@/hooks/useEligiblePlanetTickets', () => ({ useEligiblePlanetTickets: () => ({ tickets: state.tickets, isLoading: false }) }));
-vi.mock('@/hooks/useIndexedPlanets', () => ({ useIndexedPlanets: () => ({ planets: state.planets, isLoading: state.indexedLoading, error: state.indexedError }) }));
-vi.mock('@/hooks/useWalletMining', () => ({ useWalletMining: () => ({ data: state.mining, isLoading: false, error: undefined }) }));
+vi.mock('@/hooks/useEligiblePlanetTickets', () => ({
+  useEligiblePlanetTickets: () => ({ tickets: state.tickets, isLoading: false }),
+}));
+vi.mock('@/hooks/useIndexedPlanets', () => ({
+  useIndexedPlanets: () => ({
+    planets: state.planets,
+    isLoading: state.indexedLoading,
+    error: state.indexedError,
+  }),
+}));
+vi.mock('@/hooks/useWalletMining', () => ({
+  useWalletMining: () => ({ data: state.mining, isLoading: false, error: undefined }),
+}));
 vi.mock('@/hooks/usePlanetTicketStatuses', () => ({
-  usePlanetTicketStatuses: () => ({ statuses: state.statuses, isLoading: false, error: undefined, refetch: state.refetchStatuses }),
+  usePlanetTicketStatuses: () => ({
+    statuses: state.statuses,
+    isLoading: false,
+    error: undefined,
+    refetch: state.refetchStatuses,
+  }),
 }));
 vi.mock('@/hooks/useClaimWinnings', () => ({
-  useClaimWinnings: () => ({ claim: state.claim, isPending: false, isSuccess: state.claimSuccess, reset: vi.fn() }),
+  useClaimWinnings: () => ({
+    claim: state.claim,
+    isPending: false,
+    isSuccess: state.claimSuccess,
+    reset: vi.fn(),
+  }),
 }));
-vi.mock('@/hooks/useJackpotState', () => ({ useJackpotState: () => ({ drawingId: 219n, phase: 'open', state: { drawingTime: 2_000_000_000n }, isLoading: false }) }));
-vi.mock('@/lib/purchaseReceipt', () => ({ PURCHASED_TICKETS_UPDATED_EVENT: 'tickets-updated', readPersistedPurchasedTickets: () => ({ tickets: [], invalidKeys: [] }) }));
-vi.mock('@/components/planets/PlanetThumbnail', () => ({ PlanetThumbnail: ({ descriptor }: { descriptor: { input: { ticketId: bigint } } }) => <span>Pixel preview {descriptor.input.ticketId.toString()}</span> }));
-vi.mock('@/components/planets/PlanetGif', () => ({ PlanetGif: ({ preview }: { preview: { descriptor: { input: { ticketId: bigint } } } }) => <span>Animated preview {preview.descriptor.input.ticketId.toString()}</span> }));
-vi.mock('@/components/planets/MintPlanetButton', () => ({ MintPlanetButton: () => <button type="button">MINT</button> }));
+vi.mock('@/hooks/useJackpotState', () => ({
+  useJackpotState: () => ({
+    drawingId: 219n,
+    phase: 'open',
+    state: { drawingTime: 2_000_000_000n },
+    isLoading: false,
+  }),
+}));
+vi.mock('@/lib/purchaseReceipt', () => ({
+  PURCHASED_TICKETS_UPDATED_EVENT: 'tickets-updated',
+  readPersistedPurchasedTickets: () => ({ tickets: [], invalidKeys: [] }),
+}));
+vi.mock('@/components/planets/PlanetThumbnail', () => ({
+  PlanetThumbnail: ({ descriptor }: { descriptor: { input: { ticketId: bigint } } }) => (
+    <span>Pixel preview {descriptor.input.ticketId.toString()}</span>
+  ),
+}));
+vi.mock('@/components/planets/PlanetGif', () => ({
+  PlanetGif: ({ preview }: { preview: { descriptor: { input: { ticketId: bigint } } } }) => (
+    <span>Animated preview {preview.descriptor.input.ticketId.toString()}</span>
+  ),
+}));
+vi.mock('@/components/planets/MintPlanetButton', () => ({
+  MintPlanetButton: ({ buttonLabel }: { buttonLabel?: string }) => (
+    <button type="button">{buttonLabel}</button>
+  ),
+}));
+vi.mock('@/components/planets/MintPlanetBatchButton', () => ({
+  MintPlanetBatchButton: ({
+    planets,
+    buttonLabel,
+    onMinted,
+  }: {
+    planets: readonly { preview: { descriptor: { input: { ticketId: bigint } } } }[];
+    buttonLabel?: string;
+    onMinted?: (ticketIds: readonly bigint[]) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onMinted?.(planets.map(({ preview }) => preview.descriptor.input.ticketId))}
+    >
+      {buttonLabel}
+    </button>
+  ),
+}));
 
 import { Planets } from './Planets';
 
@@ -78,12 +221,46 @@ describe('Planets', () => {
     });
     state.account = { address: '0x0000000000000000000000000000000000000001', isConnected: true };
     state.tickets = [
-      { ticketId: 24n, drawingId: 218n, normals: [4, 11, 17, 26, 39], bonusBall: 66, originTxHash: '0x1234', logIndex: 0n },
-      { ticketId: 25n, drawingId: 218n, normals: [5, 12, 18, 27, 40], bonusBall: 67, originTxHash: '0x1235', logIndex: 1n },
+      {
+        ticketId: 24n,
+        drawingId: 218n,
+        normals: [4, 11, 17, 26, 39],
+        bonusBall: 66,
+        originTxHash: '0x1234',
+        logIndex: 0n,
+      },
+      {
+        ticketId: 25n,
+        drawingId: 218n,
+        normals: [5, 12, 18, 27, 40],
+        bonusBall: 67,
+        originTxHash: '0x1235',
+        logIndex: 1n,
+      },
     ];
     state.planets = [
-      { tokenId: '7', ticketId: '24', mintedAt: '2026-08-01T00:00:00.000Z', ticket: { drawingId: '218', normals: [4, 11, 17, 26, 39], bonusBall: 66, originTxHash: '0x1234' } },
-      { tokenId: '8', ticketId: '25', mintedAt: '2026-08-03T00:00:00.000Z', ticket: { drawingId: '218', normals: [5, 12, 18, 27, 40], bonusBall: 67, originTxHash: '0x1235' } },
+      {
+        tokenId: '7',
+        ticketId: '24',
+        mintedAt: '2026-08-01T00:00:00.000Z',
+        ticket: {
+          drawingId: '218',
+          normals: [4, 11, 17, 26, 39],
+          bonusBall: 66,
+          originTxHash: '0x1234',
+        },
+      },
+      {
+        tokenId: '8',
+        ticketId: '25',
+        mintedAt: '2026-08-03T00:00:00.000Z',
+        ticket: {
+          drawingId: '218',
+          normals: [5, 12, 18, 27, 40],
+          bonusBall: 67,
+          originTxHash: '0x1235',
+        },
+      },
     ];
     state.indexedLoading = false;
     state.indexedError = undefined;
@@ -113,9 +290,33 @@ describe('Planets', () => {
     expect(screen.getByRole('option', { name: 'Rarity' })).toBeInTheDocument();
 
     const collection = screen.getByRole('region', { name: 'Planet collection' });
-    expect(within(collection).getAllByRole('button', { name: /Select/ }).map((button) => button.getAttribute('aria-label'))).toEqual(['Select Astra', 'Select Kepler']);
+    expect(
+      within(collection)
+        .getAllByRole('button', { name: /Select/ })
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual(['Select Astra', 'Select Kepler']);
     fireEvent.change(screen.getByLabelText('Sort planets'), { target: { value: 'oldest' } });
-    expect(within(collection).getAllByRole('button', { name: /Select/ }).map((button) => button.getAttribute('aria-label'))).toEqual(['Select Kepler', 'Select Astra']);
+    expect(
+      within(collection)
+        .getAllByRole('button', { name: /Select/ })
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual(['Select Kepler', 'Select Astra']);
+  });
+
+  it('reveals canonical unrevealed tickets in explicit batches of 50 plus the remainder', () => {
+    state.tickets = Array.from({ length: 68 }, (_, index) => ({
+      ticketId: BigInt(100 + index),
+      drawingId: 218n,
+      normals: [4, 11, 17, 26, 39],
+      bonusBall: 66,
+      originTxHash: `0x${(index + 1).toString(16).padStart(64, '0')}`,
+      logIndex: BigInt(index),
+    }));
+    state.planets = [];
+    render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reveal all (68)' }));
+    expect(screen.getByRole('button', { name: 'Reveal all (18)' })).toBeInTheDocument();
   });
 
   it('preserves the selected planet while sorting and routes View details by token ID', () => {
@@ -124,7 +325,9 @@ describe('Planets', () => {
 
     screen.getByRole('button', { name: 'Select Kepler' }).click();
     fireEvent.change(screen.getByLabelText('Sort planets'), { target: { value: 'rarity' } });
-    expect(screen.getByRole('button', { name: 'Select Kepler' }).closest('article')).toHaveAttribute('data-selected', 'true');
+    expect(
+      screen.getByRole('button', { name: 'Select Kepler' }).closest('article'),
+    ).toHaveAttribute('data-selected', 'true');
     screen.getByRole('button', { name: 'View details' }).click();
     expect(onViewPlanet).toHaveBeenCalledWith('7');
   });
@@ -150,7 +353,9 @@ describe('Planets', () => {
     expect(detail).toHaveClass('lg:max-h-[calc(100vh-8rem)]', 'lg:overflow-y-auto');
     expect(within(detail).getByText('Ticket #25')).toBeInTheDocument();
     expect(within(detail).getByText('5')).toBeInTheDocument();
-    expect(within(detail).getByText('67', { selector: '[data-coordinate="bonus"]' })).toBeInTheDocument();
+    expect(
+      within(detail).getByText('67', { selector: '[data-coordinate="bonus"]' }),
+    ).toBeInTheDocument();
     expect(within(detail).queryByText('Astra')).not.toBeInTheDocument();
   });
 
@@ -187,7 +392,9 @@ describe('Planets', () => {
     state.indexedError = new Error('offline');
     render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
 
-    expect(screen.getByRole('heading', { name: 'Planet collection unavailable' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Planet collection unavailable' }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'No planets yet' })).not.toBeInTheDocument();
   });
 

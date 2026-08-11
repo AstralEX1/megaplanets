@@ -12,11 +12,15 @@ export function MintPlanetButton({
   logIndex,
   buttonLabel,
   onMinted,
+  onStateChange,
 }: {
   preview: PlanetPreview;
   logIndex: bigint | undefined;
   buttonLabel?: string;
   onMinted?: (ticketId: bigint) => void;
+  onStateChange?: (
+    state: 'idle' | 'wallet-confirmation' | 'confirming' | 'complete' | 'error',
+  ) => void;
 }) {
   const { address } = useAccount();
   const publicClient = usePublicClient();
@@ -43,8 +47,31 @@ export function MintPlanetButton({
     onMinted?.(preview.descriptor.input.ticketId);
   }, [onMinted, preview.descriptor.input.ticketId, receipt.isSuccess]);
 
+  useEffect(() => {
+    if (receipt.isSuccess) onStateChange?.('complete');
+    else if (preparationError || write.error || receipt.error) onStateChange?.('error');
+    else if (receipt.isLoading) onStateChange?.('confirming');
+    else if (isPreparing || write.isPending) onStateChange?.('wallet-confirmation');
+    else onStateChange?.('idle');
+  }, [
+    isPreparing,
+    onStateChange,
+    preparationError,
+    receipt.error,
+    receipt.isLoading,
+    receipt.isSuccess,
+    write.error,
+    write.isPending,
+  ]);
+
   const mint = async () => {
-    if (!canMint || !address || !publicClient || !MEGAPLANETS_CONTRACT_ADDRESS || logIndex === undefined)
+    if (
+      !canMint ||
+      !address ||
+      !publicClient ||
+      !MEGAPLANETS_CONTRACT_ADDRESS ||
+      logIndex === undefined
+    )
       return;
     setPreparationError(null);
     setIsPreparing(true);
@@ -65,27 +92,48 @@ export function MintPlanetButton({
       });
       write.writeContract(simulation.request);
     } catch (error) {
-      setPreparationError(error instanceof Error ? error : new Error('Planet mint preparation failed.'));
+      setPreparationError(
+        error instanceof Error ? error : new Error('Planet mint preparation failed.'),
+      );
     } finally {
       setIsPreparing(false);
     }
   };
 
   if (!isPlanetVoucherServiceConfigured) {
-    return <p className="text-xs text-zinc-500">Reveal will be enabled when the voucher service is configured.</p>;
+    return (
+      <p className="text-xs text-zinc-500">
+        Reveal will be enabled when the voucher service is configured.
+      </p>
+    );
   }
   if (logIndex === undefined) {
-    return <p className="text-xs text-zinc-500">This planet needs canonical ticket provenance before it can reveal.</p>;
+    return (
+      <p className="text-xs text-zinc-500">
+        This planet needs canonical ticket provenance before it can reveal.
+      </p>
+    );
   }
-  if (!canMint) return <p className="text-xs text-zinc-500">Connect a Base Sepolia wallet to reveal this planet.</p>;
+  if (!canMint)
+    return (
+      <p className="text-xs text-zinc-500">Connect a Base Sepolia wallet to reveal this planet.</p>
+    );
 
   return (
     <div className="space-y-2">
-      <Button onClick={() => void mint()} disabled={isPreparing || write.isPending || receipt.isLoading}>
-        {isPreparing ? 'Preparing reveal…' : write.isPending || receipt.isLoading ? 'Revealing planet…' : buttonLabel ?? 'Reveal planet'}
+      <Button
+        onClick={() => void mint()}
+        disabled={isPreparing || write.isPending || receipt.isLoading}
+      >
+        {isPreparing
+          ? 'Preparing reveal…'
+          : write.isPending || receipt.isLoading
+            ? 'Revealing planet…'
+            : (buttonLabel ?? 'Reveal planet')}
       </Button>
       <p className="text-xs text-amber-200">
-        The server verifies ticket provenance and signs immutable IPFS metadata before your wallet submits the Base Sepolia mint.
+        The server verifies ticket provenance and signs immutable IPFS metadata before your wallet
+        submits the Base Sepolia mint.
       </p>
       <TxStatus
         hash={write.data}

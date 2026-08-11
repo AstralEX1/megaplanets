@@ -69,6 +69,14 @@ describe('ExpeditionConfigurator', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('replaces the Explore copy with inline purchase progress', () => {
+    render(<ExpeditionConfigurator {...props} exploreLabel="Confirming purchase…" disabled />);
+
+    expect(screen.getByRole('heading', { name: 'Win up to $0' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirming purchase…' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /^Explore 3/ })).not.toBeInTheDocument();
+  });
+
   it('opens and closes coordinates from the desktop arrow', async () => {
     const user = userEvent.setup();
     render(

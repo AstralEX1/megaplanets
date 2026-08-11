@@ -9,7 +9,7 @@ vi.mock('./PlanetGif', () => ({ PlanetGif: () => <span>Animated planet GIF</span
 
 const preview = {
   descriptor: {
-    input: { ticketId: 24n, drawingId: 218n, normals: [4, 11, 17, 26, 39], bonusBall: 66 },
+    input: { ticketId: 24n, drawingId: 218n, normals: [4, 11, 17, 26, 39], bonusBall: 66, originTxHash: `0x${'1'.repeat(64)}` },
     traits: { name: 'Kepler', type: 'Gaia', terrain: 'pixel-continents', rarity: 'Epic', minerals: 24, satelliteCount: 1, hasRing: false },
     seed: '0x1234',
     traitsHash: '0x5678',
@@ -20,32 +20,57 @@ const preview = {
 describe('PlanetInventoryDetail', () => {
   afterEach(cleanup);
 
-  it('shows full traits only after a planet is revealed', () => {
-    const onStatusAction = vi.fn();
-    const onViewDetails = vi.fn();
-    const { container } = render(<PlanetInventoryDetail preview={preview} tokenId="7" revealed mining={{ tokenId: '7', baseMineralsPerDay: '24', multiplierBps: '10500', effectiveMineralsPerDayMicros: '25200000', pendingMicros: '1000000', earnedMicros: '10100000', activeSince: '2026-08-10T00:00:00.000Z' }} miningAsOf="2026-08-10T00:00:01.000Z" ticketStatus={{ kind: 'claim', amount: 12_500_000n, ticketId: 24n }} mintAction={null} onStatusAction={onStatusAction} onViewDetails={onViewDetails} />);
+  it('shows revealed planet details with claim and canonical explorer links', () => {
+    const onClaim = vi.fn();
+    const { container } = render(<PlanetInventoryDetail preview={preview} tokenId="7" ticketTxHash={`0x${'1'.repeat(64)}`} revealed mining={{ tokenId: '7', baseMineralsPerDay: '24', multiplierBps: '10500', effectiveMineralsPerDayMicros: '25200000', pendingMicros: '1000000', earnedMicros: '10100000', activeSince: '2026-08-10T00:00:00.000Z' }} miningAsOf="2026-08-10T00:00:01.000Z" ticketStatus={{ kind: 'claim', amount: 12_500_000n, ticketId: 24n }} mintAction={null} onClaim={onClaim} />);
 
     expect(screen.getByRole('heading', { name: 'Kepler' })).toBeInTheDocument();
     expect(screen.getByText('Animated planet GIF')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Minerals' })).toBeInTheDocument();
-    expect(screen.queryByText(/minerals\/day/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/Mined 10\.1/)).toBeInTheDocument();
-    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent === 'Same-Type bonus +5%')).toBeInTheDocument();
-    expect(screen.getByText((_, element) => element?.tagName === 'P' && element.textContent === 'Effective rate 25.2 / day')).toBeInTheDocument();
+    expect(screen.getByTestId('planet-artwork')).toContainElement(screen.getByTestId('planet-mining-overlay'));
     expect(screen.getByRole('button', { name: 'Claim ($12.50)' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Details' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Details/i })).not.toBeInTheDocument();
     expect(screen.getByText('Pixel continents')).toBeInTheDocument();
     expect(screen.getByText('Yes', { selector: '[data-trait="clouds"]' })).toBeInTheDocument();
-    expect(screen.getByText('No', { selector: '[data-trait="rings"]' })).toBeInTheDocument();
+    expect(screen.getByText('Base minerals')).toBeInTheDocument();
+    expect(screen.getByText('24', { selector: '[data-trait="base-minerals"]' })).toBeInTheDocument();
+    expect(screen.queryByText('Rings')).not.toBeInTheDocument();
     expect(screen.getByText('66', { selector: '[data-coordinate="bonus"]' })).toBeInTheDocument();
     expect(screen.getByText('Ticket #24')).toBeInTheDocument();
     expect(screen.getByText('Planet #7')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ticket BaseScan' })).toHaveAttribute(
+      'href',
+      `https://sepolia.basescan.org/tx/0x${'1'.repeat(64)}`,
+    );
+    expect(screen.getByRole('link', { name: 'NFT BaseScan' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/\/nft\/0xa94b947256fa977e63a7970cdf513fdd7632d744\/7$/i),
+    );
     expect(container.querySelector('[data-density="compact"]')).toBeInTheDocument();
-    expect(container.querySelector('[data-planet-art]')).toHaveClass('max-h-[32vh]');
 
     screen.getByRole('button', { name: 'Claim ($12.50)' }).click();
-    screen.getByRole('button', { name: 'View details' }).click();
-    expect(onStatusAction).toHaveBeenCalledOnce();
-    expect(onViewDetails).toHaveBeenCalledOnce();
+    expect(onClaim).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    [{ kind: 'countdown', time: '23:59:42' } as const, '23:59:42'],
+    [{ kind: 'drawing' } as const, 'Drawing'],
+    [{ kind: 'claimed', amount: 12_500_000n } as const, 'Claimed ($12.50)'],
+    [{ kind: 'drawn' } as const, 'Drawn'],
+  ])('renders %s as state without an action', (ticketStatus, label) => {
+    render(<PlanetInventoryDetail preview={preview} tokenId="7" revealed ticketStatus={ticketStatus} mintAction={null} />);
+
+    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: label })).not.toBeInTheDocument();
+  });
+
+  it('shows unavailable explorer provenance without broken links', () => {
+    render(<PlanetInventoryDetail preview={preview} revealed ticketStatus={{ kind: 'drawn' }} mintAction={null} />);
+
+    expect(screen.getByText('Ticket BaseScan unavailable')).toBeInTheDocument();
+    expect(screen.getByText('NFT BaseScan unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Ticket BaseScan' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'NFT BaseScan' })).not.toBeInTheDocument();
   });
 
   it('limits unrevealed detail to ticket status, purchased coordinates, and mint action', () => {

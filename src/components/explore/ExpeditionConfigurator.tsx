@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { formatUnits } from 'viem';
 import { ApprovalButton } from '@/components/common/ApprovalButton';
 import { DepthText } from '@/components/common/DepthText';
@@ -20,6 +20,7 @@ export function ExpeditionConfigurator({
   manuallyEditedTickets,
   automaticQuickPick,
   disabled,
+  exploreLabel,
   approvalSpender,
   approvalAmount,
   onApproved,
@@ -35,6 +36,7 @@ export function ExpeditionConfigurator({
   manuallyEditedTickets: readonly CustomTicket[];
   automaticQuickPick: boolean;
   disabled: boolean;
+  exploreLabel?: ReactNode;
   approvalSpender?: `0x${string}`;
   approvalAmount?: bigint;
   onApproved?: () => void;
@@ -65,7 +67,7 @@ export function ExpeditionConfigurator({
                 tilt={10.5}
                 smoothing={0.3}
                 perspective={1_500}
-                orbitSpeed={0.25}
+                orbitSpeed={0.1}
                 pointerTracking={false}
                 autoOrbit
                 fontSize="clamp(2rem, 4vw, 3.4rem)"
@@ -88,6 +90,7 @@ export function ExpeditionConfigurator({
                     quantity={quantity}
                     total={total}
                     disabled={disabled}
+                    label={exploreLabel}
                     onClick={onExplore}
                   />
                 </ApprovalButton>
@@ -96,6 +99,7 @@ export function ExpeditionConfigurator({
                   quantity={quantity}
                   total={total}
                   disabled={disabled}
+                  label={exploreLabel}
                   onClick={onExplore}
                 />
               )}

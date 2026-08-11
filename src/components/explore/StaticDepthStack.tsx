@@ -19,7 +19,7 @@ export function StaticDepthStack({
   const images = Array.from({ length: visibleCards }, () => unrevealedPlanet);
   const itemSize = visibleCards === 1 ? 560 : Math.max(180, 620 - (visibleCards - 1) * 55);
   const radiusX = visibleCards === 1 ? 1 : Math.min(620, Math.max(120, 700 - itemSize / 2 - 20));
-  const radiusY = visibleCards === 1 ? 1 : Math.min(180, Math.max(60, 44 + visibleCards * 4));
+  const radiusY = visibleCards === 1 ? 1 : Math.min(130, Math.max(60, 44 + visibleCards * 4));
   const visualHeight = 350;
 
   return (

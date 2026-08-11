@@ -1,11 +1,14 @@
 import type { PlanetPreview } from '@megaplanets/planet-generator';
 import type { ReactNode } from 'react';
-import mineralIcon from '@/assets/mineral-icon.png';
 import { Button } from '@/components/common/Button';
+import {
+  EXPLORER_NFT_URL,
+  EXPLORER_TX_URL,
+  MEGAPLANETS_CONTRACT_ADDRESS,
+} from '@/config/contracts';
 import type { PlanetTicketStatus } from '@/hooks/usePlanetTicketStatuses';
 import type { PlanetMiningSnapshot } from '@/hooks/useWalletMining';
-import { formatMinerals } from '@/lib/minerals';
-import { LiveMineralAmount } from './LiveMineralAmount';
+import { PlanetMiningOverlay } from './PlanetMiningOverlay';
 import { PlanetGif } from './PlanetGif';
 import { PlanetTicketStatusLabel } from './PlanetTicketStatusLabel';
 import { UnrevealedPlanetVisual } from './UnrevealedPlanetVisual';
@@ -13,12 +16,12 @@ import { UnrevealedPlanetVisual } from './UnrevealedPlanetVisual';
 type PlanetInventoryDetailProps = {
   preview: PlanetPreview;
   tokenId?: string;
+  ticketTxHash?: string;
   revealed: boolean;
   ticketStatus: PlanetTicketStatus;
   mintAction: ReactNode;
-  onStatusAction?: () => void;
+  onClaim?: () => void;
   statusPending?: boolean;
-  onViewDetails?: () => void;
   onBack?: () => void;
   mining?: PlanetMiningSnapshot;
   miningAsOf?: string;
@@ -58,15 +61,45 @@ function TicketCoordinates({ preview }: { preview: PlanetPreview }) {
   );
 }
 
+function TicketLifecycle({
+  status,
+  onClaim,
+  pending,
+}: {
+  status: PlanetTicketStatus;
+  onClaim?: () => void;
+  pending: boolean;
+}) {
+  if (status.kind === 'claim') {
+    return (
+      <Button variant="primary" size="lg" className="w-full" disabled={pending} onClick={onClaim}>
+        <PlanetTicketStatusLabel status={status} />
+      </Button>
+    );
+  }
+  return (
+    <div data-ticket-lifecycle={status.kind} className="flex min-h-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-primary)]">
+      <PlanetTicketStatusLabel status={status} />
+    </div>
+  );
+}
+
+function ExplorerLink({ href, label }: { href?: string; label: string }) {
+  if (!href) {
+    return <span aria-label={`${label} unavailable`} className="rounded-2xl border border-[var(--border)] px-3 py-3 text-center text-[var(--text-secondary)]">{label} unavailable</span>;
+  }
+  return <a href={href} target="_blank" rel="noreferrer" aria-label={label} className="rounded-2xl border border-[var(--border-strong)] px-3 py-3 text-center text-[var(--rare)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rare)]">{label}</a>;
+}
+
 export function PlanetInventoryDetail({
   preview,
   tokenId,
+  ticketTxHash,
   revealed,
   ticketStatus,
   mintAction,
-  onStatusAction,
+  onClaim,
   statusPending = false,
-  onViewDetails,
   onBack,
   mining,
   miningAsOf,
@@ -80,9 +113,7 @@ export function PlanetInventoryDetail({
         </div>
         <div className="mt-5">
           <p className="font-mono text-xs text-[var(--text-secondary)]">Ticket #{preview.descriptor.input.ticketId.toString()}</p>
-          <Button variant="secondary" size="lg" className="mt-3 w-full" disabled={ticketStatus.kind === 'unavailable'} onClick={onStatusAction}>
-            <PlanetTicketStatusLabel status={ticketStatus} />
-          </Button>
+          <div className="mt-3"><TicketLifecycle status={ticketStatus} onClaim={onClaim} pending={statusPending} /></div>
         </div>
         <div className="mt-5"><TicketCoordinates preview={preview} /></div>
         <div className="mt-5 [&>div>p]:hidden [&>div>button]:w-full">{mintAction}</div>
@@ -91,11 +122,17 @@ export function PlanetInventoryDetail({
   }
 
   const { descriptor } = preview;
+  const ticketExplorerUrl = ticketTxHash ? `${EXPLORER_TX_URL}${ticketTxHash}` : undefined;
+  const nftExplorerUrl = tokenId && MEGAPLANETS_CONTRACT_ADDRESS
+    ? `${EXPLORER_NFT_URL}${MEGAPLANETS_CONTRACT_ADDRESS}/${tokenId}`
+    : undefined;
+
   return (
     <section data-density="compact" className="rounded-3xl border border-[var(--border-strong)] bg-[var(--surface-raised)] p-4">
       {onBack ? <button type="button" onClick={onBack} className="mb-4 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">← Back to My Planets</button> : null}
-      <div data-planet-art className="mx-auto aspect-square max-h-[32vh] w-full max-w-[32vh] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+      <div data-testid="planet-artwork" className="relative mx-auto aspect-square max-h-[32vh] w-full max-w-[32vh] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
         <PlanetGif preview={preview} />
+        <PlanetMiningOverlay mining={mining} miningAsOf={miningAsOf} />
       </div>
 
       <div className="mt-3">
@@ -103,54 +140,32 @@ export function PlanetInventoryDetail({
         <h1 className="mt-1 font-hud text-2xl font-bold tracking-[-0.04em] text-[var(--text-primary)] sm:text-3xl">
           {descriptor.traits.name}
         </h1>
-        <p className="mt-1 inline-flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]">
-          <img src={mineralIcon} alt="Minerals" className="h-6 w-6 object-contain invert" />
-          {descriptor.traits.minerals}
-        </p>
       </div>
 
-      {mining && miningAsOf ? (
-        <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">
-          <LiveMineralAmount
-            prefix="Mined"
-            snapshotMicros={mining.earnedMicros}
-            effectiveMineralsPerDayMicros={mining.effectiveMineralsPerDayMicros}
-            asOf={miningAsOf}
-            className="col-span-2 font-hud text-lg font-bold text-[var(--text-primary)]"
-          />
-          <p className="text-[var(--text-secondary)]">Base rate <span className="font-semibold text-[var(--text-primary)]">{mining.baseMineralsPerDay}</span></p>
-          <p className="text-[var(--text-secondary)]">Same-Type bonus <span className="font-semibold text-[var(--text-primary)]">+{(Number(mining.multiplierBps) - 10_000) / 100}%</span></p>
-          <p className="col-span-2 text-[var(--text-secondary)]">Effective rate <span className="font-semibold text-[var(--text-primary)]">{formatMinerals(BigInt(mining.effectiveMineralsPerDayMicros))} / day</span></p>
+      <section aria-label="Ticket" className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-mono text-xs text-[var(--text-secondary)]">Ticket #{descriptor.input.ticketId.toString()}</p>
+          <span className="rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"><PlanetTicketStatusLabel status={ticketStatus} /></span>
         </div>
-      ) : null}
+        <div className="mt-3"><TicketCoordinates preview={preview} /></div>
+        <div className="mt-3"><TicketLifecycle status={ticketStatus} onClaim={onClaim} pending={statusPending} /></div>
+      </section>
 
-      <Button
-        variant="primary"
-        size="lg"
-        className="mt-3 w-full text-center"
-        disabled={ticketStatus.kind === 'unavailable' || statusPending}
-        onClick={onStatusAction}
-      >
-        <PlanetTicketStatusLabel status={ticketStatus} />
-      </Button>
+      <section className="mt-4">
+        <h2 className="font-hud text-lg font-bold text-[var(--text-primary)]">Details</h2>
+        <dl className="mt-2 grid grid-cols-3 gap-x-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3">
+          <Trait label="Terrain" value={humanize(descriptor.traits.terrain)} />
+          <Trait label="Type" value={descriptor.traits.type} />
+          <Trait label="Satellites" value={descriptor.traits.satelliteCount} />
+          <Trait label="Clouds" value={preview.visual.traits.hasClouds ? 'Yes' : 'No'} dataTrait="clouds" />
+          <Trait label="Base minerals" value={mining?.baseMineralsPerDay ?? 'Unavailable'} dataTrait="base-minerals" />
+          <Trait label="Rarity" value={descriptor.traits.rarity} />
+        </dl>
+      </section>
 
-      <dl className="mt-3 grid grid-cols-3 gap-x-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3">
-        <Trait label="Terrain" value={humanize(descriptor.traits.terrain)} />
-        <Trait label="Type" value={descriptor.traits.type} />
-        <Trait label="Satellites" value={descriptor.traits.satelliteCount} />
-        <Trait label="Clouds" value={preview.visual.traits.hasClouds ? 'Yes' : 'No'} dataTrait="clouds" />
-        <Trait label="Rings" value={descriptor.traits.hasRing ? 'Yes' : 'No'} dataTrait="rings" />
-        <Trait label="Rarity" value={descriptor.traits.rarity} />
-      </dl>
-
-      <div className="mt-3"><TicketCoordinates preview={preview} /></div>
-
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-3">
-        <div className="space-y-1 font-mono text-xs text-[var(--text-secondary)]">
-          <p>Ticket #{descriptor.input.ticketId.toString()}</p>
-          {tokenId ? <p>Planet #{tokenId}</p> : null}
-        </div>
-        {tokenId && onViewDetails ? <Button variant="secondary" size="sm" onClick={onViewDetails}>View details</Button> : null}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <ExplorerLink href={ticketExplorerUrl} label="Ticket BaseScan" />
+        <ExplorerLink href={nftExplorerUrl} label="NFT BaseScan" />
       </div>
     </section>
   );

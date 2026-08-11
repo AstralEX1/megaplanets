@@ -29,7 +29,7 @@ describe('DepthText', () => {
     vi.stubGlobal('cancelAnimationFrame', cancelAnimationFrame);
 
     const { unmount } = render(
-      <DepthText text="Win up to $123.46" autoOrbit orbitSpeed={0.25} pointerTracking={false} />,
+      <DepthText text="Win up to $123.46" autoOrbit orbitSpeed={0.1} pointerTracking={false} />,
     );
 
     expect(requestAnimationFrame).toHaveBeenCalled();
