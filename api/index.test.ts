@@ -41,6 +41,12 @@ const voucher: MintVoucher = {
 };
 
 describe('Stage 5 voucher endpoint', () => {
+  it('mounts the public leaderboard API under /api/leaderboard', async () => {
+    const response = await createApp().request('/api/leaderboard/current?limit=101');
+
+    expect(response.status).toBe(400);
+  });
+
   it('rejects malformed receipt references before reading server configuration', async () => {
     const app = createApp();
     const response = await app.request('/api/planets/vouchers', {

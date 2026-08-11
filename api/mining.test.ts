@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  accrueMineralsForOverlap,
   accrueMinerals,
   getSameTypeBonusBps,
   getSameTypeMultipliers,
@@ -7,6 +8,24 @@ import {
 } from './mining';
 
 describe('mining accrual', () => {
+  it('counts only the part of a production segment inside the requested period', () => {
+    expect(accrueMineralsForOverlap({
+      baseMineralsPerDay: 10n,
+      multiplierBps: 10_000n,
+      startedAt: new Date('2026-08-09T12:00:00.000Z'),
+      endedAt: new Date('2026-08-10T12:00:00.000Z'),
+    }, new Date('2026-08-10T00:00:00.000Z'), new Date('2026-08-17T00:00:00.000Z'))).toBe(5_000_000n);
+  });
+
+  it('returns zero for a production segment outside the requested period', () => {
+    expect(accrueMineralsForOverlap({
+      baseMineralsPerDay: 10n,
+      multiplierBps: 10_000n,
+      startedAt: new Date('2026-08-01T00:00:00.000Z'),
+      endedAt: new Date('2026-08-02T00:00:00.000Z'),
+    }, new Date('2026-08-10T00:00:00.000Z'), new Date('2026-08-17T00:00:00.000Z'))).toBe(0n);
+  });
+
   it('mints exactly one fixed-point daily production at the base rate', () => {
     expect(
       accrueMinerals({

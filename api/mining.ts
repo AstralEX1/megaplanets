@@ -20,6 +20,13 @@ export type PlanetTypeMember = {
   planetType: string;
 };
 
+export type MiningRateSegment = {
+  baseMineralsPerDay: bigint;
+  multiplierBps: bigint;
+  startedAt: Date;
+  endedAt: Date;
+};
+
 function assertNonNegative(name: string, value: bigint) {
   if (value < 0n) throw new Error(`${name} cannot be negative.`);
 }
@@ -35,6 +42,23 @@ export function accrueMinerals(input: MiningAccrualInput): MiningAccrual {
   if (input.remainder >= denominator) throw new Error('remainder must be smaller than one mining denominator.');
   const numerator = input.baseMineralsPerDay * MINERAL_SCALE * input.multiplierBps * input.elapsedMilliseconds + input.remainder;
   return { minerals: numerator / denominator, remainder: numerator % denominator };
+}
+
+/** Calculates only the production interval overlapping the requested period. */
+export function accrueMineralsForOverlap(
+  segment: MiningRateSegment,
+  periodStart: Date,
+  periodEnd: Date,
+): bigint {
+  const overlapStart = Math.max(segment.startedAt.getTime(), periodStart.getTime());
+  const overlapEnd = Math.min(segment.endedAt.getTime(), periodEnd.getTime());
+  if (overlapEnd <= overlapStart) return 0n;
+  return accrueMinerals({
+    baseMineralsPerDay: segment.baseMineralsPerDay,
+    multiplierBps: segment.multiplierBps,
+    elapsedMilliseconds: BigInt(overlapEnd - overlapStart),
+    remainder: 0n,
+  }).minerals;
 }
 
 /** Returns the MVP same-type production bonus in basis points. */

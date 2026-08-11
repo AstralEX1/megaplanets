@@ -13,13 +13,16 @@ import { COPY } from '@/config/copy';
 import { PLANET_SEASON } from '@/config/planetSeason';
 import { useBulkPurchase } from '@/hooks/useBulkPurchase';
 import { useBuyTickets } from '@/hooks/useBuyTickets';
+import { useEligiblePlanetTickets } from '@/hooks/useEligiblePlanetTickets';
+import { useIndexedPlanets } from '@/hooks/useIndexedPlanets';
 import { useJackpotState } from '@/hooks/useJackpotState';
 import { clampExpeditionQuantity } from '@/lib/expeditionFlow';
+import { mergePlanetTickets } from '@/lib/planetTickets';
 import { BULK_THRESHOLD, type CustomTicket, isValidTicket, totalCost } from '@/lib/tickets';
 
 /** Purchase orchestration stays here; the configurator owns presentation-only controls. */
 export function Play() {
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
   const { state, drawingId, phase, refetch: refetchJackpot } = useJackpotState();
   const [count, setCount] = useState(3);
   const [automaticQuickPick, setAutomaticQuickPick] = useState(true);
@@ -40,7 +43,24 @@ export function Play() {
   const approvalSpender = isBulk ? BATCH_PURCHASE_FACILITATOR_ADDRESS : JACKPOT_ADDRESS;
   const approvalAmount = isBulk ? (bulkReady ? total : 0n) : directReady ? total : 0n;
   const checkoutDisabled = !isConnected || phase !== 'open' || purchase.isPending || !(isBulk ? bulkReady : directReady);
-  const confirmedTickets = isBulk ? bulk.confirmedTickets : direct.purchasedTickets;
+  const purchaseConfirmedTickets = isBulk ? bulk.confirmedTickets : direct.purchasedTickets;
+  const recovered = useEligiblePlanetTickets(address, {
+    refetchInterval: purchaseConfirmedTickets.length === 0 ? 5_000 : undefined,
+  });
+  const indexed = useIndexedPlanets(address);
+  const indexedTicketIds = useMemo(
+    () => new Set(indexed.planets.flatMap((planet) => planet.ticketId === null ? [] : [planet.ticketId])),
+    [indexed.planets],
+  );
+  const confirmedTickets = useMemo(
+    () => mergePlanetTickets(
+      purchaseConfirmedTickets,
+      recovered.tickets.filter(
+        (ticket) => ticket.drawingId === drawingId && !indexedTicketIds.has(ticket.ticketId.toString()),
+      ),
+    ),
+    [drawingId, indexedTicketIds, purchaseConfirmedTickets, recovered.tickets],
+  );
   const activeBatch = bulk.orderInfo?.[0];
 
   const discoveredPlanets = useMemo(() => {
@@ -64,15 +84,13 @@ export function Play() {
   };
   const launch = () => { if (isBulk) void bulk.createOrder(); else if (bounds) void direct.buy({ customTickets: staticTickets, count, bounds }); };
 
-  return <div className="mx-auto max-w-5xl space-y-4 pb-6">
-    <DrawingStatusBanner drawingId={drawingId} phase={phase} />
+  return <div className="mx-auto max-w-5xl space-y-2 pb-6">
     {!isConnected && <Notice>{COPY.connectToBuy}</Notice>}
     {phase !== 'open' && <Notice>{COPY.ticketsPaused}. Wait for the next drawing to open.</Notice>}
-    {allPlanetsRevealed ? <RevealCompleteScreen planets={discoveredPlanets.map(({ preview }) => preview)} drawingId={drawingId} onViewPlanets={() => window.location.assign('/planets')} /> : confirmedTickets.length > 0 ? <ExpeditionCompleteScreen count={discoveredPlanets.length} revealAction={discoveredPlanets.length > 1 ? <MintPlanetBatchButton planets={discoveredPlanets} buttonLabel={`REVEAL (${discoveredPlanets.length})`} onMinted={markRevealed} /> : discoveredPlanets[0] ? <MintPlanetButton preview={discoveredPlanets[0].preview} logIndex={discoveredPlanets[0].logIndex} buttonLabel="REVEAL (1)" onMinted={(ticketId) => markRevealed([ticketId])} /> : null} /> : <ExpeditionConfigurator quantity={count} total={total} bounds={bounds} manuallyEditedTickets={staticTickets} automaticQuickPick={automaticQuickPick} disabled={checkoutDisabled} approvalSpender={approvalSpender} approvalAmount={approvalAmount} onApproved={refetchJackpot} onQuantityChange={setQuantity} onAutomaticQuickPickChange={setAutomaticQuickPick} onTicketsChange={setStaticTickets} onExplore={launch} />}
+    {allPlanetsRevealed ? <RevealCompleteScreen planets={discoveredPlanets.map(({ preview }) => preview)} drawingId={drawingId} onViewPlanets={() => window.location.assign('/planets')} /> : confirmedTickets.length > 0 ? <ExpeditionCompleteScreen count={discoveredPlanets.length} revealAction={discoveredPlanets.length > 1 ? <MintPlanetBatchButton planets={discoveredPlanets} buttonLabel={`REVEAL (${discoveredPlanets.length})`} onMinted={markRevealed} /> : discoveredPlanets[0] ? <MintPlanetButton preview={discoveredPlanets[0].preview} logIndex={discoveredPlanets[0].logIndex} buttonLabel="REVEAL (1)" onMinted={(ticketId) => markRevealed([ticketId])} /> : null} /> : <ExpeditionConfigurator quantity={count} total={total} jackpotAmount={state?.prizePool} bounds={bounds} manuallyEditedTickets={staticTickets} automaticQuickPick={automaticQuickPick} disabled={checkoutDisabled} approvalSpender={approvalSpender} approvalAmount={approvalAmount} onApproved={refetchJackpot} onQuantityChange={setQuantity} onAutomaticQuickPickChange={setAutomaticQuickPick} onTicketsChange={setStaticTickets} onExplore={launch} />}
     {isBulk && bulk.minimumTicketCount !== undefined && !meetsBulkMinimum && <Notice>Megapot requires at least {bulk.minimumTicketCount.toString()} tickets for this order.</Notice>}
     {bulk.hasActiveOrder && activeBatch && <section className="mx-auto max-w-[560px] rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"><div className="flex items-center justify-between gap-3"><div><p className="font-hud font-semibold text-[var(--text-primary)]">Order in progress</p><p className="mt-1 text-xs text-[var(--text-secondary)]">Tickets appear after their confirmed keeper transactions.</p></div>{bulk.createdOrder && <a className="text-sm font-semibold text-[var(--accent)]" href={`${EXPLORER_TX_URL}${bulk.createdOrder.creationTxHash}`} target="_blank" rel="noreferrer">View transaction</a>}</div><div className="mt-4"><BulkProgress totalTickets={activeBatch.totalTicketsOrdered} remainingTickets={activeBatch.remainingTickets} remainingUSDC={activeBatch.remainingUSDC} /></div><Button variant="secondary" size="sm" onClick={bulk.cancelOrder} disabled={bulk.cancel.isPending} className="mt-4">Cancel remaining order</Button><TxStatus hash={bulk.cancel.txHash} isPending={bulk.cancel.isPending} isSuccess={bulk.cancel.isSuccess} error={bulk.cancel.error} /></section>}
   </div>;
 }
 
-function DrawingStatusBanner({ drawingId, phase }: { drawingId: bigint | undefined; phase: string | undefined }) { return <div className="mx-auto flex max-w-[560px] items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-xs"><span className="font-mono text-[var(--text-secondary)]">DRAWING {drawingId ? `#${drawingId}` : 'SYNCING'}</span><span className={phase === 'open' ? 'text-[var(--success)]' : 'text-[var(--warning)]'}>{phase === 'open' ? 'Sales open' : 'Sales paused'}</span></div>; }
 function Notice({ children }: { children: ReactNode }) { return <p className="mx-auto max-w-[560px] rounded-xl border border-[var(--warning)]/40 bg-[var(--surface)] px-4 py-3 text-sm text-[var(--text-secondary)]">{children}</p>; }

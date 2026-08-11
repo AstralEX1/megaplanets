@@ -13,8 +13,8 @@ Buy a Megapot ticket
 ```
 
 The following work is out of scope unless explicitly reopened: Colonize, XP,
-colony levels, expeditions, referral prize pools, Merkle rewards, onchain
-mineral claims, and mainnet deployment. The ERC721A V2 collection is the one
+colony levels, expeditions, referral prize pools, Merkle rewards, and mainnet
+deployment. The ERC721A V2 collection is the one
 explicitly approved exception because it enables gas-efficient Planet batch minting.
 
 The deployed Base Sepolia MegaPlanets V1 contract remains available for existing
@@ -68,7 +68,6 @@ Establish a reviewable MVP baseline without deleting unreviewed user work.
 ### Remove or defer
 
 - Colonize, XP, colony level, expedition, and target-planet intent work.
-- Spendable mineral balances and `Claim all`.
 - Diversity scoring. The MVP uses only same-type production bonuses.
 - Referral pool and reward-claim systems.
 
@@ -145,8 +144,7 @@ Initial same-type rule, stored as configuration:
 | 3 | 10% |
 | 4+ | 15% maximum |
 
-Minerals are leaderboard score in this MVP. They are not an onchain token and
-there is no mineral claim endpoint yet.
+Minerals are permanent off-chain leaderboard score.
 
 ### Done when
 

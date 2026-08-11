@@ -4,6 +4,7 @@ import { baseSepolia } from 'viem/chains';
 import { loadStage5Config, type Stage5Config } from './config';
 import { getPrismaClient } from './database';
 import { findEligibleTicket, type EligibleTicket } from './eligibility';
+import { createLeaderboardRoutes } from './leaderboardRoutes';
 import { prepareVoucher } from './service';
 import { PrismaEligibilityStore } from './prismaEligibilityStore';
 import { createStage2Routes, type Stage2Dependencies } from './stage2';
@@ -136,6 +137,7 @@ export function createApp(
   });
 
   app.route('/api', createStage2Routes(stage2Overrides));
+  app.route('/api/leaderboard', createLeaderboardRoutes());
 
   return app;
 }

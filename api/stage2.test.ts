@@ -133,9 +133,12 @@ describe('Stage 2 wallet authentication and Planet API', () => {
       random: (length) => Buffer.alloc(length, length === 16 ? 1 : 2),
       getWalletMining: async (_prisma, ownerAddress) => ({
         ownerAddress,
+        asOf: timestamp.toISOString(),
         ownedPlanetCount: 2,
         pendingMicros: '3100000',
         earnedMicros: '10100000',
+        effectiveMineralsPerDayMicros: '267840000000',
+        planets: [],
       }),
     });
     const nonceResponse = await app.request('/auth/nonce', {
@@ -157,10 +160,44 @@ describe('Stage 2 wallet authentication and Planet API', () => {
     expect(await response.json()).toEqual({
       mining: {
         ownerAddress: account.address.toLowerCase(),
+        asOf: timestamp.toISOString(),
         ownedPlanetCount: 2,
         pendingMicros: '3100000',
         earnedMicros: '10100000',
+        effectiveMineralsPerDayMicros: '267840000000',
+        planets: [],
       },
     });
+  });
+
+  it('returns the public wallet mining aggregate for a valid address', async () => {
+    const timestamp = new Date('2026-08-10T20:00:00.000Z');
+    const store = new MemoryStage2Store();
+    const app = createStage2Routes({
+      loadConfig: () => config,
+      getStore: () => store,
+      now: () => timestamp,
+      getWalletMining: async (_prisma, ownerAddress) => ({
+        ownerAddress,
+        asOf: timestamp.toISOString(),
+        ownedPlanetCount: 1,
+        pendingMicros: '1000000',
+        earnedMicros: '5000000',
+        effectiveMineralsPerDayMicros: '12000000',
+        planets: [],
+      }),
+    });
+
+    const response = await app.request(`/wallets/${account.address}/mining`);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      mining: {
+        ownerAddress: account.address.toLowerCase(),
+        earnedMicros: '5000000',
+        effectiveMineralsPerDayMicros: '12000000',
+      },
+    });
+    expect((await app.request('/wallets/not-an-address/mining')).status).toBe(400);
   });
 });

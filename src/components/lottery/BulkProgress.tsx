@@ -41,7 +41,7 @@ export function BulkProgress({
         aria-valuemax={100}
       >
         <div
-          className="h-full bg-indigo-600 transition-all duration-300 dark:bg-indigo-400"
+          className="h-full bg-indigo-600 transition-[width] duration-300 ease-out dark:bg-indigo-400"
           style={{ width: `${pct}%` }}
         />
       </div>

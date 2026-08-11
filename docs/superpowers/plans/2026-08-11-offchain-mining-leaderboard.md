@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Minerals are off-chain score only; there is no claim, spendable balance, or mineral token.
+- Minerals are permanent off-chain score with no conversion or withdrawal lifecycle.
 - Preserve Megapot prize claims, ticket purchase, drawing, mint, and transfer behavior.
 - Keep `MINERAL_SCALE = 1_000_000n` and bigint values until decimal-string serialization.
 - Weeks run Monday 00:00 UTC through the following Monday 00:00 UTC.
@@ -196,7 +196,7 @@ expect(rankLeaderboardRows([
 - [ ] **Step 5: Add accessible labels, keyboard states, and reduced-motion behavior**
 - [ ] **Step 6: Run the focused page tests and verify pass**
 
-### Task 8: Remove mineral-claim product concepts and verify the stage
+### Task 8: Remove obsolete mineral asset concepts and verify the stage
 
 **Files:**
 - Modify: `docs/ROADMAP.md`
@@ -205,8 +205,8 @@ expect(rankLeaderboardRows([
 - Modify: `docs/ARCHITECTURE.md`
 - Modify: `src/components/planets/PlanetInventoryDetail.test.tsx`
 
-- [ ] **Step 1: Remove only mineral claim, spendable balance, and mineral-token language; preserve every Megapot winnings-claim reference**
-- [ ] **Step 2: Run `rg -n -i "claim.{0,30}mineral|mineral.{0,30}claim|spendable mineral|mineral token" docs src api` and confirm no product claim remains**
+- [ ] **Step 1: Remove obsolete mineral asset, balance, conversion, and withdrawal language; preserve every Megapot winnings-claim reference**
+- [ ] **Step 2: Search docs and source for obsolete mineral asset lifecycle language and confirm none remains**
 - [ ] **Step 3: Run `pnpm lint`**
 - [ ] **Step 4: Run `pnpm typecheck`**
 - [ ] **Step 5: Run `pnpm test`**
@@ -218,7 +218,7 @@ expect(rankLeaderboardRows([
 
 - Spec coverage: backend authority, wallet aggregation, weekly live score,
   archive/finalization, four public endpoints, My Planets integration,
-  responsive leaderboard, claim removal, and browser verification are mapped.
+  responsive leaderboard, asset-lifecycle removal, and browser verification are mapped.
 - Placeholder scan: no deferred implementation markers remain.
 - Type consistency: all mineral quantities cross the API as decimal strings and
   are parsed to bigint only in calculation/formatting utilities.

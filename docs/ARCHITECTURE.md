@@ -56,7 +56,7 @@ seed provenance value to tickets minted later in separate keeper transactions.
 ## Mineral and leaderboard boundary
 
 Minerals are calculated lazily in fixed-point integer units. The API settles a Planet's
-previous production segment before mint, transfer, bonus change, claim, or weekly-period
+previous production segment before mint, transfer, bonus change, or weekly-period
 finalization; it never uses a per-second or daily accrual job. A transfer attributes
 production up to the transfer block timestamp to the previous owner and starts a new
 segment for the recipient.
@@ -64,8 +64,8 @@ segment for the recipient.
 Same-Type Planet holdings activate configured production bonuses. The indexer updates
 active combinations after ERC-721A `Transfer` events, and the mining service opens a new
 rate segment only when a holder's bonus changes. The weekly leaderboard combines settled
-ledger entries with pending production through `min(now, periodEnd)`, so a claim cannot
-change a player's score. Weeks run Monday 00:00 UTC to Monday 00:00 UTC and are finalized
+ledger entries with pending production through `min(now, periodEnd)`. Weeks run Monday
+00:00 UTC to Monday 00:00 UTC and are finalized
 from immutable ledger and rate-segment data.
 
 ## Imported starter-kit architecture

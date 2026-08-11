@@ -12,6 +12,13 @@ export type IndexedPlanet = {
   metadataUri: string;
   baseMineralsPerDay: string | null;
   generatorVersion: number | null;
+  planetType: string | null;
+  terrain: string | null;
+  rarity: string | null;
+  satelliteCount: number | null;
+  hasRing: boolean | null;
+  mintTxHash: `0x${string}`;
+  mintedAt: string;
   ticket: {
     drawingId: string;
     normals: number[];

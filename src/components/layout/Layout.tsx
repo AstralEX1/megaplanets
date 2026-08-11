@@ -6,9 +6,8 @@
  *             `Nav.tsx` for the backdrop-filter containing-block gotcha) and
  *             a second sub-row inside the sticky header (`MobileWalletBar`)
  *             takes over the wallet affordances that ProfileCard hides
- *             below md. The spacer below the footer pushes the in-flow
- *             disclaimer above the bottom tab bar so nothing floats over
- *             page content.
+ *             below md. The final spacer keeps page content clear of the
+ *             fixed mobile bottom navigation.
  *
  *             Swap your logo by editing `BrandMark.tsx`.
  * ---
@@ -16,7 +15,6 @@
 import type { ReactNode } from 'react';
 import { COPY } from '@/config/copy';
 import { BrandMark } from './BrandMark';
-import { Footer } from './Footer';
 import { MobileWalletBar } from './MobileWalletBar';
 import { MobileBottomNav, Nav, type NavKey } from './Nav';
 import { ProfileCard } from './ProfileCard';
@@ -49,10 +47,7 @@ export function Layout({
         </div>
         <MobileWalletBar />
       </header>
-      <main className="relative z-10 mx-auto max-w-5xl px-4 pt-6 pb-6">{children}</main>
-      <div className="relative z-10">
-        <Footer />
-      </div>
+      <main className={`relative z-10 mx-auto w-full px-4 pt-6 pb-6 ${active === 'planets' ? 'max-w-[1480px]' : 'max-w-5xl'}`}>{children}</main>
       <MobileBottomNav active={active} onSelect={onSelect} />
       <div
         aria-hidden

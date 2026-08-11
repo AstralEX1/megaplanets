@@ -12,6 +12,7 @@ function planetVoucherDevApi(): Plugin {
       Object.assign(process.env, loadEnv(config.mode, config.root, ''));
     },
     configureServer(server) {
+      if (server.config.mode === 'test') return;
       const app = server.ssrLoadModule('/api/index.ts').then((module) => module.createApp());
       const mountApi = (prefix: string) => server.middlewares.use(prefix, async (request, response, next) => {
         try {
@@ -20,7 +21,14 @@ function planetVoucherDevApi(): Plugin {
             if (Array.isArray(value)) headers.set(name, value.join(', '));
             else if (value) headers.set(name, value);
           }
-          const requestPath = request.url?.startsWith('/') ? request.url : `/${request.url ?? ''}`;
+          const incomingPath = request.url ?? '';
+          const requestPath = incomingPath.startsWith('/?')
+            ? incomingPath.slice(1)
+            : incomingPath === '/'
+              ? ''
+              : incomingPath.startsWith('/') || incomingPath.startsWith('?')
+                ? incomingPath
+                : `/${incomingPath}`;
           const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : Readable.toWeb(request) as ReadableStream;
           const apiResponse = await (await app).fetch(new Request(`http://127.0.0.1:5173${prefix}${requestPath}`, { method: request.method, headers, body, duplex: 'half' }));
           response.statusCode = apiResponse.status;
@@ -34,7 +42,9 @@ function planetVoucherDevApi(): Plugin {
       });
       mountApi('/api/auth');
       mountApi('/api/me');
+      mountApi('/api/wallets');
       mountApi('/api/planets');
+      mountApi('/api/leaderboard');
     },
   };
 }

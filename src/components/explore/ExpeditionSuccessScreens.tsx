@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { PlanetPreview } from '@megaplanets/planet-generator';
 import { Button } from '@/components/common/Button';
 import { PlanetThumbnail } from '@/components/planets/PlanetThumbnail';
+import { UnrevealedPlanetVisual } from '@/components/planets/UnrevealedPlanetVisual';
 
 const FEATURED_TICKET_COUNT = 3;
 
@@ -16,9 +17,9 @@ export function ExpeditionCompleteScreen({ count, revealAction }: { count: numbe
   return (
     <section className="mx-auto flex min-h-[590px] max-w-5xl flex-col items-center px-4 py-16 text-center sm:px-6 sm:py-24">
       <p className="telemetry font-bold text-[var(--success)]">EXPEDITION COMPLETE</p>
-      <h1 className="mt-3 font-hud text-4xl font-bold tracking-[-0.05em] text-[var(--text-primary)] sm:text-[44px]">You found <PluralPlanets count={count} />!</h1>
+      <h1 className="mt-3 text-balance font-hud text-4xl font-bold tracking-[-0.05em] text-[var(--text-primary)] sm:text-[44px]">You found <PluralPlanets count={count} />!</h1>
       <div className="mt-12 flex h-[220px] items-center justify-center pt-4">
-        {tickets.map(({ id, index }) => <div key={id} role="img" aria-label={`Unrevealed ticket ${index + 1}`} className={`grid h-[158px] w-[158px] shrink-0 place-items-center rounded-full border-2 border-[var(--rare)] bg-[var(--surface-raised)] text-6xl font-hud font-semibold text-[var(--text-primary)] shadow-[0_0_0_8px_var(--background)] sm:h-[210px] sm:w-[210px] sm:text-[74px] ${index === 0 ? '' : '-ml-10 sm:-ml-[54px]'}`}>?</div>)}
+        {tickets.map(({ id, index }) => <div key={id} className={`h-[158px] w-[158px] shrink-0 overflow-hidden rounded-full border-2 border-[var(--rare)] bg-[var(--surface-raised)] shadow-[0_0_0_8px_var(--background)] sm:h-[210px] sm:w-[210px] ${index === 0 ? '' : '-ml-10 sm:-ml-[54px]'}`}><UnrevealedPlanetVisual className="h-full w-full scale-[1.03]" label={`Unrevealed ticket ${index + 1}`} /></div>)}
       </div>
       <div className="mt-10 w-full max-w-[310px] [&>button]:w-full">{revealAction}</div>
     </section>
@@ -29,7 +30,7 @@ export function RevealCompleteScreen({ planets, drawingId, onViewPlanets }: { pl
   return (
     <section className="mx-auto flex min-h-[590px] max-w-5xl flex-col items-center px-4 py-14 text-center sm:px-6 sm:py-16">
       <p className="telemetry font-bold text-[var(--success)]">REVEAL COMPLETE</p>
-      <h1 className="mt-3 font-hud text-4xl font-bold tracking-[-0.05em] text-[var(--text-primary)]">Your new planets are ready.</h1>
+      <h1 className="mt-3 text-balance font-hud text-4xl font-bold tracking-[-0.05em] text-[var(--text-primary)]">Your new planets are ready.</h1>
       <p className="mt-2 text-sm text-[var(--text-secondary)]">Drawing #{drawingId?.toString() ?? '—'} · Season 01</p>
       <div className="mt-9 grid w-full grid-cols-1 gap-4 text-left sm:grid-cols-2 lg:grid-cols-3">
         {planets.map((preview) => <article key={preview.descriptor.input.ticketId.toString()} className="rounded-[18px] border border-[var(--border-strong)] bg-[var(--surface-raised)] p-4 shadow-[0_18px_42px_rgba(0,0,0,0.2)]">

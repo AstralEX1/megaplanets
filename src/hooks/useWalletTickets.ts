@@ -107,6 +107,7 @@ export function useWalletTickets(
   }, [tickets, excludeRoundId]);
 
   return {
+    tickets,
     groupedByRound,
     fetchNextPage: query.fetchNextPage,
     hasNextPage: query.hasNextPage,

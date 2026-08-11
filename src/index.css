@@ -34,7 +34,7 @@
 }
 
 @layer base {
-  html { color-scheme: dark; background: var(--bg); }
+  html { color-scheme: dark; background: var(--bg); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
   body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
   button, input, select, textarea { font: inherit; }
   :where(button, a, [role="button"], summary, input, select, textarea):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
@@ -50,4 +50,25 @@
   .card-pad-lg { @apply card p-6; }
   .pixel-frame { clip-path: polygon(0 6px, 6px 6px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px)); }
   .space-shell { background-color: var(--background); background-image: radial-gradient(circle at 18% 20%, rgba(117, 130, 255, 0.12) 0 1px, transparent 1.5px), radial-gradient(circle at 76% 14%, rgba(255, 255, 255, 0.1) 0 1px, transparent 1.5px), radial-gradient(circle at 62% 72%, rgba(133, 106, 255, 0.08) 0 1px, transparent 1.5px), radial-gradient(ellipse at 50% -20%, #111326 0%, var(--background) 48%); background-size: 170px 170px, 230px 230px, 310px 310px, 100% 100%; }
+}
+@keyframes planet-slot-enter {
+  from { opacity: 0; filter: brightness(0.45) blur(8px); }
+}
+
+@keyframes ticket-row-enter {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.planet-stack-card {
+  animation: planet-slot-enter 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ticket-row-enter {
+  animation: ticket-row-enter 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planet-stack-card,
+  .ticket-row-enter { animation: none; }
 }

@@ -223,3 +223,32 @@ model DailySnapshotRecord {
   @@unique([seasonId, blockNumber])
   @@map("daily_snapshots")
 }
+
+model LeaderboardPeriod {
+  id          String               @id @db.VarChar(10)
+  startsAt    DateTime             @db.Timestamptz(3)
+  endsAt      DateTime             @db.Timestamptz(3)
+  finalizedAt DateTime?            @db.Timestamptz(3)
+  createdAt   DateTime             @default(now()) @db.Timestamptz(3)
+  entries     LeaderboardEntry[]
+
+  @@unique([startsAt, endsAt])
+  @@index([endsAt])
+  @@map("leaderboard_periods")
+}
+
+model LeaderboardEntry {
+  id                                    String            @id @default(uuid()) @db.Uuid
+  periodId                              String            @db.VarChar(10)
+  walletAddress                         String            @db.VarChar(42)
+  scoreMicros                           BigInt
+  effectiveMineralsPerDayMicros         BigInt
+  rank                                  Int
+  createdAt                             DateTime          @default(now()) @db.Timestamptz(3)
+  period                                LeaderboardPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+
+  @@unique([periodId, walletAddress])
+  @@unique([periodId, rank])
+  @@index([walletAddress, periodId])
+  @@map("leaderboard_entries")
+}

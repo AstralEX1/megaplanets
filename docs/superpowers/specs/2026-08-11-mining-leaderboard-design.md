@@ -2,15 +2,14 @@
 
 ## Scope
 
-MegaPlanets minerals are permanent off-chain score. They are never a token,
-spendable balance, or claimable asset. This stage connects the existing lazy
+MegaPlanets minerals are permanent off-chain score with no conversion or
+withdrawal lifecycle. This stage connects the existing lazy
 mining ledger to the frontend and adds the weekly leaderboard without changing
 the working Megapot purchase, drawing, prize-claim, Planet mint, or NFT transfer
 flows.
 
-Megapot prize claims remain in scope as lottery functionality. Every reference
-to claiming, spending, or tokenizing minerals is removed from product and
-architecture documentation.
+Megapot prize collection remains in scope as lottery functionality. Mineral
+score stays separate from all asset and payout mechanics.
 
 ## Mining authority and arithmetic
 

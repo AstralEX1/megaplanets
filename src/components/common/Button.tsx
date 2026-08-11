@@ -41,23 +41,25 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 };
 
 const BASE_CLASSES =
-  'font-hud uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-50';
+  'min-h-10 font-hud uppercase tracking-wide transition-transform duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50';
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  static?: boolean;
 };
 
 export function Button({
   variant = 'primary',
   size = 'md',
+  static: isStatic = false,
   type = 'button',
   className = '',
   children,
   ...rest
 }: ButtonProps) {
   const classes =
-    `${BASE_CLASSES} ${SIZE_CLASSES[size]} ${VARIANT_CLASSES[variant]} ${className}`.trim();
+    `${BASE_CLASSES} ${isStatic ? '' : 'active:not-disabled:scale-[0.96]'} ${SIZE_CLASSES[size]} ${VARIANT_CLASSES[variant]} ${className}`.trim();
   return (
     <button type={type} className={classes} {...rest}>
       {children}
