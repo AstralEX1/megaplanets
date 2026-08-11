@@ -66,7 +66,7 @@ pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 | Planet generator | DOM-free deterministic V3 generator, namespaced randomness, seasonless metadata, 128x128 GIF renderer, web worker, serialization/integrity checks, and regenerated golden fixtures | Complete local checkpoint; final art/economy parameters still require product sign-off |
 | Contract V2 | Seasonless ERC721A, sequential token IDs from 1, bidirectional ticket/Planet mappings, atomic batches up to 50, EIP-712 v2 vouchers, live ticket ownership checks, and Foundry unit/fuzz/invariant tests | Deployed to Base Sepolia at `0x7a29...f9f2`; Sourcify exact match; BaseScan verified; runtime activation remains pending |
 | Voucher service | Hono endpoint validates the canonical purchase receipt, derives metadata, pins to Pinata, signs EIP-712 vouchers, caches results, and rate-limits/coalesces requests | Suitable for local/single-process use; production secrets, shared rate limiting, wallet authentication policy, and hosting are not complete |
-| PostgreSQL/indexer | Prisma migrations for tickets, vouchers, Planets, ownership, processed events, cursors, mining ledger, and leaderboard; separate finalized-log runner with bounded ranges and Planet-stream reorg detection | Implemented locally; no production database/backfill evidence, no indexer health endpoint, and rollback coverage is incomplete |
+| PostgreSQL/indexer | Prisma migrations for tickets, vouchers, Planets, ownership, processed events, cursors, mining ledger, and leaderboard; separate finalized-log runner with bounded ranges and Planet-stream reorg detection | Rehearsal DB reset and migrations verified; 460-ticket backfill and repeat idempotency verified; live mint/Planet event evidence pending |
 | Mining | Lazy fixed-point accrual, immutable ledger segments, same-Type multipliers of 0/5/10/15%, per-Planet and wallet snapshots | Core calculations are tested; transfer/burn bonus recomputation and reorg rollback need correction before scores are authoritative |
 | Leaderboard | Monday-to-Monday periods, deterministic rank/tie rules, live and archived APIs, history, wallet position, and frontend | Implemented locally; finalization is triggered by leaderboard requests rather than an independent operations job |
 | Frontend | Responsive Play, My Planets list/detail and reveal batches, live mining overlays, leaderboard, wallet integration, deep links, and deterministic GIF previews | Polished local UI; production backend routing, live-wallet flows, and mobile/desktop E2E smoke coverage remain |
@@ -87,7 +87,7 @@ pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 
 ### P0 - required before another public testnet mint
 
-1. Complete BaseScan verification for the deployed ERC721A V2 and retain the deployment
+1. Retain the completed BaseScan verification for the deployed ERC721A V2 and the deployment
    receipt, source match, and constructor arguments as the deployment record.
 2. Keep the active contract address unset until the NFT indexer and E2E deployment gate
    passes; then update frontend, API, indexer, and deployment-block configuration atomically.
@@ -149,5 +149,7 @@ The seasonless rewrite and pre-deployment checks completed on 2026-08-11:
 
 The frontend and backend V2 runtime envs remain unset. BaseScan verification completed,
 and even a successful BaseScan check does not by itself authorize activation before the
-rehearsal gate passes. No minting or other
-application transaction has been broadcast by this task.
+rehearsal gate passes. The rehearsal selected ticket
+`369655895285474687617509885184844170268536768125201373131526793984064136106` for the
+approved owner, but no minting or other application transaction has been broadcast by
+this task.

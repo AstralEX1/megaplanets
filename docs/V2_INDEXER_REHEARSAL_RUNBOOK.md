@@ -40,6 +40,22 @@ local rehearsal environment.
 For the disposable PostgreSQL rehearsal, fill `DATABASE_URL` and `DIRECT_URL`
 in the same gitignored `.env.local` file. Never commit or print those values.
 
+## Rehearsal evidence (2026-08-11)
+
+- The test Supabase PostgreSQL schema was reset after explicit user confirmation;
+  all four repository migrations applied successfully.
+- Finalized Base Sepolia backfill indexed 460 `MEGAPLANETS_V1` tickets and zero
+  V2 Planet events. Both cursors reached the same finalized tip with block hashes.
+- A repeat cycle returned zero new tickets/Planet events with both reorg flags false;
+  ticket and Planet row counts remained unchanged.
+- Chainlist-listed public RPCs were used as read-only fallbacks; Tenderly, DRPC,
+  Sentio, and PublicNode accepted the tested 2,000-block `eth_getLogs` range.
+- Selected smallest eligible unminted ticket:
+  `369655895285474687617509885184844170268536768125201373131526793984064136106`.
+  Its current on-chain owner is `0xCfc1044C749fD40E07FE33938414Fa573993F857`.
+- No live wallet transaction, transfer, or burn has been submitted. The V2 runtime
+  remains disabled until the voucher service and one approved mint gate pass.
+
 ## Runtime activation gate
 
 Do not enable checked-in defaults. The deployed V2 stays inactive in normal

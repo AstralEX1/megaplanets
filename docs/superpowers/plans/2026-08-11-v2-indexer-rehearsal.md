@@ -96,6 +96,14 @@ confirmations, rerun indexing and verify on-chain mappings/owner/total supply/
 metadata, DB Planet/ownership/accrual, APIs, and UI. If no eligible ticket exists,
 report that blocker without substituting another wallet’s ticket.
 
+Rehearsal evidence recorded on 2026-08-11: the disposable Supabase PostgreSQL
+schema was reset and all four migrations applied; finalized backfill indexed 460
+MEGAPLANETS_V1 tickets and zero V2 Planet events; a repeat cycle returned zero new
+ticket/Planet events with no reorg flags and unchanged row counts. The selected
+candidate is ticket `369655895285474687617509885184844170268536768125201373131526793984064136106`,
+whose on-chain owner is the approved owner. Live mint remains gated on voucher-service
+configuration and the explicit wallet approval.
+
 ## Completion
 
 Perform a broad code review, record fresh verification evidence, and use the
