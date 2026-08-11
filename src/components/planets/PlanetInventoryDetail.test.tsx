@@ -60,7 +60,7 @@ describe('PlanetInventoryDetail', () => {
   ])('renders %s as state without an action', (ticketStatus, label) => {
     render(<PlanetInventoryDetail preview={preview} tokenId="7" revealed ticketStatus={ticketStatus} mintAction={null} />);
 
-    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(document.querySelector(`[data-ticket-lifecycle="${ticketStatus.kind}"]`)).toHaveTextContent(label);
     expect(screen.queryByRole('button', { name: label })).not.toBeInTheDocument();
   });
 

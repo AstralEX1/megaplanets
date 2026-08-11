@@ -144,8 +144,11 @@ export function PlanetInventoryDetail({
 
       <section aria-label="Ticket" className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
         <div className="flex items-center justify-between gap-3">
-          <p className="font-mono text-xs text-[var(--text-secondary)]">Ticket #{descriptor.input.ticketId.toString()}</p>
-          <span className="rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"><PlanetTicketStatusLabel status={ticketStatus} /></span>
+          <div className="font-mono text-xs text-[var(--text-secondary)]">
+            <p>Ticket #{descriptor.input.ticketId.toString()}</p>
+            {tokenId ? <p>Planet #{tokenId}</p> : null}
+          </div>
+          <span aria-label={`Ticket lifecycle: ${ticketStatus.kind}`} className="rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]">Ticket lifecycle</span>
         </div>
         <div className="mt-3"><TicketCoordinates preview={preview} /></div>
         <div className="mt-3"><TicketLifecycle status={ticketStatus} onClaim={onClaim} pending={statusPending} /></div>
