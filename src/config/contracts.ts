@@ -30,10 +30,11 @@ export const CHAIN = parseChainName(import.meta.env.VITE_CHAIN);
 export const VIEM_CHAIN = CHAIN === 'mainnet' ? base : baseSepolia;
 
 /**
- * Block explorer for the active chain. Two prefixes are derived from a single
- * base map so address and tx URLs stay in lockstep:
+ * Block explorer for the active chain. Three prefixes are derived from a single
+ * base map so address, tx, and NFT URLs stay in lockstep:
  *   `${EXPLORER_ADDRESS_URL}${addr}` → e.g. https://basescan.org/address/0x...
  *   `${EXPLORER_TX_URL}${hash}`      → e.g. https://basescan.org/tx/0x...
+ *   `${EXPLORER_NFT_URL}${contract}/${tokenId}` → e.g. https://basescan.org/nft/0x.../1
  */
 const EXPLORER_BASE: Record<ChainName, string> = {
   mainnet: 'https://basescan.org/',
@@ -45,6 +46,9 @@ export const EXPLORER_ADDRESS_URL = `${EXPLORER_BASE[CHAIN]}address/`;
 
 /** Chain-resolved explorer URL prefix for transactions. Append the tx hash. */
 export const EXPLORER_TX_URL = `${EXPLORER_BASE[CHAIN]}tx/`;
+
+/** Chain-resolved explorer URL prefix for individual ERC-721 tokens. Append contract/tokenId. */
+export const EXPLORER_NFT_URL = `${EXPLORER_BASE[CHAIN]}nft/`;
 
 /** USDC has 6 decimals on every chain Megapot deploys to. */
 export const USDC_DECIMALS = 6;
