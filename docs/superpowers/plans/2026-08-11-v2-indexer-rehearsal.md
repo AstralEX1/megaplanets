@@ -38,13 +38,14 @@ Task 1 documentation must keep these exact commands and gates aligned:
 - `cd contracts && ./script/deploy-v2-approved.sh`
 - `cd contracts && BASESCAN_API_KEY=... ./script/verify-v2-basescan.sh`
 - keep BaseScan pending when no session-provided `BASESCAN_API_KEY` exists;
-  BaseScan verification by itself does not authorize activation
-- keep runtime activation disabled by default; enable only by runtime env after
-  Tasks 2-5 pass, by setting frontend
+  BaseScan verification by itself does not authorize runtime activation
+- keep the runtime activation gate env-only: do not check in defaults
+- Only after the full rehearsal gate passes may runtime env activate V2 by
+  setting the frontend env
   `VITE_MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2`
-  plus backend
+  and the backend envs
   `MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2`
-  and `MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` together
+  plus `MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` together
 - keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
   `TICKET_SOURCE=MEGAPLANETS_V1` unchanged
 

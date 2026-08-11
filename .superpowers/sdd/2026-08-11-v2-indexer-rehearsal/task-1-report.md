@@ -157,6 +157,54 @@ rg -n "VITE_MEGAPLANETS_CONTRACT_ADDRESS|MEGAPLANETS_CONTRACT_ADDRESS|MEGAPLANET
 BaseScan verification is still pending because this Tuesday, August 11, 2026
 session does not provide `BASESCAN_API_KEY`.
 
+## Fix round 3 report
+
+### Scope
+
+Addressed the final Task 1 review finding by making the plan's Task 1
+activation-gate wording match the required docs, including the exact phrase
+`does not authorize runtime activation`, the env-only gate, and `Only after the
+full rehearsal gate passes...`.
+
+### Changed files
+
+- `docs/superpowers/plans/2026-08-11-v2-indexer-rehearsal.md`
+- `.superpowers/sdd/2026-08-11-v2-indexer-rehearsal/task-1-report.md`
+
+### Commands run
+
+```sh
+sed -n '1,120p' docs/superpowers/plans/2026-08-11-v2-indexer-rehearsal.md
+sed -n '1,460p' .superpowers/sdd/2026-08-11-v2-indexer-rehearsal/task-1-report.md
+bash -n contracts/script/deploy-v2-approved.sh contracts/script/verify-v2-basescan.sh
+git diff --check
+if [[ -n "${BASESCAN_API_KEY+x}" ]]; then echo BASESCAN_API_KEY_PRESENT; else echo BASESCAN_API_KEY_ABSENT; fi
+rg -n "does not authorize runtime activation|runtime activation gate env-only|Only after the full rehearsal gate passes|VITE_MEGAPLANETS_CONTRACT_ADDRESS|MEGAPLANETS_CONTRACT_ADDRESS|MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860|MEGAPLANETS_LAUNCH_BLOCK=44997183|TICKET_SOURCE=MEGAPLANETS_V1" api/README.md docs/STATUS.md docs/V2_INDEXER_REHEARSAL_RUNBOOK.md docs/superpowers/plans/2026-08-11-v2-indexer-rehearsal.md
+```
+
+### Output highlights
+
+- `bash -n contracts/script/deploy-v2-approved.sh contracts/script/verify-v2-basescan.sh`
+  exited `0`.
+- `git diff --check` exited `0`.
+- `if [[ -n "${BASESCAN_API_KEY+x}" ]]; then echo BASESCAN_API_KEY_PRESENT; else echo BASESCAN_API_KEY_ABSENT; fi`
+  returned `BASESCAN_API_KEY_ABSENT`.
+- The final `rg -n ...` check confirmed the plan is aligned with the required
+  Task 1 docs on:
+  - `does not authorize runtime activation`;
+  - the env-only activation gate;
+  - `Only after the full rehearsal gate passes`;
+  - frontend `VITE_MEGAPLANETS_CONTRACT_ADDRESS`;
+  - backend `MEGAPLANETS_CONTRACT_ADDRESS`;
+  - `MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860`;
+  - `MEGAPLANETS_LAUNCH_BLOCK=44997183`; and
+  - `TICKET_SOURCE=MEGAPLANETS_V1`.
+
+### Concerns
+
+BaseScan verification remains pending on Tuesday, August 11, 2026 because this
+session does not provide `BASESCAN_API_KEY`.
+
 ## Fix round 2 report
 
 ### Scope
