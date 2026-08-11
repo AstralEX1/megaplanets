@@ -1,17 +1,39 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StaticDepthStack } from './StaticDepthStack';
 
 describe('StaticDepthStack', () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it('uses random mystery colors on an expanded vertical orbit', () => {
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.99)
+      .mockReturnValue(0.5);
+
+    render(<StaticDepthStack quantity={3} />);
+
+    expect(screen.getByRole('group', { name: 'Selected planets visualization' })).toHaveStyle({
+      height: '500px',
+    });
+    const images = screen.getAllByRole('img', { name: /selected planet/i });
+    expect(images[0]).toHaveAttribute('src', expect.stringContaining('blue'));
+    expect(images[1]).toHaveAttribute('src', expect.stringContaining('violet'));
+    expect(screen.getByTestId('planet-orbit').querySelector('.orbit-item')).toHaveStyle({
+      offsetPath: expect.stringContaining('A 425 90'),
+    });
+  });
 
   it('adds newly selected planets as animated visual slots', () => {
     const { rerender } = render(<StaticDepthStack quantity={1} />);
 
     expect(screen.getByRole('group', { name: 'Selected planets visualization' })).toHaveStyle({
-      height: '350px',
+      height: '500px',
     });
     const orbitItem = screen.getByTestId('planet-orbit').querySelector('.orbit-item');
     expect(orbitItem).toHaveStyle({
@@ -25,7 +47,7 @@ describe('StaticDepthStack', () => {
 
     expect(screen.getAllByRole('img', { name: /selected planet/i })).toHaveLength(3);
     expect(screen.getByRole('group', { name: 'Selected planets visualization' })).toHaveStyle({
-      height: '350px',
+      height: '500px',
     });
     expect(screen.getByTestId('planet-orbit').querySelector('.orbit-item')).toHaveStyle({
       width: '510px',
@@ -40,7 +62,7 @@ describe('StaticDepthStack', () => {
     expect(screen.getAllByRole('img', { name: /selected planet/i })).toHaveLength(20);
     expect(screen.queryByText('20 planets selected')).not.toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Selected planets visualization' })).toHaveStyle({
-      height: '350px',
+      height: '500px',
     });
     expect(screen.queryByTestId('orbit-planet-count')).not.toBeInTheDocument();
   });

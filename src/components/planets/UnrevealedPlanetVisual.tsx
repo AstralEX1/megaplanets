@@ -1,6 +1,9 @@
-import unrevealedPlanet from '@/assets/unrevealed-planet.png';
+import { useState } from 'react';
+import { randomMysteryPlanet } from '@/assets/mystery-planets';
 
 /** Shared artwork for planets whose deterministic traits are still private. */
 export function UnrevealedPlanetVisual({ label, className = '' }: { label: string; className?: string }) {
-  return <img className={`block object-cover ${className}`} src={unrevealedPlanet} alt={label} aria-label={label} draggable={false} />;
+  const [image] = useState(() => randomMysteryPlanet());
+
+  return <img className={`block object-cover ${className}`} src={image} alt={label} aria-label={label} draggable={false} />;
 }
