@@ -85,7 +85,7 @@ function TicketLifecycle({
 
 function ExplorerLink({ href, label }: { href?: string; label: string }) {
   if (!href) {
-    return <span aria-label={`${label} unavailable`} className="rounded-2xl border border-[var(--border)] px-3 py-3 text-center text-[var(--text-secondary)]">{label} unavailable</span>;
+    return <span className="rounded-2xl border border-[var(--border)] px-3 py-3 text-center text-[var(--text-secondary)]">{label} unavailable</span>;
   }
   return <a href={href} target="_blank" rel="noreferrer" aria-label={label} className="rounded-2xl border border-[var(--border-strong)] px-3 py-3 text-center text-[var(--rare)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rare)]">{label}</a>;
 }
@@ -111,7 +111,7 @@ export function PlanetInventoryDetail({
         {onBack ? <button type="button" onClick={onBack} className="mb-4 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">← Back to My Planets</button> : null}
         <div>
           <h1 className="font-hud text-2xl font-bold tracking-[-0.04em] text-[var(--text-primary)] sm:text-3xl">Ticket #{preview.descriptor.input.ticketId.toString()}</h1>
-          <span aria-label={`Ticket lifecycle: ${ticketStatus.kind}`} className="mt-3 inline-flex rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]">Ticket lifecycle</span>
+          <span className="mt-3 inline-flex rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]">Ticket lifecycle</span>
         </div>
         <div className="mt-5"><TicketCoordinates preview={preview} /></div>
         <div className="mt-5"><TicketLifecycle status={ticketStatus} onClaim={onClaim} pending={statusPending} /></div>
@@ -147,7 +147,7 @@ export function PlanetInventoryDetail({
             <p>Ticket #{descriptor.input.ticketId.toString()}</p>
             {tokenId ? <p>Planet #{tokenId}</p> : null}
           </div>
-          <span aria-label={`Ticket lifecycle: ${ticketStatus.kind}`} className="rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]">Ticket lifecycle</span>
+          <span className="rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]">Ticket lifecycle</span>
         </div>
         <div className="mt-3"><TicketCoordinates preview={preview} /></div>
         <div className="mt-3"><TicketLifecycle status={ticketStatus} onClaim={onClaim} pending={statusPending} /></div>

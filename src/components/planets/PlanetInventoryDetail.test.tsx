@@ -38,14 +38,20 @@ describe('PlanetInventoryDetail', () => {
     expect(screen.getByText('66', { selector: '[data-coordinate="bonus"]' })).toBeInTheDocument();
     expect(screen.getByText('Ticket #24')).toBeInTheDocument();
     expect(screen.getByText('Planet #7')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Ticket BaseScan' })).toHaveAttribute(
+    const ticketExplorerLink = screen.getByRole('link', { name: 'Ticket BaseScan' });
+    expect(ticketExplorerLink).toHaveAttribute(
       'href',
       `https://sepolia.basescan.org/tx/0x${'1'.repeat(64)}`,
     );
-    expect(screen.getByRole('link', { name: 'NFT BaseScan' })).toHaveAttribute(
+    expect(ticketExplorerLink).toHaveAttribute('target', '_blank');
+    expect(ticketExplorerLink).toHaveAttribute('rel', 'noreferrer');
+    const nftExplorerLink = screen.getByRole('link', { name: 'NFT BaseScan' });
+    expect(nftExplorerLink).toHaveAttribute(
       'href',
       expect.stringMatching(/\/nft\/0xa94b947256fa977e63a7970cdf513fdd7632d744\/7$/i),
     );
+    expect(nftExplorerLink).toHaveAttribute('target', '_blank');
+    expect(nftExplorerLink).toHaveAttribute('rel', 'noreferrer');
     expect(container.querySelector('[data-density="compact"]')).toBeInTheDocument();
 
     screen.getByRole('button', { name: 'Claim ($12.50)' }).click();
