@@ -100,6 +100,8 @@ runtime until all of the following are true together:
    coverage have passed.
 4. Task 5 rehearsal has backfilled a disposable PostgreSQL database, rerun
    replay idempotently, and confirmed one explicit approved mint end to end.
+5. Production operations have an owner, durable scheduling, lag/reorg alerting,
+   backups, and a tested restore/rollback procedure.
 
 Only after that gate passes may runtime env activate V2 by setting the frontend
 V2 env and backend V2 envs together:

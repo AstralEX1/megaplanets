@@ -4,7 +4,7 @@
 
 `MegaPlanets` is the ERC721A-based V2 implementation prepared for a clean Base
 Sepolia deployment. The approved V2 broadcast has already been recorded on Base
-Sepolia and remains runtime-gated until the indexer rehearsal passes.
+Sepolia and remains runtime-gated while the production operations gate is pending.
 
 Historical V1 deployments are no longer supported or configured. Their source is retained
 as `src/MegaPlanetsV1.sol` only to explain old testnet data during migration; all new work
@@ -86,9 +86,10 @@ Before configuring any V2 address, record and verify all of the following togeth
 - sequential mint and bidirectional provenance behavior on Base Sepolia; and
 - matching frontend, API, and indexer configuration.
 
-Until that gate passes, `VITE_MEGAPLANETS_CONTRACT_ADDRESS` and the server-side contract
-address/deployment block must remain unset. Runtime activation is by environment
-only: set `VITE_MEGAPLANETS_CONTRACT_ADDRESS`,
+The Base Sepolia deployment and rehearsal gate are recorded in the runbook. Keep
+`VITE_MEGAPLANETS_CONTRACT_ADDRESS` and the server-side contract address/deployment block
+unset in checked-in defaults. Runtime activation is by environment only: set
+`VITE_MEGAPLANETS_CONTRACT_ADDRESS`,
 `MEGAPLANETS_CONTRACT_ADDRESS`, and `MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860`
 together only after the rehearsal runbook says the gate has passed. Never check
 those values in as defaults.

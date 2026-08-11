@@ -90,8 +90,9 @@ pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 
 1. Retain the completed BaseScan verification for the deployed ERC721A V2 and the deployment
    receipt, source match, and constructor arguments as the deployment record.
-2. Keep the active contract address unset until the NFT indexer and E2E deployment gate
-   passes; then update frontend, API, indexer, and deployment-block configuration atomically.
+2. Keep checked-in runtime defaults empty; when the remaining operations gate is approved,
+   update frontend, API, indexer, and deployment-block configuration atomically through
+   environment-only activation.
 3. Deploy PostgreSQL, apply all Prisma migrations, configure the API and a long-running
    indexer, then backfill from the correct V2 deployment block.
 4. Expand controlled Base Sepolia rehearsal coverage to direct purchase, keeper bulk
