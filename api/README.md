@@ -15,6 +15,7 @@ This directory contains the current server-side boundary:
 ## HTTP surface
 
 - `GET /api/planets/health`
+- `GET /api/planets/readiness`
 - `POST /api/planets/vouchers`
 - `POST /api/auth/nonce`, `POST /api/auth/verify`, `POST /api/auth/logout`
 - `GET /api/me`, `GET /api/me/planets`, `GET /api/me/mining`
@@ -24,8 +25,26 @@ This directory contains the current server-side boundary:
   `/weeks/:periodId`
 
 `api/planetIndexerMain.ts` is the separate long-running indexer entry point. The HTTP
-server does not start it. Leaderboard finalization currently runs lazily from leaderboard
-read routes; production should move this responsibility to an explicit operations job.
+server does not start it. Run the local rehearsal stack in two processes:
+
+```sh
+set -a; . .env.local; set +a
+pnpm dev --host 127.0.0.1
+```
+
+```sh
+set -a; . .env.local; set +a
+pnpm api:indexer
+```
+
+The indexer uses finalized blocks, stores both cursor position and block hash, and logs
+cycle results. A public RPC with a sufficiently large `eth_getLogs` range is required;
+the Nodies public endpoint currently caps ranges at 50 blocks, while the runner default
+is 2,000. `GET /api/planets/health` is a liveness probe and
+`GET /api/planets/readiness` validates the required database, V2 address, and deployment
+block configuration without exposing secrets. Leaderboard finalization currently runs
+lazily from leaderboard read routes; production should move this responsibility to an
+explicit operations job.
 
 ## V2 deployment closure and runtime gate
 
@@ -59,7 +78,7 @@ and restore/rollback procedures. Ticket vouchers remain bound to the original
 `TicketPurchased` recipient, while the contract independently checks current live ticket
 ownership.
 
-The Planet indexer has bounded reorg detection, but its rewind does not yet rebuild mining
-ledger/accrual state. The ticket indexer relies on confirmation depth and does not yet keep
-a block-hash rewind cursor. These gaps must be closed before indexed mining scores are
-authoritative. Never expose the metadata signer private key to browser code.
+The Planet and ticket indexers now use block-hash cursors and FK-safe V2-scoped rewinds;
+focused cursor/reset and idempotency tests cover replay behavior. A production rollout
+still needs durable scheduling, monitoring, backups, and restore testing. Never expose the
+metadata signer private key to browser code.

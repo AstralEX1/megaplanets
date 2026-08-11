@@ -113,9 +113,21 @@ export function deserializeDailySnapshot(snapshot: PersistedSnapshot): DailySnap
 
 function validateStore(value: unknown): PersistedStore {
   if (!value || typeof value !== 'object') throw new Error('Eligibility store is malformed.');
-  const candidate = value as { version?: number; tickets?: Record<string, PersistedTicket>; vouchers?: Record<string, PersistedVoucher>; snapshots?: Record<string, PersistedSnapshot> };
+  const candidate = value as {
+    version?: number;
+    cursor?: string | { nextBlock: string; lastBlockHash?: Hex };
+    tickets?: Record<string, PersistedTicket>;
+    vouchers?: Record<string, PersistedVoucher>;
+    snapshots?: Record<string, PersistedSnapshot>;
+  };
   const store = candidate.version === 1 && candidate.tickets && candidate.vouchers
-    ? { version: 2 as const, tickets: candidate.tickets, vouchers: candidate.vouchers, snapshots: {} }
+    ? {
+        version: 2 as const,
+        cursor: typeof candidate.cursor === 'string' ? { nextBlock: candidate.cursor } : candidate.cursor,
+        tickets: candidate.tickets,
+        vouchers: candidate.vouchers,
+        snapshots: {},
+      }
     : candidate as PersistedStore;
   if (store.version !== 2 || !store.tickets || !store.vouchers || !store.snapshots) throw new Error('Eligibility store has an unsupported schema.');
   for (const ticket of Object.values(store.tickets)) {
@@ -188,6 +200,7 @@ export class FileEligibilityStore implements EligibilityStore {
     await this.update((store) => {
       store.tickets = {};
       store.vouchers = {};
+      store.snapshots = {};
       store.cursor = undefined;
     });
   }
@@ -229,6 +242,7 @@ export class MemoryEligibilityStore implements EligibilityStore {
   async rewind(_fromBlock: bigint) {
     this.tickets.clear();
     this.vouchers.clear();
+    this.snapshots.clear();
     this.cursor = undefined;
   }
   async getSnapshot(blockNumber: bigint) { return this.snapshots.get(snapshotKey(blockNumber)); }

@@ -98,11 +98,16 @@ report that blocker without substituting another wallet’s ticket.
 
 Rehearsal evidence recorded on 2026-08-11: the disposable Supabase PostgreSQL
 schema was reset and all four migrations applied; finalized backfill indexed 460
-MEGAPLANETS_V1 tickets and zero V2 Planet events; a repeat cycle returned zero new
-ticket/Planet events with no reorg flags and unchanged row counts. The selected
-candidate is ticket `369655895285474687617509885184844170268536768125201373131526793984064136106`,
-whose on-chain owner is the approved owner. Live mint remains gated on voucher-service
-configuration and the explicit wallet approval.
+MEGAPLANETS_V1 tickets and zero V2 Planet events. The selected smallest eligible
+ticket was `369655895285474687617509885184844170268536768125201373131526793984064136106`,
+whose on-chain owner is the approved owner. One explicitly authorized mint completed
+after simulation and six confirmations at transaction
+`0x3607f5f37657457db6d2c3d3c03642e472f01e364468b772b6ec1811d8a21612`, block
+`45,353,701`, token ID `16`. The post-mint indexer processed the same-tx
+`PlanetMinted` and `Transfer(0, recipient)` events; the repeat cycle was idempotent.
+On-chain owner, ticket/Planet mappings, total supply, metadata URI, PostgreSQL rows,
+mining API, wallet API, health/readiness probes, and local app root all verified.
+No transfer or burn was submitted.
 
 ## Completion
 

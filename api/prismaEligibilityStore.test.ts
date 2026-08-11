@@ -13,13 +13,13 @@ describe('PrismaEligibilityStore reorg resets', () => {
       leaderboardEntry: { deleteMany: async () => { calls.push('leaderboardEntry.deleteMany'); } },
       leaderboardPeriod: { deleteMany: async () => { calls.push('leaderboardPeriod.deleteMany'); } },
       dailySnapshotRecord: { deleteMany: async () => { calls.push('dailySnapshotRecord.deleteMany'); } },
-      mineralLedgerEntry: { deleteMany: async () => { calls.push('mineralLedgerEntry.deleteMany'); } },
-      planetAccrualState: { deleteMany: async () => { calls.push('planetAccrualState.deleteMany'); } },
-      planetOwnershipHistory: { deleteMany: async () => { calls.push('planetOwnershipHistory.deleteMany'); } },
-      processedBlockchainEvent: { deleteMany: async () => { calls.push('processedBlockchainEvent.deleteMany'); } },
-      planet: { deleteMany: async () => { calls.push('planet.deleteMany'); } },
-      mintVoucherRecord: { deleteMany: async () => { calls.push('mintVoucherRecord.deleteMany'); } },
-      ticketPurchase: { deleteMany: async () => { calls.push('ticketPurchase.deleteMany'); } },
+      mineralLedgerEntry: { deleteMany: vi.fn(async () => { calls.push('mineralLedgerEntry.deleteMany'); }) },
+      planetAccrualState: { deleteMany: vi.fn(async () => { calls.push('planetAccrualState.deleteMany'); }) },
+      planetOwnershipHistory: { deleteMany: vi.fn(async () => { calls.push('planetOwnershipHistory.deleteMany'); }) },
+      processedBlockchainEvent: { deleteMany: vi.fn(async () => { calls.push('processedBlockchainEvent.deleteMany'); }) },
+      planet: { deleteMany: vi.fn(async () => { calls.push('planet.deleteMany'); }) },
+      mintVoucherRecord: { deleteMany: vi.fn(async () => { calls.push('mintVoucherRecord.deleteMany'); }) },
+      ticketPurchase: { deleteMany: vi.fn(async () => { calls.push('ticketPurchase.deleteMany'); }) },
       indexerCursor: { deleteMany: vi.fn(async () => { calls.push('indexerCursor.deleteMany'); }) },
     };
     const prisma = {
@@ -61,6 +61,14 @@ describe('PrismaEligibilityStore reorg resets', () => {
           },
         ],
       },
+    });
+    expect(transaction.planet.deleteMany).toHaveBeenCalledWith({ where: { contractAddress: planetContract.toLowerCase() } });
+    expect(transaction.processedBlockchainEvent.deleteMany).toHaveBeenCalledWith({ where: { contractAddress: planetContract.toLowerCase() } });
+    expect(transaction.ticketPurchase.deleteMany).toHaveBeenCalledWith({
+      where: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase() },
+    });
+    expect(transaction.mintVoucherRecord.deleteMany).toHaveBeenCalledWith({
+      where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase() } },
     });
   });
 });

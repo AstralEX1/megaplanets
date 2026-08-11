@@ -98,6 +98,24 @@ export function createApp(
 
   app.get('/api/planets/health', (c) => c.json({ ok: true, stage: 5 }));
 
+  app.get('/api/planets/readiness', (c) => {
+    try {
+      const config = dependencies.loadConfig();
+      if (!config.databaseUrl || !config.planetContractAddress || config.planetDeploymentBlock === undefined) {
+        return c.json({ ready: false, stage: 5 }, 503);
+      }
+      return c.json({
+        ready: true,
+        stage: 5,
+        chainId: 84_532,
+        contractAddress: config.planetContractAddress,
+        deploymentBlock: config.planetDeploymentBlock.toString(),
+      });
+    } catch {
+      return c.json({ ready: false, stage: 5 }, 503);
+    }
+  });
+
   app.post('/api/planets/vouchers', async (c) => {
     const clientKey = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown-client';
     if (!dependencies.rateLimiter.allows(clientKey)) {

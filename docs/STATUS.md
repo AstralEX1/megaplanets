@@ -40,8 +40,9 @@ The seasonless ERC721A V2 was deployed separately at
 `0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` by transaction
 `0xe29aa681e25ba222df04a1acdb2d2e48d2c47ac7cc1d46da0f2e8920ea9f9b6c` in block
 `45,347,860` on chain ID `84532`. The receipt succeeded, used `2,095,655` gas, and
-Sourcify reports an exact source match. Frontend and API runtime activation remain
-disabled pending indexer/E2E readiness.
+Sourcify reports an exact source match. A local runtime rehearsal has now completed
+against the disposable PostgreSQL database; checked-in frontend/API defaults remain
+disabled.
 
 The checked-in deployment/verification commands are:
 
@@ -66,8 +67,8 @@ pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 | Planet generator | DOM-free deterministic V3 generator, namespaced randomness, seasonless metadata, 128x128 GIF renderer, web worker, serialization/integrity checks, and regenerated golden fixtures | Complete local checkpoint; final art/economy parameters still require product sign-off |
 | Contract V2 | Seasonless ERC721A, sequential token IDs from 1, bidirectional ticket/Planet mappings, atomic batches up to 50, EIP-712 v2 vouchers, live ticket ownership checks, and Foundry unit/fuzz/invariant tests | Deployed to Base Sepolia at `0x7a29...f9f2`; Sourcify exact match; BaseScan verified; runtime activation remains pending |
 | Voucher service | Hono endpoint validates the canonical purchase receipt, derives metadata, pins to Pinata, signs EIP-712 vouchers, caches results, and rate-limits/coalesces requests | Suitable for local/single-process use; production secrets, shared rate limiting, wallet authentication policy, and hosting are not complete |
-| PostgreSQL/indexer | Prisma migrations for tickets, vouchers, Planets, ownership, processed events, cursors, mining ledger, and leaderboard; separate finalized-log runner with bounded ranges and Planet-stream reorg detection | Rehearsal DB reset and migrations verified; 460-ticket backfill and repeat idempotency verified; live mint/Planet event evidence pending |
-| Mining | Lazy fixed-point accrual, immutable ledger segments, same-Type multipliers of 0/5/10/15%, per-Planet and wallet snapshots | Core calculations are tested; transfer/burn bonus recomputation and reorg rollback need correction before scores are authoritative |
+| PostgreSQL/indexer | Prisma migrations for tickets, vouchers, Planets, ownership, processed events, cursors, mining ledger, and leaderboard; separate finalized-log runner with bounded ranges and ticket/Planet block-hash reorg detection | Disposable DB rehearsal, 462-ticket backfill, post-mint convergence, repeat idempotency, and readiness probes verified |
+| Mining | Lazy fixed-point accrual, immutable ledger segments, same-Type multipliers of 0/5/10/15%, per-Planet and wallet snapshots | Transfer sender/receiver repricing, burn state removal, remainder persistence, and same-tx mint ordering are covered by tests; no live transfer/burn performed |
 | Leaderboard | Monday-to-Monday periods, deterministic rank/tie rules, live and archived APIs, history, wallet position, and frontend | Implemented locally; finalization is triggered by leaderboard requests rather than an independent operations job |
 | Frontend | Responsive Play, My Planets list/detail and reveal batches, live mining overlays, leaderboard, wallet integration, deep links, and deterministic GIF previews | Polished local UI; production backend routing, live-wallet flows, and mobile/desktop E2E smoke coverage remain |
 
@@ -85,7 +86,7 @@ pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 
 ## Release blockers and known gaps
 
-### P0 - required before another public testnet mint
+### P0 - required before public testnet activation
 
 1. Retain the completed BaseScan verification for the deployed ERC721A V2 and the deployment
    receipt, source match, and constructor arguments as the deployment record.
@@ -93,20 +94,21 @@ pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
    passes; then update frontend, API, indexer, and deployment-block configuration atomically.
 3. Deploy PostgreSQL, apply all Prisma migrations, configure the API and a long-running
    indexer, then backfill from the correct V2 deployment block.
-4. Run a controlled Base Sepolia rehearsal covering direct purchase, keeper bulk purchase,
-   single mint, batch mint, transfer, mining, same-Type bonus changes, and leaderboard.
-5. Correct mining transitions so the sender's remaining Planets are recomputed after a
-   transfer or burn. Add regression tests for both sender and receiver bonus boundaries.
+4. Expand controlled Base Sepolia rehearsal coverage to direct purchase, keeper bulk
+   purchase, batch mint, transfer, mining, same-Type bonus changes, and leaderboard.
+5. Keep V2 runtime activation env-only until monitoring, backups, and an explicit
+   production operations owner are in place.
 
 ### P1 - required before calling indexed scores production-ready
 
-1. Make reorg rollback restore or deterministically rebuild mining accrual state and ledger
-   entries. The current Planet rewind removes chain rows but does not rewind mining rows.
-2. Add block-hash/reorg handling to the Megapot ticket indexer, not only the Planet indexer.
+1. Add an automated reconciliation/restore test proving that a full reorg replay rebuilds
+   mining accrual state, ledger entries, and leaderboard rows from canonical events.
+2. Keep the ticket and Planet block-hash/reorg handling under scheduled monitoring and
+   add alerting for lag or repeated reorgs.
 3. Move weekly finalization to an explicit worker/cron instead of relying on a public read
    request to discover overdue periods.
-4. Add indexer lag/readiness endpoints, structured logs, retry policy, alerting, database
-   backups, restore tests, and a rollback runbook.
+4. Add indexer lag metrics, structured logs, retry policy, alerting, database backups,
+   restore tests, and a rollback runbook; the current readiness probe covers configuration.
 5. Use durable distributed voucher rate limiting in production and decide whether voucher
    preparation must require the existing wallet-session authentication flow.
 6. Unify backend URL handling for voucher, Planet index, mining, and leaderboard requests.
@@ -128,7 +130,7 @@ pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 The seasonless rewrite and pre-deployment checks completed on 2026-08-11:
 
 - `pnpm db:validate`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` pass.
-  The test suite reports 48 files and 192 tests; lint checked 266 files. Build output has
+  The test suite reports 52 files and 204 tests; lint checked 268 files. Build output has
   only the existing external PURE-comment and large-chunk warnings.
 - Foundry unit, fuzz, and bounded invariant tests pass: 14 tests total, including 256
   fuzz runs per fuzz test and 8 invariant runs at depth 32. `forge build --sizes` reports
@@ -145,11 +147,13 @@ The seasonless rewrite and pre-deployment checks completed on 2026-08-11:
   transaction `0xe29aa681e25ba222df04a1acdb2d2e48d2c47ac7cc1d46da0f2e8920ea9f9b6c`,
   block `45,347,860`, with `2,095,655` gas used. Read-only checks confirm code size
   8,723 bytes, the approved owner/signer/ticket NFT, EIP-712 `MegaPlanets / 2`, and
-  `totalSupply() = 0`. Sourcify verification returned `exact_match`.
+  `totalSupply() = 0` at deployment time. Sourcify verification returned `exact_match`.
 
-The frontend and backend V2 runtime envs remain unset. BaseScan verification completed,
-and even a successful BaseScan check does not by itself authorize activation before the
-rehearsal gate passes. The rehearsal selected ticket
+Checked-in frontend and backend V2 runtime defaults remain unset. BaseScan verification
+completed, and the local runtime rehearsal passed without enabling production defaults.
+The rehearsal selected ticket
 `369655895285474687617509885184844170268536768125201373131526793984064136106` for the
-approved owner, but no minting or other application transaction has been broadcast by
-this task.
+approved owner and minted it once after preflight: transaction
+`0x3607f5f37657457db6d2c3d3c03642e472f01e364468b772b6ec1811d8a21612`, block
+`45,353,701`, token ID `16`, owner and metadata verified on-chain, in PostgreSQL, and
+through the local API. No transfer or burn was broadcast.

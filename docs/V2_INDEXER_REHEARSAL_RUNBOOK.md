@@ -15,6 +15,29 @@ MegaPlanets ERC721A V2 while runtime activation stays disabled.
 - BaseScan status: verified on 2026-08-11 using the local gitignored rehearsal
   environment; that status alone does not authorize runtime activation
 
+## Long-running local stack
+
+The metadata/voucher HTTP service is mounted by Vite for the local rehearsal, while the
+finalized indexer runs as a separate process. Keep the V2 values in the gitignored
+`.env.local` only:
+
+```sh
+set -a; . .env.local; set +a
+pnpm dev --host 127.0.0.1
+```
+
+In a second terminal:
+
+```sh
+set -a; . .env.local; set +a
+pnpm api:indexer
+```
+
+Use `GET /api/planets/health` for liveness and `GET /api/planets/readiness` for V2
+configuration readiness. The indexer emits cycle counts and reorg flags; use a Base
+Sepolia RPC that accepts the configured 2,000-block log range. The public Nodies endpoint
+used during setup is capped at 50 blocks and is unsuitable for the default runner range.
+
 ## Exact commands
 
 The approved deployment evidence in this repository came from these commands:
@@ -45,16 +68,24 @@ in the same gitignored `.env.local` file. Never commit or print those values.
 - The test Supabase PostgreSQL schema was reset after explicit user confirmation;
   all four repository migrations applied successfully.
 - Finalized Base Sepolia backfill indexed 460 `MEGAPLANETS_V1` tickets and zero
-  V2 Planet events. Both cursors reached the same finalized tip with block hashes.
-- A repeat cycle returned zero new tickets/Planet events with both reorg flags false;
-  ticket and Planet row counts remained unchanged.
+  V2 Planet events. After the rehearsal mint, the database contains 462 tickets,
+  16 V2 Planets, 32 processed V2 events, 16 accrual states, and 16 ownership-history
+  rows; both cursors have non-null block hashes.
+- The post-mint cycle processed exactly two V2 events (`PlanetMinted` plus the same-tx
+  `Transfer(0, recipient)`), with `reorgDetected=false`. A repeat cycle returned zero
+  tickets and zero Planet events, also with both reorg flags false.
 - Chainlist-listed public RPCs were used as read-only fallbacks; Tenderly, DRPC,
   Sentio, and PublicNode accepted the tested 2,000-block `eth_getLogs` range.
 - Selected smallest eligible unminted ticket:
   `369655895285474687617509885184844170268536768125201373131526793984064136106`.
   Its current on-chain owner is `0xCfc1044C749fD40E07FE33938414Fa573993F857`.
-- No live wallet transaction, transfer, or burn has been submitted. The V2 runtime
-  remains disabled until the voucher service and one approved mint gate pass.
+- One authorized mint completed successfully after simulation and six confirmations:
+  transaction `0x3607f5f37657457db6d2c3d3c03642e472f01e364468b772b6ec1811d8a21612`,
+  block `45,353,701`, sequential token ID `16`, owner
+  `0xCfc1044C749fD40E07FE33938414Fa573993F857`, and `totalSupply=16`.
+  The on-chain token URI is `ipfs://bafkreieufr4d4ecwcsqjz5n57vbxfjwfqe2tmwan3nge6xzztjyy6ulwoq`.
+  API and DB map the selected ticket to Planet #16 with the same owner and URI.
+  No transfer or burn was submitted.
 
 ## Runtime activation gate
 

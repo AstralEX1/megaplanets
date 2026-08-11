@@ -40,6 +40,19 @@ const voucher: MintVoucher = {
 };
 
 describe('Stage 5 voucher endpoint', () => {
+  it('exposes health and V2 configuration readiness probes', async () => {
+    const app = createApp({ loadConfig: () => ({ ...config, planetDeploymentBlock: 45_347_860n }) });
+
+    expect(await (await app.request('/api/planets/health')).json()).toEqual({ ok: true, stage: 5 });
+    expect(await (await app.request('/api/planets/readiness')).json()).toEqual({
+      ready: true,
+      stage: 5,
+      chainId: 84_532,
+      contractAddress: config.planetContractAddress,
+      deploymentBlock: '45347860',
+    });
+  });
+
   it('mounts the public leaderboard API under /api/leaderboard', async () => {
     const response = await createApp().request('/api/leaderboard/current?limit=101');
 

@@ -3,6 +3,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { PlanetPreview } from '@megaplanets/planet-generator';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MEGAPLANETS_CONTRACT_ADDRESS } from '@/config/contracts';
 import { PlanetInventoryDetail } from './PlanetInventoryDetail';
 
 vi.mock('./PlanetGif', () => ({ PlanetGif: () => <span>Animated planet GIF</span> }));
@@ -20,7 +21,7 @@ const preview = {
 describe('PlanetInventoryDetail', () => {
   afterEach(cleanup);
 
-  it('shows revealed planet details with ticket provenance while V2 is unconfigured', () => {
+  it('shows revealed planet details with ticket provenance under either V2 env state', () => {
     const onClaim = vi.fn();
     const { container } = render(<PlanetInventoryDetail preview={preview} tokenId="7" ticketTxHash={`0x${'1'.repeat(64)}`} revealed mining={{ tokenId: '7', baseMineralsPerDay: '24', multiplierBps: '10500', effectiveMineralsPerDayMicros: '25200000', pendingMicros: '1000000', earnedMicros: '10100000', activeSince: '2026-08-10T00:00:00.000Z' }} miningAsOf="2026-08-10T00:00:01.000Z" ticketStatus={{ kind: 'claim', amount: 12_500_000n, ticketId: 24n }} mintAction={null} onClaim={onClaim} />);
 
@@ -45,8 +46,15 @@ describe('PlanetInventoryDetail', () => {
     );
     expect(ticketExplorerLink).toHaveAttribute('target', '_blank');
     expect(ticketExplorerLink).toHaveAttribute('rel', 'noreferrer');
-    expect(screen.getByText('NFT BaseScan unavailable')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'NFT BaseScan' })).not.toBeInTheDocument();
+    if (MEGAPLANETS_CONTRACT_ADDRESS) {
+      expect(screen.getByRole('link', { name: 'NFT BaseScan' })).toHaveAttribute(
+        'href',
+        `https://sepolia.basescan.org/nft/${MEGAPLANETS_CONTRACT_ADDRESS}/7`,
+      );
+    } else {
+      expect(screen.getByText('NFT BaseScan unavailable')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'NFT BaseScan' })).not.toBeInTheDocument();
+    }
     expect(container.querySelector('[data-density="compact"]')).toBeInTheDocument();
 
     screen.getByRole('button', { name: 'Claim ($12.50)' }).click();
