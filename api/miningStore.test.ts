@@ -9,6 +9,8 @@ describe('getWalletMiningSnapshot', () => {
       planet: {
         findMany: async () => [
           {
+            id: 'planet-1',
+            tokenId: { toFixed: () => '1' },
             baseMineralsPerDay: 86_400n,
             accrualState: {
               startedAt: new Date('2026-08-10T00:00:00.000Z'),
@@ -17,6 +19,8 @@ describe('getWalletMiningSnapshot', () => {
             },
           },
           {
+            id: 'planet-2',
+            tokenId: { toFixed: () => '2' },
             baseMineralsPerDay: 172_800n,
             accrualState: {
               startedAt: new Date('2026-08-10T00:00:00.000Z'),
@@ -27,7 +31,10 @@ describe('getWalletMiningSnapshot', () => {
         ],
       },
       mineralLedgerEntry: {
-        aggregate: async () => ({ _sum: { amountMicros: 7_000_000n } }),
+        findMany: async () => [
+          { planetId: 'planet-1', amountMicros: 3_000_000n },
+          { planetId: 'planet-2', amountMicros: 4_000_000n },
+        ],
       },
     } as unknown as PrismaClient;
 
@@ -35,9 +42,31 @@ describe('getWalletMiningSnapshot', () => {
 
     expect(snapshot).toEqual({
       ownerAddress,
+      asOf: '2026-08-10T00:00:01.000Z',
       ownedPlanetCount: 2,
       pendingMicros: '3100000',
       earnedMicros: '10100000',
+      effectiveMineralsPerDayMicros: '267840000000',
+      planets: [
+        {
+          tokenId: '1',
+          baseMineralsPerDay: '86400',
+          multiplierBps: '10000',
+          effectiveMineralsPerDayMicros: '86400000000',
+          pendingMicros: '1000000',
+          earnedMicros: '4000000',
+          activeSince: '2026-08-10T00:00:00.000Z',
+        },
+        {
+          tokenId: '2',
+          baseMineralsPerDay: '172800',
+          multiplierBps: '10500',
+          effectiveMineralsPerDayMicros: '181440000000',
+          pendingMicros: '2100000',
+          earnedMicros: '6100000',
+          activeSince: '2026-08-10T00:00:00.000Z',
+        },
+      ],
     });
   });
 });

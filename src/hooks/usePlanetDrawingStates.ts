@@ -1,8 +1,14 @@
-import { useQueries } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { API_BASE_URL, api, apiQueryRetry, QK, type RoundStatus } from '@/lib/api';
+import { parseAbi } from 'viem';
+import { useReadContracts } from 'wagmi';
+import { JACKPOT_ADDRESS } from '@/config/contracts';
+import type { DrawingState } from '@/hooks/useJackpotState';
+import type { RoundStatus } from '@/lib/api';
 
 const THIRTY_SECONDS = 30_000;
+const drawingStateAbi = parseAbi([
+  'function getDrawingState(uint256 _drawingId) view returns ((uint256 prizePool, uint256 ticketPrice, uint256 edgePerTicket, uint256 referralWinShare, uint256 referralFee, uint256 globalTicketsBought, uint256 lpEarnings, uint256 drawingTime, uint256 winningTicket, uint8 ballMax, uint8 bonusballMax, address payoutCalculator, bool jackpotLock))',
+]);
 
 export function drawingStatusLabel(status: RoundStatus | undefined) {
   if (status === 'active') return 'DRAWING ACTIVE';
@@ -10,28 +16,51 @@ export function drawingStatusLabel(status: RoundStatus | undefined) {
   return 'DRAWING STATUS UNAVAILABLE';
 }
 
-/** Reads only the historical API status for ticket-linked drawings; ticket proof stays on-chain. */
+/** Reads canonical Base Sepolia lifecycle state for ticket-linked drawings. */
 export function usePlanetDrawingStates(drawingIds: readonly bigint[]) {
   const uniqueDrawingIds = useMemo(
     () => [...new Set(drawingIds.map((drawingId) => drawingId.toString()))],
     [drawingIds],
   );
-  const queries = useQueries({
-    queries: uniqueDrawingIds.map((drawingId) => ({
-      queryKey: [QK.NS, API_BASE_URL, QK.round, drawingId],
-      queryFn: ({ signal }: { signal: AbortSignal }) => api.round(drawingId, { signal }),
+  const contracts = useMemo(() => uniqueDrawingIds.map((drawingId) => ({
+    address: JACKPOT_ADDRESS,
+    abi: drawingStateAbi,
+    functionName: 'getDrawingState' as const,
+    args: [BigInt(drawingId)] as const,
+  })), [uniqueDrawingIds]);
+  const query = useReadContracts({
+    contracts,
+    query: {
+      enabled: contracts.length > 0,
       staleTime: THIRTY_SECONDS,
-      ...apiQueryRetry,
-    })),
+      refetchInterval: THIRTY_SECONDS,
+    },
   });
-  const states = useMemo(
-    () => new Map(queries.flatMap((query) => query.data ? [[query.data.id, query.data.status] as const] : [])),
-    [queries],
-  );
+  const states = useMemo(() => {
+    const result = new Map<string, RoundStatus>();
+    uniqueDrawingIds.forEach((drawingId, index) => {
+      const read = query.data?.[index];
+      if (read?.status !== 'success') return;
+      const drawing = read.result as { winningTicket: bigint };
+      result.set(drawingId, drawing.winningTicket === 0n ? 'active' : 'settled');
+    });
+    return result;
+  }, [query.data, uniqueDrawingIds]);
+  const details = useMemo(() => {
+    const result = new Map<string, DrawingState>();
+    uniqueDrawingIds.forEach((drawingId, index) => {
+      const read = query.data?.[index];
+      if (read?.status !== 'success') return;
+      result.set(drawingId, read.result as DrawingState);
+    });
+    return result;
+  }, [query.data, uniqueDrawingIds]);
 
   return {
     states,
-    isLoading: queries.some((query) => query.isLoading),
-    error: queries.find((query) => query.error)?.error,
+    details,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
   };
 }

@@ -1,14 +1,174 @@
-import type { ReactNode } from 'react';
 import type { PlanetPreview } from '@megaplanets/planet-generator';
-import { drawingStatusLabel } from '@/hooks/usePlanetDrawingStates';
-import type { RoundStatus } from '@/lib/api';
-import { PlanetThumbnail } from './PlanetThumbnail';
+import type { ReactNode } from 'react';
+import { Button } from '@/components/common/Button';
+import {
+  EXPLORER_NFT_URL,
+  EXPLORER_TX_URL,
+  MEGAPLANETS_CONTRACT_ADDRESS,
+} from '@/config/contracts';
+import type { PlanetTicketStatus } from '@/hooks/usePlanetTicketStatuses';
+import type { PlanetMiningSnapshot } from '@/hooks/useWalletMining';
+import { PlanetMiningOverlay } from './PlanetMiningOverlay';
+import { PlanetGif } from './PlanetGif';
+import { PlanetTicketStatusLabel } from './PlanetTicketStatusLabel';
 
-export function PlanetInventoryDetail({ preview, revealed, drawingStatus, mintAction }: { preview: PlanetPreview; revealed: boolean; drawingStatus: RoundStatus | undefined; mintAction: ReactNode }) {
+type PlanetInventoryDetailProps = {
+  preview: PlanetPreview;
+  tokenId?: string;
+  ticketTxHash?: string;
+  revealed: boolean;
+  ticketStatus: PlanetTicketStatus;
+  mintAction: ReactNode;
+  onClaim?: () => void;
+  statusPending?: boolean;
+  onBack?: () => void;
+  mining?: PlanetMiningSnapshot;
+  miningAsOf?: string;
+};
+
+function humanize(value: string) {
+  const words = value.replaceAll('-', ' ');
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+}
+
+function Trait({ label, value, dataTrait }: { label: string; value: ReactNode; dataTrait?: string }) {
+  return (
+    <div className="border-b border-[var(--border)] py-2 last:border-b-0">
+      <dt className="telemetry text-[var(--text-secondary)]">{label}</dt>
+      <dd data-trait={dataTrait} className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{value}</dd>
+    </div>
+  );
+}
+
+function TicketCoordinates({ preview }: { preview: PlanetPreview }) {
+  const input = preview.descriptor.input;
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
+      <p className="telemetry text-[var(--text-secondary)]">Ticket coordinates</p>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {input.normals.map((coordinate) => (
+          <span key={coordinate} className="grid h-8 w-8 place-items-center rounded-full border border-[var(--border-strong)] bg-[var(--surface-raised)] font-mono text-xs font-bold text-[var(--text-primary)]">
+            {coordinate}
+          </span>
+        ))}
+        <span aria-hidden className="mx-1 h-7 w-px bg-[var(--border-strong)]" />
+        <span data-coordinate="bonus" className="grid h-9 w-9 place-items-center rounded-full bg-[var(--rare)] font-mono text-xs font-bold text-black" title="Bonus number">
+          {input.bonusBall}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function TicketLifecycle({
+  status,
+  onClaim,
+  pending,
+}: {
+  status: PlanetTicketStatus;
+  onClaim?: () => void;
+  pending: boolean;
+}) {
+  if (status.kind === 'claim') {
+    return (
+      <Button variant="primary" size="lg" className="w-full" disabled={pending} onClick={onClaim}>
+        <PlanetTicketStatusLabel status={status} />
+      </Button>
+    );
+  }
+  return (
+    <div data-ticket-lifecycle={status.kind} className="flex min-h-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-primary)]">
+      <PlanetTicketStatusLabel status={status} />
+    </div>
+  );
+}
+
+function ExplorerLink({ href, label }: { href?: string; label: string }) {
+  if (!href) {
+    return <span className="rounded-2xl border border-[var(--border)] px-3 py-3 text-center text-[var(--text-secondary)]">{label} unavailable</span>;
+  }
+  return <a href={href} target="_blank" rel="noreferrer" aria-label={label} className="rounded-2xl border border-[var(--border-strong)] px-3 py-3 text-center text-[var(--rare)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rare)]">{label}</a>;
+}
+
+export function PlanetInventoryDetail({
+  preview,
+  tokenId,
+  ticketTxHash,
+  revealed,
+  ticketStatus,
+  mintAction,
+  onClaim,
+  statusPending = false,
+  onBack,
+  mining,
+  miningAsOf,
+}: PlanetInventoryDetailProps) {
+  const ticketExplorerUrl = ticketTxHash ? `${EXPLORER_TX_URL}${ticketTxHash}` : undefined;
+
   if (!revealed) {
-    return <section className="rounded-[20px] border border-[var(--border-strong)] bg-[var(--surface-raised)] p-5"><p className="telemetry text-[var(--text-primary)]">{drawingStatusLabel(drawingStatus)}</p><div className="mt-5 [&>div>p]:hidden [&>div>button]:w-full">{mintAction}</div></section>;
+    return (
+      <section className="rounded-3xl border border-[var(--border-strong)] bg-[var(--surface-raised)] p-4 sm:p-5">
+        {onBack ? <button type="button" onClick={onBack} className="mb-4 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">← Back to My Planets</button> : null}
+        <div>
+          <h1 className="font-hud text-2xl font-bold tracking-[-0.04em] text-[var(--text-primary)] sm:text-3xl">Ticket #{preview.descriptor.input.ticketId.toString()}</h1>
+          <span className="mt-3 inline-flex rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]">Ticket lifecycle</span>
+        </div>
+        <div className="mt-5"><TicketCoordinates preview={preview} /></div>
+        <div className="mt-5"><TicketLifecycle status={ticketStatus} onClaim={onClaim} pending={statusPending} /></div>
+        <div className="mt-5 grid"><ExplorerLink href={ticketExplorerUrl} label="Ticket BaseScan" /></div>
+        <div className="mt-5 [&>div>p]:hidden [&>div>button]:w-full">{mintAction}</div>
+      </section>
+    );
   }
 
   const { descriptor } = preview;
-  return <section className="rounded-[20px] border border-[var(--border-strong)] bg-[var(--surface-raised)] p-4 sm:p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="telemetry text-[var(--rare)]">{descriptor.traits.type}</p><h1 className="mt-1 font-hud text-4xl font-bold tracking-[-0.05em] text-[var(--text-primary)]">{descriptor.traits.name}</h1></div><p className="telemetry rounded-full border border-[var(--border)] px-3 py-2 text-[var(--text-secondary)]">{drawingStatusLabel(drawingStatus)}</p></div><div className="mt-5 overflow-hidden rounded-[14px] border border-[var(--border)] bg-[var(--surface)]"><PlanetThumbnail descriptor={preview.visual} /></div><dl className="mt-5 grid grid-cols-2 gap-3 text-sm"><div className="rounded-xl bg-[var(--surface)] p-3"><dt className="telemetry text-[var(--text-secondary)]">MINERALS</dt><dd className="mt-1 font-hud text-lg font-bold text-[var(--text-primary)]">{descriptor.traits.minerals} minerals/day</dd></div><div className="rounded-xl bg-[var(--surface)] p-3"><dt className="telemetry text-[var(--text-secondary)]">RARITY</dt><dd className="mt-1 font-hud text-lg font-bold text-[var(--text-primary)]">{descriptor.traits.rarity}</dd></div><div className="rounded-xl bg-[var(--surface)] p-3"><dt className="telemetry text-[var(--text-secondary)]">SATELLITES</dt><dd className="mt-1 font-hud text-lg font-bold text-[var(--text-primary)]">{descriptor.traits.satelliteCount}{descriptor.traits.hasRing ? ' / ring' : ''}</dd></div><div className="rounded-xl bg-[var(--surface)] p-3"><dt className="telemetry text-[var(--text-secondary)]">TICKET</dt><dd className="mt-1 font-hud text-lg font-bold text-[var(--text-primary)]">#{descriptor.input.ticketId.toString()}</dd></div></dl><div className="mt-5 border-t border-[var(--border)] pt-4"><p className="font-mono text-sm text-[var(--text-primary)]">{descriptor.input.normals.join(' / ')} + {descriptor.input.bonusBall}</p><dl className="mt-4 space-y-3 text-xs"><div><dt className="telemetry text-[var(--text-secondary)]">SEED</dt><dd className="mt-1 break-all font-mono text-[var(--text-primary)]">{descriptor.seed}</dd></div><div><dt className="telemetry text-[var(--text-secondary)]">TRAITS HASH</dt><dd className="mt-1 break-all font-mono text-[var(--text-primary)]">{descriptor.traitsHash}</dd></div></dl></div></section>;
+  const nftExplorerUrl = tokenId && MEGAPLANETS_CONTRACT_ADDRESS
+    ? `${EXPLORER_NFT_URL}${MEGAPLANETS_CONTRACT_ADDRESS}/${tokenId}`
+    : undefined;
+
+  return (
+    <section data-density="compact" className="rounded-3xl border border-[var(--border-strong)] bg-[var(--surface-raised)] p-4">
+      {onBack ? <button type="button" onClick={onBack} className="mb-4 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">← Back to My Planets</button> : null}
+      <div data-testid="planet-artwork" className="relative mx-auto aspect-square max-h-[32vh] w-full max-w-[32vh] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+        <PlanetGif preview={preview} />
+        <PlanetMiningOverlay mining={mining} miningAsOf={miningAsOf} />
+      </div>
+
+      <div className="mt-3">
+        <p className="telemetry text-[var(--text-secondary)]">{descriptor.traits.type}</p>
+        <h1 className="mt-1 font-hud text-2xl font-bold tracking-[-0.04em] text-[var(--text-primary)] sm:text-3xl">
+          {descriptor.traits.name}
+        </h1>
+      </div>
+
+      <section aria-label="Ticket" className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="font-mono text-xs text-[var(--text-secondary)]">
+            <p>Ticket #{descriptor.input.ticketId.toString()}</p>
+            {tokenId ? <p>Planet #{tokenId}</p> : null}
+          </div>
+          <span className="rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]">Ticket lifecycle</span>
+        </div>
+        <div className="mt-3"><TicketCoordinates preview={preview} /></div>
+        <div className="mt-3"><TicketLifecycle status={ticketStatus} onClaim={onClaim} pending={statusPending} /></div>
+      </section>
+
+      <section className="mt-4">
+        <h2 className="font-hud text-lg font-bold text-[var(--text-primary)]">Details</h2>
+        <dl className="mt-2 grid grid-cols-3 gap-x-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-3">
+          <Trait label="Terrain" value={humanize(descriptor.traits.terrain)} />
+          <Trait label="Type" value={descriptor.traits.type} />
+          <Trait label="Satellites" value={descriptor.traits.satelliteCount} />
+          <Trait label="Clouds" value={preview.visual.traits.hasClouds ? 'Yes' : 'No'} dataTrait="clouds" />
+          <Trait label="Base minerals" value={mining?.baseMineralsPerDay ?? 'Unavailable'} dataTrait="base-minerals" />
+          <Trait label="Rarity" value={descriptor.traits.rarity} />
+        </dl>
+      </section>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <ExplorerLink href={ticketExplorerUrl} label="Ticket BaseScan" />
+        <ExplorerLink href={nftExplorerUrl} label="NFT BaseScan" />
+      </div>
+    </section>
+  );
 }

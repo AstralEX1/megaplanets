@@ -1,0 +1,18 @@
+- generic [ref=f14e4]:
+  - banner [ref=f14e5]:
+    - generic [ref=f14e6]:
+      - link "MegaPlanets" [ref=f14e7] [cursor=pointer]:
+        - /url: /
+      - navigation "Primary" [ref=f14e20]:
+        - button "Explore planets" [ref=f14e21] [cursor=pointer]
+        - button "My planets" [ref=f14e22] [cursor=pointer]
+        - button "Leaderboard" [ref=f14e23] [cursor=pointer]
+      - button "Connect" [ref=f14e25] [cursor=pointer]
+  - main [ref=f14e26]:
+    - generic [ref=f14e27]: Loading…
+  - contentinfo [ref=f14e29]:
+    - paragraph [ref=f14e30]:
+      - generic [ref=f14e31]: Infrastructure Participant interface — not operated by, affiliated with, or endorsed by Megapot. Participating assets may be lost. See
+      - link "full disclaimer" [ref=f14e32] [cursor=pointer]:
+        - /url: https://github.com/coordinationlabs/megapot-starter-kit/blob/main/docs/DISCLAIMER.md
+      - text: .

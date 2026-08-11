@@ -81,6 +81,22 @@ export function createStage2Routes(overrides: Partial<Stage2Dependencies> = {}) 
     }
   });
 
+  app.get('/wallets/:address/mining', async (c) => {
+    const address = c.req.param('address');
+    if (!isAddress(address)) return c.json({ error: 'A valid wallet address is required.' }, 400);
+    try {
+      const config = dependencies.loadConfig();
+      const mining = await dependencies.getWalletMining(
+        getPrismaClient(config.databaseUrl),
+        getAddress(address).toLowerCase(),
+        dependencies.now(),
+      );
+      return c.json({ mining });
+    } catch {
+      return c.json({ error: 'The mining API is not configured.' }, 503);
+    }
+  });
+
   app.get('/planets', async (c) => {
     const owner = c.req.query('owner');
     if (!owner || !isAddress(owner)) return c.json({ error: 'A valid owner address is required.' }, 400);

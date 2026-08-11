@@ -46,18 +46,17 @@ test environment and remains idempotent after indexer replay.
 
 ## Stage 5 — Mining and same-Type bonuses
 
-Add lazy fixed-point mineral accrual, an immutable mineral ledger, claim-all, and
-same-Type production-bonus calculation. Settle production at transfer and bonus-change
+Add lazy fixed-point mineral accrual, an immutable mineral ledger, and same-Type
+production-bonus calculation. Settle production at transfer and bonus-change
 boundaries rather than using daily accrual jobs.
 
-Checkpoint: pending minerals are reproducible, claims do not duplicate ledger entries, and
-transfers split production at the correct timestamp.
+Checkpoint: mineral totals are reproducible and transfers split production at the correct
+timestamp.
 
 ## Stage 6 — Weekly leaderboard
 
 Add Monday-to-Monday UTC periods, current and historical ranks, distance to the next rank,
-and reproducible finalization. Include pending production so claiming cannot affect a
-weekly score.
+and reproducible finalization. Include active production through the period cutoff.
 
 Checkpoint: a complete local leaderboard rehearsal can be reconstructed from ledger and
 rate-segment data.

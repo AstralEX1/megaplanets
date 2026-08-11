@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CHAIN,
   DEFAULT_REFERRER_ADDRESS,
+  EXPLORER_NFT_URL,
   LP_ENABLED,
   parseChainName,
   REFERRAL_SPLIT_FULL,
@@ -13,6 +14,10 @@ import {
 describe('MegaPlanets protocol invariants', () => {
   it('defaults a fresh checkout to Base Sepolia', () => {
     expect(CHAIN).toBe('testnet');
+  });
+
+  it('builds NFT detail links for the active Base Sepolia explorer', () => {
+    expect(`${EXPLORER_NFT_URL}0xabc/7`).toBe('https://sepolia.basescan.org/nft/0xabc/7');
   });
 
   it('fails closed for an invalid chain setting', () => {

@@ -3,9 +3,9 @@
  * @skill      https://llms.megapot.io/tasks/buy-tickets
  * @customize  Generic USDC approve flow. Pass any `spender` so one wrapper
  *             works across Jackpot / BatchPurchaseFacilitator /
- *             JackpotAutoSubscription / JackpotLPManager. Approves the exact
- *             amount (no leftover allowance) — change to `maxUint256` for
- *             "approve once" UX at the cost of a larger trust surface.
+ *             JackpotAutoSubscription / JackpotLPManager. The gate compares
+ *             allowance with the exact next purchase, while approval uses
+ *             `maxUint256` for the documented "approve once" UX.
  *
  *             Children-passthrough pattern. Wrap the downstream submit
  *             button inside `<ApprovalButton>`; when allowance is
@@ -29,12 +29,11 @@
  */
 import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
-import { erc20Abi } from 'viem';
+import { erc20Abi, maxUint256 } from 'viem';
 import { useAccount, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { USDC_ADDRESS } from '@/config/contracts';
 import { useUsdcAllowance } from '@/hooks/useUsdcAllowance';
 import { Button } from './Button';
-import { UsdcAmount } from './UsdcAmount';
 
 export function ApprovalButton({
   spender,
@@ -105,7 +104,7 @@ export function ApprovalButton({
       address: USDC_ADDRESS,
       abi: erc20Abi,
       functionName: 'approve',
-      args: [spender, amount],
+      args: [spender, maxUint256],
     });
 
   const busy = isPending || isLoading;
@@ -118,9 +117,7 @@ export function ApprovalButton({
         ) : isLoading ? (
           'Approving on-chain…'
         ) : (
-          <>
-            Approve <UsdcAmount value={amount} precision={2} />
-          </>
+          'Approve USDC'
         )}
       </Button>
       {error && (

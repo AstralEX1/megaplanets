@@ -15,7 +15,15 @@ describe('CompactPlanetDial', () => {
     expect(slider).toHaveAttribute('aria-valuemin', '1');
     expect(slider).toHaveAttribute('aria-valuemax', '50');
     expect(slider).toHaveAttribute('aria-valuenow', '3');
-    expect(screen.getByRole('button', { name: 'Selected planets thumb' })).toHaveStyle({ left: '4.081632653061225%' });
+    expect(screen.queryByRole('button', { name: 'Selected planets thumb' })).not.toBeInTheDocument();
+  });
+
+  it('renders the slider markers as prominent quantity labels', () => {
+    render(<CompactPlanetDial quantity={3} onChange={vi.fn()} />);
+
+    expect(screen.getByText('25').parentElement).toHaveClass('text-sm', 'font-bold');
+    expect(sliderClass(screen.getByRole('slider', { name: 'Planets to explore' }))).toContain('h-8');
+    expect(screen.getByText('25').parentElement).toHaveClass('-mt-1');
   });
 
   it('emits the value while the slider is dragged', () => {
@@ -38,3 +46,7 @@ describe('CompactPlanetDial', () => {
     expect(onChange).toHaveBeenLastCalledWith(25);
   });
 });
+
+function sliderClass(element: HTMLElement) {
+  return element.className;
+}

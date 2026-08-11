@@ -1,19 +1,15 @@
 /**
- * ---
- * @customize  Tab state lives here. 5 pages don't justify a router — keeps
- *             the dependency graph one file shallower. Swap to TanStack
- *             Router (or React Router) when you need URL state or
- *             deep-linking; each page is self-contained so deletion stays
- *             cheap.
- * ---
+ * Lightweight History API routing keeps the starter small while supporting
+ * canonical collection and Planet detail deep links.
  */
 import type { ReactNode } from 'react';
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import type { NavKey } from '@/components/layout/Nav';
 import { LP_ENABLED } from '@/config/contracts';
-import { Leaderboard } from '@/pages/Leaderboard';
+import { navPath, parseAppRoute } from '@/lib/appRoute';
 import { Home } from '@/pages/Home';
+import { Leaderboard } from '@/pages/Leaderboard';
 import { LP } from '@/pages/LP';
 import { Play } from '@/pages/Play';
 import { Tickets } from '@/pages/Tickets';
@@ -26,35 +22,48 @@ const Lab = import.meta.env.DEV
   : null;
 
 export default function App() {
-  const [active, setActive] = useState<NavKey>(() => {
-    if (window.location.pathname === '/play') return 'play';
-    if (window.location.pathname === '/planets') return 'planets';
-    if (window.location.pathname === '/leaderboard') return 'history';
-    return 'home';
-  });
+  const [route, setRoute] = useState(() => parseAppRoute(window.location.pathname));
+  const active = route.active;
+
+  const navigate = useCallback((key: NavKey) => {
+    const pathname = navPath(key);
+    window.history.pushState({}, '', pathname);
+    setRoute(parseAppRoute(pathname));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const viewPlanet = useCallback((tokenId: string) => {
+    const pathname = `/planet/${tokenId}`;
+    window.history.pushState({}, '', pathname);
+    setRoute(parseAppRoute(pathname));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    const onPopState = () => setRoute(parseAppRoute(window.location.pathname));
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   let page: ReactNode;
   switch (active) {
     case 'home':
-      page = <Home onNavigate={setActive} />;
+      page = <Home onNavigate={navigate} />;
       break;
     case 'play':
       page = <Play />;
       break;
     case 'tickets':
-      page = <Tickets onNavigate={setActive} />;
+      page = <Tickets onNavigate={navigate} />;
       break;
     case 'planets':
-      page = <Planets onNavigate={setActive} />;
+      page = <Planets onNavigate={navigate} onViewPlanet={viewPlanet} routePlanetId={route.planetId} />;
       break;
     case 'lab':
-      page = Lab ? <Lab /> : <Home onNavigate={setActive} />;
+      page = Lab ? <Lab /> : <Home onNavigate={navigate} />;
       break;
     case 'lp':
-      // Defensive fallback for programmatic `active='lp'` while LP is
-      // disabled (the nav entry is filtered out, so the user can't get here
-      // by clicking). Renders Home instead of a blank screen.
-      page = LP_ENABLED ? <LP /> : <Home onNavigate={setActive} />;
+      page = LP_ENABLED ? <LP /> : <Home onNavigate={navigate} />;
       break;
     case 'history':
       page = <Leaderboard />;
@@ -62,7 +71,7 @@ export default function App() {
   }
 
   return (
-    <Layout active={active} onSelect={setActive}>
+    <Layout active={active} onSelect={navigate}>
       <Suspense fallback={<div className="card-pad text-sm text-zinc-400">Loading…</div>}>
         {page}
       </Suspense>

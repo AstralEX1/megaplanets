@@ -41,6 +41,12 @@ const voucher: MintVoucher = {
 };
 
 describe('Stage 5 voucher endpoint', () => {
+  it('mounts the public leaderboard API under /api/leaderboard', async () => {
+    const response = await createApp().request('/api/leaderboard/current?limit=101');
+
+    expect(response.status).toBe(400);
+  });
+
   it('rejects malformed receipt references before reading server configuration', async () => {
     const app = createApp();
     const response = await app.request('/api/planets/vouchers', {
@@ -163,5 +169,43 @@ describe('Stage 5 voucher endpoint', () => {
     expect(limiter.allows('client')).toBe(false);
     now = 1_000;
     expect(limiter.allows('client')).toBe(true);
+  });
+
+  it('allows two complete reveal batches and a following single reveal', async () => {
+    const store = new MemoryEligibilityStore();
+    const app = createApp({
+      loadConfig: () => config,
+      rateLimiter: createVoucherRateLimiter(),
+      findTicket: async (_config, request) => ({
+        ...ticket,
+        ticketId: BigInt(request.logIndex + 1),
+        logIndex: BigInt(request.logIndex),
+      }),
+      prepare: async (_config, eligibleTicket) => ({
+        voucher: {
+          ...voucher,
+          ticketId: eligibleTicket.ticketId,
+          drawingId: eligibleTicket.drawingId,
+          originTxHash: eligibleTicket.originTxHash,
+          recipient: eligibleTicket.recipient,
+        },
+        signature: '0xdeadbeef',
+        signer: '0x4444444444444444444444444444444444444444',
+        digest: `0x${'cd'.repeat(32)}`,
+      }),
+      getStore: () => store,
+    });
+
+    const statuses: number[] = [];
+    for (let logIndex = 0; logIndex < 101; logIndex += 1) {
+      const response = await app.request('/api/planets/vouchers', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ transactionHash: ticket.originTxHash, logIndex }),
+      });
+      statuses.push(response.status);
+    }
+
+    expect(statuses).toEqual(Array.from({ length: 101 }, () => 201));
   });
 });
