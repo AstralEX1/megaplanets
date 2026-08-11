@@ -1,5 +1,5 @@
 import {
-  createSeason1Config,
+  createPlanetConfig,
   derivePlanetPreview,
   derivePlanetPreviewForType,
   isPlanetType,
@@ -7,7 +7,7 @@ import {
   type PlanetInput,
   type PlanetPreview,
   type PlanetRenderDescriptor,
-  SEASON_1_TYPES,
+  PLANET_TYPE_CONFIGS,
   serializePlanetInput,
 } from '@megaplanets/planet-generator';
 import { useEffect, useMemo, useState } from 'react';
@@ -34,8 +34,7 @@ const DEFAULT_FORM: FormState = {
   originTxHash: '0x0000000000000000000000000000000000000000000000000000000000000001',
 };
 
-const LAB_SEASON_ID = '0x1111111111111111111111111111111111111111111111111111111111111111' as const;
-const LAB_SEASON_CONFIG = createSeason1Config(LAB_SEASON_ID);
+const LAB_PLANET_CONFIG = createPlanetConfig();
 
 type TicketFields = Pick<PlanetInput, 'ticketId' | 'drawingId' | 'normals' | 'bonusBall'>;
 
@@ -77,53 +76,52 @@ function randomForm(): FormState {
   };
 }
 
-function deriveSeasonPreview(
+function derivePlanetPreviewForLab(
   input: TicketFields,
   originTxHash: string,
   previewTypeId?: string,
 ): PlanetPreview {
   const canonicalInput = {
     ...input,
-    seasonId: LAB_SEASON_ID,
     originTxHash: originTxHash as `0x${string}`,
   };
   if (previewTypeId !== undefined) {
     if (!isPlanetType(previewTypeId)) throw new RangeError('Unsupported Planet Type.');
-    return derivePlanetPreviewForType(canonicalInput, LAB_SEASON_CONFIG, previewTypeId);
+    return derivePlanetPreviewForType(canonicalInput, LAB_PLANET_CONFIG, previewTypeId);
   }
-  return derivePlanetPreview(canonicalInput, LAB_SEASON_CONFIG);
+  return derivePlanetPreview(canonicalInput, LAB_PLANET_CONFIG);
 }
 
 const INITIAL_INPUT = parseInput(DEFAULT_FORM);
-const INITIAL_PREVIEW = deriveSeasonPreview(INITIAL_INPUT, DEFAULT_FORM.originTxHash);
-const INITIAL_SEASON_DESCRIPTOR = INITIAL_PREVIEW.descriptor;
-const INITIAL_TYPE_ID = INITIAL_SEASON_DESCRIPTOR.traits.typeId;
+const INITIAL_PREVIEW = derivePlanetPreviewForLab(INITIAL_INPUT, DEFAULT_FORM.originTxHash);
+const INITIAL_DESCRIPTOR_DATA = INITIAL_PREVIEW.descriptor;
+const INITIAL_TYPE_ID = INITIAL_DESCRIPTOR_DATA.traits.typeId;
 const INITIAL_DESCRIPTOR = INITIAL_PREVIEW.visual;
 
 export function Lab() {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [descriptor, setDescriptor] = useState<PlanetRenderDescriptor>(INITIAL_DESCRIPTOR);
   const [selectedType, setSelectedType] = useState<string | null>(INITIAL_TYPE_ID);
-  const [seasonDescriptor, setSeasonDescriptor] =
-    useState<PlanetDescriptor>(INITIAL_SEASON_DESCRIPTOR);
+  const [planetDescriptor, setPlanetDescriptor] =
+    useState<PlanetDescriptor>(INITIAL_DESCRIPTOR_DATA);
   const [error, setError] = useState<string | null>(null);
   const [gifRequest, setGifRequest] = useState<{
     preview: PlanetPreview;
     previewTypeId?: string;
   } | null>(null);
   const [gif, setGif] = useState<GifState>({ status: 'idle', url: null, error: null });
-  const planetName = seasonDescriptor.traits.name;
+  const planetName = planetDescriptor.traits.name;
   const displayedPalette =
-    SEASON_1_TYPES.find((type) => type.id === descriptor.traits.planetType)?.visual.paletteVariants.find(
+    PLANET_TYPE_CONFIGS.find((type) => type.id === descriptor.traits.planetType)?.visual.paletteVariants.find(
       (variant) =>
         variant.colors.length === descriptor.traits.typePalette.length &&
         variant.colors.every((color, index) => color === descriptor.traits.typePalette[index]),
-    ) ?? seasonDescriptor.traits.palette;
+    ) ?? planetDescriptor.traits.palette;
 
   const draft = useMemo(() => {
     try {
       const input = parseInput(form);
-      return { input, preview: deriveSeasonPreview(input, form.originTxHash), error: null };
+      return { input, preview: derivePlanetPreviewForLab(input, form.originTxHash), error: null };
     } catch (cause) {
       return {
         input: null,
@@ -174,7 +172,7 @@ export function Lab() {
   function selectDescriptor(preview: PlanetPreview, nextForm: FormState, previewTypeId?: string) {
     setForm(nextForm);
     setDescriptor(preview.visual);
-    setSeasonDescriptor(preview.descriptor);
+    setPlanetDescriptor(preview.descriptor);
     setGifRequest({ preview, previewTypeId });
     setSelectedType(previewTypeId ?? preview.descriptor.traits.typeId);
     setError(null);
@@ -190,8 +188,8 @@ export function Lab() {
     const nextForm = randomForm();
     try {
       const input = parseInput(nextForm);
-      const preview = deriveSeasonPreview(input, nextForm.originTxHash);
-      const type = SEASON_1_TYPES.find((entry) => entry.id === preview.descriptor.traits.typeId);
+      const preview = derivePlanetPreviewForLab(input, nextForm.originTxHash);
+      const type = PLANET_TYPE_CONFIGS.find((entry) => entry.id === preview.descriptor.traits.typeId);
       if (!type) throw new Error('Random Type selection exceeded the configured Types.');
       selectDescriptor(preview, nextForm);
     } catch (cause) {
@@ -202,7 +200,7 @@ export function Lab() {
     if (!isPlanetType(typeId)) return;
     const candidate = randomForm();
     const input = parseInput(candidate);
-    const preview = deriveSeasonPreview(input, candidate.originTxHash, typeId);
+    const preview = derivePlanetPreviewForLab(input, candidate.originTxHash, typeId);
     selectDescriptor(preview, candidate, typeId);
   }
 
@@ -221,7 +219,7 @@ export function Lab() {
         <div>
           <p className="mb-2 text-sm text-zinc-300">Generate a Type</p>
           <div className="grid grid-cols-2 gap-2">
-            {SEASON_1_TYPES.map((type) => (
+            {PLANET_TYPE_CONFIGS.map((type) => (
               <button
                 key={type.id}
                 type="button"
@@ -325,7 +323,7 @@ export function Lab() {
           </div>
           <div>
             <p className="text-zinc-500">Type</p>
-            <p>{SEASON_1_TYPES.find((type) => type.id === selectedType)?.publicName ?? 'Random'}</p>
+            <p>{PLANET_TYPE_CONFIGS.find((type) => type.id === selectedType)?.publicName ?? 'Random'}</p>
           </div>
           <div>
             <p className="text-zinc-500">Terrain</p>
@@ -347,14 +345,14 @@ export function Lab() {
           </div>
           <div>
             <p className="text-zinc-500">Rarity</p>
-            <p>{seasonDescriptor.traits.rarity}</p>
+            <p>{planetDescriptor.traits.rarity}</p>
           </div>
           <div>
             <p className="text-zinc-500">Minerals</p>
-            <p>{seasonDescriptor.traits.minerals}</p>
+            <p>{planetDescriptor.traits.minerals}</p>
           </div>
         </div>
-        <p className="break-all font-mono text-xs text-zinc-500">seed {seasonDescriptor.seed}</p>
+        <p className="break-all font-mono text-xs text-zinc-500">seed {planetDescriptor.seed}</p>
       </section>
     </div>
   );

@@ -1,5 +1,5 @@
 import {
-  createSeason1Config,
+  createPlanetConfig,
   derivePlanetPreview,
   derivePlanetPreviewForType,
   deserializePlanetInput,
@@ -49,7 +49,7 @@ workerScope.onmessage = (event) => {
   try {
     if (!isRequest(event.data)) throw new TypeError('Invalid GIF worker request.');
     const input = deserializePlanetInput(event.data.input);
-    const config = createSeason1Config(input.seasonId);
+    const config = createPlanetConfig();
     const previewTypeId = event.data.previewTypeId;
     const preview = previewTypeId
       ? derivePlanetPreviewForType(input, config, previewTypeId)

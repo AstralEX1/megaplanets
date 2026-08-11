@@ -40,9 +40,9 @@ reproducible provenance for every emitted ticket.
 
 ## Stage 3 — Deterministic Planet generator
 
-**Status: implemented with golden fixtures.** Final Season 1 art/economy sign-off remains.
+**Status: implemented with regenerated golden fixtures.** Final art/economy sign-off remains.
 
-Implement the canonical generator with the Season 1 seed, configurable Types, deterministic
+Implement the canonical generator with the V3 ABI seed, configurable Types, deterministic
 names, minerals/rarity, GIF previews, and golden vectors.
 
 Checkpoint: metadata and GIF outputs are reproducible from canonical ticket provenance.

@@ -15,6 +15,7 @@ This directory contains the current server-side boundary:
 ## HTTP surface
 
 - `GET /api/planets/health`
+- `GET /api/planets/readiness`
 - `POST /api/planets/vouchers`
 - `POST /api/auth/nonce`, `POST /api/auth/verify`, `POST /api/auth/logout`
 - `GET /api/me`, `GET /api/me/planets`, `GET /api/me/mining`
@@ -24,8 +25,50 @@ This directory contains the current server-side boundary:
   `/weeks/:periodId`
 
 `api/planetIndexerMain.ts` is the separate long-running indexer entry point. The HTTP
-server does not start it. Leaderboard finalization currently runs lazily from leaderboard
-read routes; production should move this responsibility to an explicit operations job.
+server does not start it. Run the local rehearsal stack in two processes:
+
+```sh
+set -a; . .env.local; set +a
+pnpm dev --host 127.0.0.1
+```
+
+```sh
+set -a; . .env.local; set +a
+pnpm api:indexer
+```
+
+The indexer uses finalized blocks, stores both cursor position and block hash, and logs
+cycle results. A public RPC with a sufficiently large `eth_getLogs` range is required;
+the Nodies public endpoint currently caps ranges at 50 blocks, while the runner default
+is 2,000. `GET /api/planets/health` is a liveness probe and
+`GET /api/planets/readiness` validates the required database, V2 address, and deployment
+block configuration without exposing secrets. Leaderboard finalization currently runs
+lazily from leaderboard read routes; production should move this responsibility to an
+explicit operations job.
+
+## V2 deployment closure and runtime gate
+
+The active seasonless ERC721A V2 deployment record is Base Sepolia contract
+`0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2`, transaction
+`0xe29aa681e25ba222df04a1acdb2d2e48d2c47ac7cc1d46da0f2e8920ea9f9b6c`, block
+`45,347,860`, with Sourcify `exact_match`. The exact script commands are:
+
+- `cd contracts && ./script/deploy-v2-approved.sh`
+- `set -a; . .env.local; set +a; (cd contracts && ./script/verify-v2-basescan.sh)`
+
+The verification script must only run when the local gitignored `.env.local`
+provides `BASESCAN_API_KEY`; otherwise it exits without attempting a network
+verification.
+
+BaseScan verification by itself does not authorize runtime activation.
+
+The API must continue to fail closed by default. Do not add checked-in runtime defaults
+for V2 activation. Only after the full rehearsal gate passes may runtime env activate V2
+by setting the frontend env `VITE_MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2`
+and the backend envs
+`MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` plus
+`MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` together, while keeping
+`MEGAPLANETS_LAUNCH_BLOCK=44997183` and `TICKET_SOURCE=MEGAPLANETS_V1` unchanged.
 
 ## Production limitations
 
@@ -35,7 +78,7 @@ and restore/rollback procedures. Ticket vouchers remain bound to the original
 `TicketPurchased` recipient, while the contract independently checks current live ticket
 ownership.
 
-The Planet indexer has bounded reorg detection, but its rewind does not yet rebuild mining
-ledger/accrual state. The ticket indexer relies on confirmation depth and does not yet keep
-a block-hash rewind cursor. These gaps must be closed before indexed mining scores are
-authoritative. Never expose the metadata signer private key to browser code.
+The Planet and ticket indexers now use block-hash cursors and FK-safe V2-scoped rewinds;
+focused cursor/reset and idempotency tests cover replay behavior. A production rollout
+still needs durable scheduling, monitoring, backups, and restore testing. Never expose the
+metadata signer private key to browser code.

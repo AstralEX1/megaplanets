@@ -34,7 +34,7 @@ mintBatch(MintVoucher[] vouchers, bytes[] signatures)
 
 It mints up to 50 ticket-backed Planet NFTs to the connected wallet in one
 atomic Base Sepolia transaction. Every voucher is verified before any token is
-minted: recipient, expiry, season, immutable metadata hash, signer, current
+minted: recipient, expiry, immutable metadata hash, signer, current
 Megapot ticket ownership, duplicate ticket IDs, and prior mint state. The
 contract then calls ERC721A `_safeMint(recipient, quantity)` once.
 
@@ -197,7 +197,7 @@ Run the API and indexer safely as separate testnet services.
 
 ### Required environment categories
 
-- Public frontend configuration: chain, RPC URL, V2 contract address, season,
+- Public frontend configuration: chain, RPC URL, V2 contract address,
   and API base URL.
 - Server-only configuration: database URLs, managed RPC URL, Pinata JWT,
   metadata signer private key, V2 deployment block, and allowed application

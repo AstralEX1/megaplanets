@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import { Test } from "forge-std/Test.sol";
 import { MegaPlanets } from "../src/MegaPlanets.sol";
-import { MintVoucherLib } from "../src/libraries/MintVoucherLib.sol";
+import { MintVoucherV2Lib } from "../src/libraries/MintVoucherV2Lib.sol";
 import { MockJackpotTicketNFT } from "./mocks/MockJackpotTicketNFT.sol";
 
 contract MegaPlanetsFuzzTest is Test {
@@ -17,10 +17,13 @@ contract MegaPlanetsFuzzTest is Test {
         planets = new MegaPlanets(address(this), signer, address(tickets));
     }
 
-    function testFuzz_NormalMintUsesSequentialTokenIdAndPreservesTicketId(uint256 rawTicketId, uint256 userKey) external {
+    function testFuzz_NormalMintUsesSequentialTokenIdAndPreservesTicketId(
+        uint256 rawTicketId,
+        uint256 userKey
+    ) external {
         uint256 ticketId = bound(rawTicketId, 1, type(uint128).max);
         address recipient = vm.addr(bound(userKey, 1, type(uint128).max));
-        MintVoucherLib.MintVoucher memory voucher = _voucher(recipient, ticketId, "ipfs://fuzz");
+        MintVoucherV2Lib.MintVoucher memory voucher = _voucher(recipient, ticketId, "ipfs://fuzz");
         tickets.mint(recipient, ticketId);
         bytes memory signature = _signature(voucher);
 
@@ -38,7 +41,7 @@ contract MegaPlanetsFuzzTest is Test {
         firstId = bound(firstId, 1, type(uint128).max - 1);
         secondId = bound(secondId, firstId + 1, type(uint128).max);
         address recipient = makeAddr("recipient");
-        MintVoucherLib.MintVoucher[] memory vouchers = new MintVoucherLib.MintVoucher[](2);
+        MintVoucherV2Lib.MintVoucher[] memory vouchers = new MintVoucherV2Lib.MintVoucher[](2);
         bytes[] memory signatures = new bytes[](2);
         vouchers[0] = _voucher(recipient, firstId, "ipfs://valid");
         vouchers[1] = _voucher(recipient, secondId, "ipfs://invalid");
@@ -59,12 +62,11 @@ contract MegaPlanetsFuzzTest is Test {
     function _voucher(address recipient, uint256 ticketId, string memory uri)
         internal
         view
-        returns (MintVoucherLib.MintVoucher memory)
+        returns (MintVoucherV2Lib.MintVoucher memory)
     {
-        return MintVoucherLib.MintVoucher({
+        return MintVoucherV2Lib.MintVoucher({
             recipient: recipient,
             ticketId: ticketId,
-            seasonId: planets.seasonId(),
             drawingId: 1,
             originTxHash: keccak256("origin"),
             seed: keccak256("seed"),
@@ -75,7 +77,7 @@ contract MegaPlanetsFuzzTest is Test {
         });
     }
 
-    function _signature(MintVoucherLib.MintVoucher memory voucher)
+    function _signature(MintVoucherV2Lib.MintVoucher memory voucher)
         internal
         view
         returns (bytes memory)

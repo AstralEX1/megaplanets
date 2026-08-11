@@ -3,8 +3,6 @@ import { isAddress, isHex } from 'viem';
 export const BASE_SEPOLIA_CHAIN_ID = 84_532;
 export const MEGAPLANETS_LAUNCH_BLOCK = 44_997_183n;
 export const MEGAPLANETS_SOURCE = 'MEGAPLANETS_V1';
-export const SEASON_1_ID =
-  '0xee23bca2927e52eeb944320241d7a6e41726dcb3f169d972044bdafe95b4b15b' as const;
 
 export type Stage5Config = {
   rpcUrl: string;

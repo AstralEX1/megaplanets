@@ -10,7 +10,6 @@ vi.mock('./PlanetThumbnail', () => ({ PlanetThumbnail: () => <span>Static planet
 const preview = {
   descriptor: {
     input: {
-      seasonId: `0x${'01'.padStart(64, '0')}`,
       ticketId: 24n,
       drawingId: 218n,
       normals: [4, 11, 17, 26, 39],

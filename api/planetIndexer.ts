@@ -9,18 +9,18 @@ import {
 } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import {
-  createSeason1Config,
+  createPlanetConfig,
   derivePlanet,
   GENERATOR_VERSION,
   type PlanetInput,
 } from '@megaplanets/planet-generator';
-import { BASE_SEPOLIA_CHAIN_ID, SEASON_1_ID } from './config';
+import { BASE_SEPOLIA_CHAIN_ID } from './config';
 import type { PrismaClient } from './generated/prisma/client';
-import { refreshWalletMiningRates } from './miningStore';
+import { repriceWalletMiningRates, settleWalletMiningRates } from './miningStore';
 import type { Stage2Config } from './stage2Config';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
-const STREAM = 'megaplanets-v1';
+const STREAM = 'megaplanets-v2';
 
 export const PLANET_MINTED_EVENT = {
   type: 'event',
@@ -29,20 +29,8 @@ export const PLANET_MINTED_EVENT = {
     { indexed: true, name: 'tokenId', type: 'uint256' },
     { indexed: true, name: 'ticketId', type: 'uint256' },
     { indexed: true, name: 'recipient', type: 'address' },
-    { indexed: false, name: 'seasonId', type: 'bytes32' },
     { indexed: false, name: 'seed', type: 'bytes32' },
     { indexed: false, name: 'metadataHash', type: 'bytes32' },
-  ],
-} as const;
-
-export const SPECIAL_PLANET_MINTED_EVENT = {
-  type: 'event',
-  name: 'SpecialPlanetMinted',
-  inputs: [
-    { indexed: true, name: 'tokenId', type: 'uint256' },
-    { indexed: true, name: 'editionId', type: 'uint256' },
-    { indexed: true, name: 'recipient', type: 'address' },
-    { indexed: false, name: 'seasonId', type: 'bytes32' },
   ],
 } as const;
 
@@ -92,17 +80,8 @@ export type MintedPlanetEvent = EventIdentity & {
   tokenId: bigint;
   ticketId: bigint;
   recipient: Address;
-  seasonId: Hex;
   traits: IndexedPlanetTraits;
   metadataHash: Hex;
-  metadataUri: string;
-};
-
-export type SpecialPlanetEvent = EventIdentity & {
-  tokenId: bigint;
-  editionId: bigint;
-  recipient: Address;
-  seasonId: Hex;
   metadataUri: string;
 };
 
@@ -118,7 +97,6 @@ export type PlanetIndexStore = {
   rewind(contractAddress: Address, fromBlock: bigint): Promise<void>;
   getTicketInput(ticketId: bigint): Promise<PlanetInput | undefined>;
   recordMinted(event: MintedPlanetEvent): Promise<boolean>;
-  recordSpecial(event: SpecialPlanetEvent): Promise<boolean>;
   recordTransfer(event: PlanetTransferEvent): Promise<boolean>;
 };
 
@@ -168,35 +146,23 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
 
   async rewind(contractAddress: Address, fromBlock: bigint): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const histories = await transaction.planetOwnershipHistory.findMany({
-        where: { planet: { contractAddress: contractAddress.toLowerCase() }, blockNumber: { gte: fromBlock } },
-        select: { planetId: true },
-      });
-      const affected = [...new Set(histories.map((history) => history.planetId))];
+      const normalizedAddress = contractAddress.toLowerCase();
+      await transaction.leaderboardEntry.deleteMany();
+      await transaction.leaderboardPeriod.deleteMany();
+      await transaction.dailySnapshotRecord.deleteMany();
+      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: { contractAddress: normalizedAddress } } });
+      await transaction.planetAccrualState.deleteMany({ where: { planet: { contractAddress: normalizedAddress } } });
       await transaction.planetOwnershipHistory.deleteMany({
-        where: { planet: { contractAddress: contractAddress.toLowerCase() }, blockNumber: { gte: fromBlock } },
+        where: { planet: { contractAddress: normalizedAddress } },
       });
       await transaction.processedBlockchainEvent.deleteMany({
-        where: { contractAddress: contractAddress.toLowerCase(), blockNumber: { gte: fromBlock } },
+        where: { contractAddress: normalizedAddress },
       });
       await transaction.planet.deleteMany({
-        where: { contractAddress: contractAddress.toLowerCase(), mintBlockNumber: { gte: fromBlock } },
+        where: { contractAddress: normalizedAddress },
       });
-      for (const planetId of affected) {
-        const planet = await transaction.planet.findUnique({ where: { id: planetId } });
-        if (!planet) continue;
-        const latest = await transaction.planetOwnershipHistory.findFirst({
-          where: { planetId },
-          orderBy: [{ blockNumber: 'desc' }, { logIndex: 'desc' }],
-        });
-        if (!latest) throw new Error(`Planet ${planet.tokenId.toFixed(0)} has no canonical ownership history.`);
-        await transaction.planet.update({
-          where: { id: planetId },
-          data: { ownerAddress: latest.toAddress ?? ZERO_ADDRESS },
-        });
-      }
       await transaction.indexerCursor.updateMany({
-        where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: contractAddress.toLowerCase(), stream: STREAM },
+        where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress, stream: STREAM },
         data: { nextBlock: fromBlock, lastBlockHash: null },
       });
     });
@@ -214,7 +180,6 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
     });
     return ticket
       ? {
-          seasonId: SEASON_1_ID,
           ticketId,
           drawingId: BigInt(ticket.drawingId.toFixed(0)),
           normals: ticket.normals,
@@ -259,8 +224,7 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
           tokenId: event.tokenId.toString(),
           ticketId: event.ticketId.toString(),
           kind: 'NORMAL',
-          ownerAddress: getAddress(event.recipient).toLowerCase(),
-          seasonId: event.seasonId,
+          ownerAddress: ZERO_ADDRESS,
           seed: event.traits.seed,
           traitsHash: event.traits.traitsHash,
           metadataHash: event.metadataHash,
@@ -272,35 +236,6 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
           rarity: event.traits.rarity,
           satelliteCount: event.traits.satelliteCount,
           hasRing: event.traits.hasRing,
-          mintTxHash: event.transactionHash.toLowerCase(),
-          mintBlockNumber: event.blockNumber,
-          mintBlockHash: event.blockHash,
-          mintLogIndex: event.logIndex,
-          mintedAt: event.blockTimestamp,
-        },
-      });
-    });
-  }
-
-  async recordSpecial(event: SpecialPlanetEvent): Promise<boolean> {
-    return this.record(event, 'SpecialPlanetMinted', async (transaction) => {
-      await transaction.planet.upsert({
-        where: {
-          chainId_contractAddress_tokenId: {
-            chainId: event.chainId,
-            contractAddress: event.contractAddress.toLowerCase(),
-            tokenId: event.tokenId.toString(),
-          },
-        },
-        update: {},
-        create: {
-          chainId: event.chainId,
-          contractAddress: event.contractAddress.toLowerCase(),
-          tokenId: event.tokenId.toString(),
-          kind: 'SPECIAL',
-          ownerAddress: getAddress(event.recipient).toLowerCase(),
-          seasonId: event.seasonId,
-          metadataUri: event.metadataUri,
           mintTxHash: event.transactionHash.toLowerCase(),
           mintBlockNumber: event.blockNumber,
           mintBlockHash: event.blockHash,
@@ -340,22 +275,22 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
           logIndex: event.logIndex,
         },
       });
-      if (from !== ZERO_ADDRESS) {
-        await refreshWalletMiningRates(transaction, from, event.blockTimestamp);
-      }
+      if (from !== ZERO_ADDRESS) await settleWalletMiningRates(transaction, from, event.blockTimestamp);
+      if (to !== ZERO_ADDRESS && to !== from) await settleWalletMiningRates(transaction, to, event.blockTimestamp);
       await transaction.planet.update({
         where: { id: planet.id },
         data: { ownerAddress: to },
       });
-      if (from !== ZERO_ADDRESS) {
+      if (from !== ZERO_ADDRESS && to !== ZERO_ADDRESS) {
         await transaction.planetAccrualState.updateMany({
           where: { planetId: planet.id, ownerAddress: from },
           data: { ownerAddress: to, startedAt: event.blockTimestamp },
         });
+      } else if (to === ZERO_ADDRESS) {
+        await transaction.planetAccrualState.deleteMany({ where: { planetId: planet.id } });
       }
-      if (to !== ZERO_ADDRESS) {
-        await refreshWalletMiningRates(transaction, to, event.blockTimestamp);
-      }
+      if (from !== ZERO_ADDRESS) await repriceWalletMiningRates(transaction, from, event.blockTimestamp);
+      if (to !== ZERO_ADDRESS && to !== from) await repriceWalletMiningRates(transaction, to, event.blockTimestamp);
     });
   }
 
@@ -395,7 +330,7 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
 }
 
 type IndexedLog = {
-  kind: 'minted' | 'special' | 'transfer';
+  kind: 'minted' | 'transfer';
   blockNumber: bigint;
   blockHash: Hex;
   transactionHash: Hex;
@@ -414,8 +349,7 @@ export async function indexPlanetEvents(
   const address = getAddress(config.planetContractAddress);
   const confirmations = options.confirmations ?? 6n;
   const blockRange = options.blockRange ?? 2_000n;
-  const reorgWindow = options.reorgWindow ?? 12n;
-  if (confirmations < 0n || blockRange < 1n || blockRange > 2_000n || reorgWindow < 1n) {
+  if (confirmations < 0n || blockRange < 1n || blockRange > 2_000n) {
     throw new Error('Invalid Planet indexer bounds.');
   }
   const client = createPublicClient({ chain: baseSepolia, transport: http(config.rpcUrl) });
@@ -423,29 +357,28 @@ export async function indexPlanetEvents(
   const throughBlock = latest > confirmations ? latest - confirmations : 0n;
   let cursor = await store.getCursor(address);
   let startBlock = cursor?.nextBlock ?? config.planetDeploymentBlock;
+  let reorgDetected = false;
   if (cursor?.lastBlockHash && startBlock > config.planetDeploymentBlock) {
     const previous = await client.getBlock({ blockNumber: startBlock - 1n });
     if (previous.hash !== cursor.lastBlockHash) {
-      startBlock = startBlock > reorgWindow ? startBlock - reorgWindow : config.planetDeploymentBlock;
-      if (startBlock < config.planetDeploymentBlock) startBlock = config.planetDeploymentBlock;
+      startBlock = config.planetDeploymentBlock;
       await store.rewind(address, startBlock);
       cursor = undefined;
+      reorgDetected = true;
     }
   }
-  if (startBlock > throughBlock) return { throughBlock, eventsProcessed: 0, reorgDetected: cursor === undefined };
+  if (startBlock > throughBlock) return { throughBlock, eventsProcessed: 0, reorgDetected };
 
-  const season = createSeason1Config(SEASON_1_ID);
+  const planetConfig = createPlanetConfig();
   let eventsProcessed = 0;
   for (let fromBlock = startBlock; fromBlock <= throughBlock; ) {
     const toBlock = fromBlock + blockRange - 1n > throughBlock ? throughBlock : fromBlock + blockRange - 1n;
-    const [minted, special, transfers] = await Promise.all([
+    const [minted, transfers] = await Promise.all([
       client.getLogs({ address, event: PLANET_MINTED_EVENT, fromBlock, toBlock }),
-      client.getLogs({ address, event: SPECIAL_PLANET_MINTED_EVENT, fromBlock, toBlock }),
       client.getLogs({ address, event: PLANET_TRANSFER_EVENT, fromBlock, toBlock }),
     ]);
     const logs: IndexedLog[] = [
       ...minted.map((log) => ({ kind: 'minted' as const, ...log, args: log.args })),
-      ...special.map((log) => ({ kind: 'special' as const, ...log, args: log.args })),
       ...transfers.map((log) => ({ kind: 'transfer' as const, ...log, args: log.args })),
     ].map((log) => {
       if (log.blockNumber === null || !log.blockHash || !log.transactionHash || log.logIndex === null) {
@@ -478,13 +411,13 @@ export async function indexPlanetEvents(
       };
       if (log.kind === 'minted') {
         const args = log.args as {
-          tokenId: bigint; ticketId: bigint; recipient: Address; seasonId: Hex; seed: Hex;
+          tokenId: bigint; ticketId: bigint; recipient: Address; seed: Hex;
           metadataHash: Hex;
         };
         const ticketInput = await store.getTicketInput(args.ticketId);
         if (!ticketInput) throw new Error(`Planet ${args.tokenId} has no indexed Megapot ticket provenance.`);
-        const descriptor = derivePlanet(ticketInput, season);
-        if (args.seasonId !== SEASON_1_ID || descriptor.seed.toLowerCase() !== args.seed.toLowerCase()) {
+        const descriptor = derivePlanet(ticketInput, planetConfig);
+        if (descriptor.seed.toLowerCase() !== args.seed.toLowerCase()) {
           throw new Error(`Planet ${args.tokenId} seed does not match the canonical generator.`);
         }
         const traits: IndexedPlanetTraits = {
@@ -504,10 +437,6 @@ export async function indexPlanetEvents(
           throw new Error(`Planet ${args.tokenId} metadata URI hash is invalid.`);
         }
         if (await store.recordMinted({ ...identity, ...args, traits, metadataUri })) eventsProcessed += 1;
-      } else if (log.kind === 'special') {
-        const args = log.args as { tokenId: bigint; editionId: bigint; recipient: Address; seasonId: Hex };
-        const metadataUri = await client.readContract({ address, abi: TOKEN_URI_ABI, functionName: 'tokenURI', args: [args.tokenId] });
-        if (await store.recordSpecial({ ...identity, ...args, metadataUri })) eventsProcessed += 1;
       } else {
         const args = log.args as { tokenId: bigint; from: Address; to: Address };
         if (await store.recordTransfer({ ...identity, ...args })) eventsProcessed += 1;
@@ -517,5 +446,5 @@ export async function indexPlanetEvents(
     await store.setCursor(address, toBlock + 1n, finalBlock.hash);
     fromBlock = toBlock + 1n;
   }
-  return { fromBlock: startBlock, throughBlock, eventsProcessed, reorgDetected: cursor === undefined && startBlock !== config.planetDeploymentBlock };
+  return { fromBlock: startBlock, throughBlock, eventsProcessed, reorgDetected };
 }

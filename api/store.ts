@@ -14,19 +14,25 @@ export type PreparedVoucher = {
 
 export type IndexedTicket = EligibleTicket;
 
+export type IndexerCursor = {
+  nextBlock: bigint;
+  lastBlockHash?: Hex;
+};
+
 export type EligibilityStore = {
   saveTicket(ticket: IndexedTicket): Promise<void>;
   getVoucher(ticketId: bigint, recipient: Address, now: bigint): Promise<PreparedVoucher | undefined>;
   saveVoucher(prepared: PreparedVoucher): Promise<void>;
-  getCursor(): Promise<bigint | undefined>;
-  setCursor(blockNumber: bigint): Promise<void>;
-  getSnapshot(seasonId: Hex, blockNumber: bigint): Promise<DailySnapshot | undefined>;
+  getCursor(): Promise<IndexerCursor | undefined>;
+  setCursor(nextBlock: bigint, lastBlockHash: Hex): Promise<void>;
+  rewind(fromBlock: bigint): Promise<void>;
+  getSnapshot(blockNumber: bigint): Promise<DailySnapshot | undefined>;
   saveSnapshot(snapshot: DailySnapshot): Promise<void>;
 };
 
 type PersistedStore = {
   version: 2;
-  cursor?: string;
+  cursor?: { nextBlock: string; lastBlockHash?: Hex };
   tickets: Record<string, PersistedTicket>;
   vouchers: Record<string, PersistedVoucher>;
   snapshots: Record<string, PersistedSnapshot>;
@@ -54,7 +60,7 @@ export type PersistedSnapshot = Omit<DailySnapshot, 'blockNumber' | 'holdings' |
 
 const emptyStore = (): PersistedStore => ({ version: 2, tickets: {}, vouchers: {}, snapshots: {} });
 const voucherKey = (ticketId: bigint, recipient: Address) => `${ticketId}:${getAddress(recipient).toLowerCase()}`;
-const snapshotKey = (seasonId: Hex, blockNumber: bigint) => `${seasonId.toLowerCase()}:${blockNumber}`;
+const snapshotKey = (blockNumber: bigint) => blockNumber.toString();
 
 function serializeTicket(ticket: IndexedTicket): PersistedTicket {
   return { ...ticket, ticketId: ticket.ticketId.toString(), drawingId: ticket.drawingId.toString(), blockNumber: ticket.blockNumber.toString(), logIndex: ticket.logIndex.toString() };
@@ -107,9 +113,21 @@ export function deserializeDailySnapshot(snapshot: PersistedSnapshot): DailySnap
 
 function validateStore(value: unknown): PersistedStore {
   if (!value || typeof value !== 'object') throw new Error('Eligibility store is malformed.');
-  const candidate = value as { version?: number; tickets?: Record<string, PersistedTicket>; vouchers?: Record<string, PersistedVoucher>; snapshots?: Record<string, PersistedSnapshot> };
+  const candidate = value as {
+    version?: number;
+    cursor?: string | { nextBlock: string; lastBlockHash?: Hex };
+    tickets?: Record<string, PersistedTicket>;
+    vouchers?: Record<string, PersistedVoucher>;
+    snapshots?: Record<string, PersistedSnapshot>;
+  };
   const store = candidate.version === 1 && candidate.tickets && candidate.vouchers
-    ? { version: 2 as const, tickets: candidate.tickets, vouchers: candidate.vouchers, snapshots: {} }
+    ? {
+        version: 2 as const,
+        cursor: typeof candidate.cursor === 'string' ? { nextBlock: candidate.cursor } : candidate.cursor,
+        tickets: candidate.tickets,
+        vouchers: candidate.vouchers,
+        snapshots: {},
+      }
     : candidate as PersistedStore;
   if (store.version !== 2 || !store.tickets || !store.vouchers || !store.snapshots) throw new Error('Eligibility store has an unsupported schema.');
   for (const ticket of Object.values(store.tickets)) {
@@ -169,23 +187,32 @@ export class FileEligibilityStore implements EligibilityStore {
     });
   }
 
-  async getCursor(): Promise<bigint | undefined> {
+  async getCursor(): Promise<IndexerCursor | undefined> {
     const cursor = (await this.read()).cursor;
-    return cursor === undefined ? undefined : BigInt(cursor);
+    return cursor === undefined ? undefined : { nextBlock: BigInt(cursor.nextBlock), lastBlockHash: cursor.lastBlockHash };
   }
 
-  async setCursor(blockNumber: bigint): Promise<void> {
-    await this.update((store) => { store.cursor = blockNumber.toString(); });
+  async setCursor(nextBlock: bigint, lastBlockHash: Hex): Promise<void> {
+    await this.update((store) => { store.cursor = { nextBlock: nextBlock.toString(), lastBlockHash }; });
   }
 
-  async getSnapshot(seasonId: Hex, blockNumber: bigint): Promise<DailySnapshot | undefined> {
-    const snapshot = (await this.read()).snapshots[snapshotKey(seasonId, blockNumber)];
+  async rewind(_fromBlock: bigint): Promise<void> {
+    await this.update((store) => {
+      store.tickets = {};
+      store.vouchers = {};
+      store.snapshots = {};
+      store.cursor = undefined;
+    });
+  }
+
+  async getSnapshot(blockNumber: bigint): Promise<DailySnapshot | undefined> {
+    const snapshot = (await this.read()).snapshots[snapshotKey(blockNumber)];
     return snapshot ? deserializeDailySnapshot(snapshot) : undefined;
   }
 
   async saveSnapshot(snapshot: DailySnapshot): Promise<void> {
     await this.update((store) => {
-      const key = snapshotKey(snapshot.seasonId, snapshot.blockNumber);
+      const key = snapshotKey(snapshot.blockNumber);
       if (store.snapshots[key]) throw new Error(`Snapshot ${key} already exists.`);
       store.snapshots[key] = serializeDailySnapshot(snapshot);
     });
@@ -196,7 +223,7 @@ export class FileEligibilityStore implements EligibilityStore {
 export class MemoryEligibilityStore implements EligibilityStore {
   private readonly tickets = new Map<string, IndexedTicket>();
   private readonly vouchers = new Map<string, PreparedVoucher>();
-  private cursor: bigint | undefined;
+  private cursor: IndexerCursor | undefined;
   private readonly snapshots = new Map<string, DailySnapshot>();
 
   async saveTicket(ticket: IndexedTicket) {
@@ -211,10 +238,16 @@ export class MemoryEligibilityStore implements EligibilityStore {
   }
   async saveVoucher(prepared: PreparedVoucher) { this.vouchers.set(voucherKey(prepared.voucher.ticketId, prepared.voucher.recipient), prepared); }
   async getCursor() { return this.cursor; }
-  async setCursor(blockNumber: bigint) { this.cursor = blockNumber; }
-  async getSnapshot(seasonId: Hex, blockNumber: bigint) { return this.snapshots.get(snapshotKey(seasonId, blockNumber)); }
+  async setCursor(nextBlock: bigint, lastBlockHash: Hex) { this.cursor = { nextBlock, lastBlockHash }; }
+  async rewind(_fromBlock: bigint) {
+    this.tickets.clear();
+    this.vouchers.clear();
+    this.snapshots.clear();
+    this.cursor = undefined;
+  }
+  async getSnapshot(blockNumber: bigint) { return this.snapshots.get(snapshotKey(blockNumber)); }
   async saveSnapshot(snapshot: DailySnapshot) {
-    const key = snapshotKey(snapshot.seasonId, snapshot.blockNumber);
+    const key = snapshotKey(snapshot.blockNumber);
     if (this.snapshots.has(key)) throw new Error(`Snapshot ${key} already exists.`);
     this.snapshots.set(key, snapshot);
   }

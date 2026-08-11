@@ -1,6 +1,6 @@
 import { deserializePlanetInput, serializePlanetInput } from './input';
 import { verifyPlanetDescriptor } from './integrity';
-import type { PlanetDescriptor, SeasonConfig, SerializedPlanetInput } from './types';
+import type { PlanetConfig, PlanetDescriptor, SerializedPlanetInput } from './types';
 
 export type SerializedPlanetDescriptor = Omit<PlanetDescriptor, 'input'> & {
   input: SerializedPlanetInput;
@@ -14,7 +14,7 @@ export function serializePlanetDescriptor(
 
 export function deserializePlanetDescriptor(
   descriptor: SerializedPlanetDescriptor,
-  config: SeasonConfig,
+  config: PlanetConfig,
 ): PlanetDescriptor {
   return verifyPlanetDescriptor(
     { ...descriptor, input: deserializePlanetInput(descriptor.input) },

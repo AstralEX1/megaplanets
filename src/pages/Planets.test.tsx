@@ -2,6 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MEGAPLANETS_CONTRACT_ADDRESS } from '@/config/contracts';
 
 const state = vi.hoisted(() => ({
   account: {
@@ -135,7 +136,7 @@ vi.mock('@megaplanets/planet-generator', () => ({
     visual: { input: { ticketId }, traits: { hasClouds: true } },
   }),
 }));
-vi.mock('@/config/planetSeason', () => ({ PLANET_SEASON: { seasonId: '0x01' } }));
+vi.mock('@/config/planetConfig', () => ({ PLANET_CONFIG: {} }));
 vi.mock('@/hooks/useEligiblePlanetTickets', () => ({
   useEligiblePlanetTickets: () => ({ tickets: state.tickets, isLoading: false }),
 }));
@@ -331,8 +332,15 @@ describe('Planets', () => {
       'href',
       `https://sepolia.basescan.org/tx/0x${'1'.repeat(64)}`,
     );
-    expect(screen.getByText('NFT BaseScan unavailable')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'NFT BaseScan' })).not.toBeInTheDocument();
+    if (MEGAPLANETS_CONTRACT_ADDRESS) {
+      expect(screen.getByRole('link', { name: 'NFT BaseScan' })).toHaveAttribute(
+        'href',
+        `https://sepolia.basescan.org/nft/${MEGAPLANETS_CONTRACT_ADDRESS}/7`,
+      );
+    } else {
+      expect(screen.getByText('NFT BaseScan unavailable')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'NFT BaseScan' })).not.toBeInTheDocument();
+    }
   });
 
   it('opens the full-page detail route when a revealed card is tapped on mobile', () => {

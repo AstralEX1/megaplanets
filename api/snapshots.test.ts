@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { SEASON_1_ID } from './config';
 import { selectFinalizedBlock, captureDailySnapshot, type SnapshotSource } from './snapshots';
 import { MemoryEligibilityStore } from './store';
 
@@ -14,7 +13,7 @@ describe('daily snapshot job', () => {
     const snapshot = await captureDailySnapshot(store, source, () => new Date('2026-08-04T00:00:00.000Z'));
     expect(snapshot.blockNumber).toBe(94n);
     expect(snapshot.holdings).toHaveLength(1);
-    expect(await store.getSnapshot(SEASON_1_ID, 94n)).toEqual(snapshot);
+    expect(await store.getSnapshot(94n)).toEqual(snapshot);
     await expect(captureDailySnapshot(store, source)).rejects.toThrow('already exists');
   });
 

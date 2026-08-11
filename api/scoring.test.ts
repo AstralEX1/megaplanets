@@ -29,7 +29,6 @@ describe('daily Planet scoring', () => {
 
   it('sorts wallets deterministically and rejects duplicate token IDs', () => {
     const snapshot = createDailySnapshot({
-      seasonId: `0x${'ee'.repeat(32)}`,
       blockNumber: 50_000_000n,
       capturedAt: '2026-08-03T12:00:00.000Z',
       holdings: [holding(2n, bob), holding(1n, alice)],
@@ -37,7 +36,6 @@ describe('daily Planet scoring', () => {
 
     expect(snapshot.wallets.map((wallet) => wallet.holder)).toEqual([alice, bob]);
     expect(() => createDailySnapshot({
-      seasonId: `0x${'ee'.repeat(32)}`,
       blockNumber: 50_000_000n,
       capturedAt: '2026-08-03T12:00:00.000Z',
       holdings: [holding(1n), holding(1n, bob)],

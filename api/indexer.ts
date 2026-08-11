@@ -13,6 +13,7 @@ export type EligibilityIndexResult = {
   fromBlock?: bigint;
   throughBlock: bigint;
   ticketsIndexed: number;
+  reorgDetected: boolean;
 };
 
 export type TicketIndexerConfig = { rpcUrl: string; launchBlock: bigint };
@@ -30,8 +31,17 @@ export async function indexEligibleTickets(config: TicketIndexerConfig, store: E
   const latestBlock = await client.getBlockNumber();
   const throughBlock = latestBlock > confirmations ? latestBlock - confirmations : 0n;
   const cursor = await store.getCursor();
-  const startBlock = cursor === undefined ? config.launchBlock : cursor + 1n;
-  if (startBlock > throughBlock) return { throughBlock, ticketsIndexed: 0 };
+  let startBlock = cursor?.nextBlock ?? config.launchBlock;
+  let reorgDetected = false;
+  if (cursor?.lastBlockHash && startBlock > config.launchBlock) {
+    const previous = await client.getBlock({ blockNumber: startBlock - 1n });
+    if (previous.hash !== cursor.lastBlockHash) {
+      await store.rewind(config.launchBlock);
+      startBlock = config.launchBlock;
+      reorgDetected = true;
+    }
+  }
+  if (startBlock > throughBlock) return { throughBlock, ticketsIndexed: 0, reorgDetected };
 
   let ticketsIndexed = 0;
   for (let fromBlock = startBlock; fromBlock <= throughBlock;) {
@@ -58,8 +68,9 @@ export async function indexEligibleTickets(config: TicketIndexerConfig, store: E
       });
       ticketsIndexed += 1;
     }
-    await store.setCursor(toBlock);
+    const finalBlock = await client.getBlock({ blockNumber: toBlock });
+    await store.setCursor(toBlock + 1n, finalBlock.hash);
     fromBlock = toBlock + 1n;
   }
-  return { fromBlock: startBlock, throughBlock, ticketsIndexed };
+  return { fromBlock: startBlock, throughBlock, ticketsIndexed, reorgDetected };
 }

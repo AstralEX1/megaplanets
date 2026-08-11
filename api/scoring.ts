@@ -1,4 +1,4 @@
-import { getAddress, type Address, type Hex } from 'viem';
+import { getAddress, type Address } from 'viem';
 
 export type PlanetHolding = {
   holder: Address;
@@ -24,7 +24,6 @@ export type WalletSnapshot = {
 };
 
 export type DailySnapshot = {
-  seasonId: Hex;
   blockNumber: bigint;
   capturedAt: string;
   holdings: readonly PlanetHolding[];
@@ -92,7 +91,6 @@ export function scoreWalletHoldings(holder: Address, holdings: readonly PlanetHo
 
 /** Creates a sorted snapshot report and rejects duplicate token IDs before scores are calculated. */
 export function createDailySnapshot(input: {
-  seasonId: Hex;
   blockNumber: bigint;
   capturedAt: string;
   holdings: readonly PlanetHolding[];
@@ -113,7 +111,6 @@ export function createDailySnapshot(input: {
   }
 
   return {
-    seasonId: input.seasonId,
     blockNumber: input.blockNumber,
     capturedAt: input.capturedAt,
     holdings: [...input.holdings].sort((left, right) => (left.tokenId < right.tokenId ? -1 : left.tokenId > right.tokenId ? 1 : 0)),

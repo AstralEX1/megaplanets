@@ -1,11 +1,10 @@
 import type { Hex, HexColor, PlanetRenderDescriptor } from './visual-types';
 
-export const GENERATOR_VERSION = 2 as const;
+export const GENERATOR_VERSION = 3 as const;
 
 export type PlanetRarity = 'Common' | 'Uncommon' | 'Epic' | 'Legendary';
 
 export type PlanetInput = {
-  seasonId: Hex;
   ticketId: bigint;
   drawingId: bigint;
   normals: readonly number[];
@@ -18,7 +17,6 @@ export type NormalizedPlanetInput = Omit<PlanetInput, 'normals'> & {
 };
 
 export type SerializedPlanetInput = {
-  seasonId: Hex;
   ticketId: string;
   drawingId: string;
   normals: readonly number[];
@@ -96,9 +94,7 @@ export type TypeWeightProfile = {
   weights: readonly number[];
 };
 
-export type SeasonConfig = {
-  seasonId: Hex;
-  season: number;
+export type PlanetConfig = {
   types: readonly TypeConfig[];
   typeWeightProfiles: readonly TypeWeightProfile[];
   rarity: readonly RarityConfig[];
@@ -114,7 +110,6 @@ export type PlanetTraits = {
   hasRing: boolean;
   minerals: number;
   rarity: PlanetRarity;
-  season: number;
   specialEditionId: null;
 };
 
@@ -134,7 +129,7 @@ export type PlanetPreview = {
 };
 
 export type MetadataAttribute = {
-  trait_type: 'Name' | 'Type' | 'Satellites' | 'Minerals' | 'Rarity' | 'Season' | 'Seed';
+  trait_type: 'Name' | 'Type' | 'Satellites' | 'Minerals' | 'Rarity' | 'Seed';
   value: string | number;
 };
 
@@ -146,7 +141,6 @@ export type PlanetMetadata = {
     ticketId: string;
     drawingId: string;
     originTxHash: Hex;
-    seasonId: Hex;
     specialEditionId: null;
     traitsHash: Hex;
   };

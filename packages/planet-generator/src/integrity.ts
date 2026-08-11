@@ -1,10 +1,10 @@
 import { derivePlanet } from './generator';
-import type { PlanetDescriptor, SeasonConfig } from './types';
+import type { PlanetConfig, PlanetDescriptor } from './types';
 
 /** Re-derives a descriptor and rejects any substituted seed, trait, or integrity hash. */
 export function verifyPlanetDescriptor(
   descriptor: PlanetDescriptor,
-  config: SeasonConfig,
+  config: PlanetConfig,
 ): PlanetDescriptor {
   const canonical = derivePlanet(descriptor.input, config);
   if (

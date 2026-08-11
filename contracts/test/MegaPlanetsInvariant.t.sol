@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import { Test } from "forge-std/Test.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import { MegaPlanets } from "../src/MegaPlanets.sol";
-import { MintVoucherLib } from "../src/libraries/MintVoucherLib.sol";
+import { MintVoucherV2Lib } from "../src/libraries/MintVoucherV2Lib.sol";
 import { MockJackpotTicketNFT } from "./mocks/MockJackpotTicketNFT.sol";
 
 contract MegaPlanetsHandler is Test, IERC721Receiver {
@@ -21,10 +21,9 @@ contract MegaPlanetsHandler is Test, IERC721Receiver {
     function mintValid(uint256 rawTicketId) external {
         uint256 ticketId = bound(rawTicketId, 1, type(uint128).max);
         if (planets.planetMinted(ticketId)) return;
-        MintVoucherLib.MintVoucher memory voucher = MintVoucherLib.MintVoucher({
+        MintVoucherV2Lib.MintVoucher memory voucher = MintVoucherV2Lib.MintVoucher({
             recipient: address(this),
             ticketId: ticketId,
-            seasonId: planets.seasonId(),
             drawingId: 1,
             originTxHash: keccak256("origin"),
             seed: keccak256("seed"),
@@ -67,7 +66,10 @@ contract MegaPlanetsInvariantTest is Test {
         targetContract(address(handler));
     }
 
-    function invariant_EachMintedTicketHasOneSequentialPlanetWithPreservedProvenance() external view {
+    function invariant_EachMintedTicketHasOneSequentialPlanetWithPreservedProvenance()
+        external
+        view
+    {
         uint256 count = handler.mintedCount();
         for (uint256 i; i < count; ++i) {
             uint256 ticketId = handler.mintedTicketIdAt(i);

@@ -21,7 +21,10 @@ function jsonValue(value: unknown): object {
 
 /** PostgreSQL-backed eligibility, voucher, cursor, and legacy snapshot boundary. */
 export class PrismaEligibilityStore implements EligibilityStore {
-  public constructor(private readonly prisma: PrismaClient) {}
+  public constructor(
+    private readonly prisma: PrismaClient,
+    private readonly planetContractAddress?: Address,
+  ) {}
 
   async saveTicket(ticket: IndexedTicket): Promise<void> {
     if (!ticket.blockHash || !ticket.purchasedAt) {
@@ -104,7 +107,7 @@ export class PrismaEligibilityStore implements EligibilityStore {
     });
   }
 
-  async getCursor(): Promise<bigint | undefined> {
+  async getCursor() {
     const cursor = await this.prisma.indexerCursor.findUnique({
       where: {
         chainId_contractAddress_stream: {
@@ -114,10 +117,12 @@ export class PrismaEligibilityStore implements EligibilityStore {
         },
       },
     });
-    return cursor ? cursor.nextBlock - 1n : undefined;
+    return cursor
+      ? { nextBlock: cursor.nextBlock, lastBlockHash: cursor.lastBlockHash as Hex | undefined }
+      : undefined;
   }
 
-  async setCursor(blockNumber: bigint): Promise<void> {
+  async setCursor(nextBlock: bigint, lastBlockHash: Hex): Promise<void> {
     await this.prisma.indexerCursor.upsert({
       where: {
         chainId_contractAddress_stream: {
@@ -126,19 +131,46 @@ export class PrismaEligibilityStore implements EligibilityStore {
           stream: 'megapot-tickets',
         },
       },
-      update: { nextBlock: blockNumber + 1n },
+      update: { nextBlock, lastBlockHash },
       create: {
         chainId: BASE_SEPOLIA_CHAIN_ID,
         contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
         stream: 'megapot-tickets',
-        nextBlock: blockNumber + 1n,
+        nextBlock,
+        lastBlockHash,
       },
     });
   }
 
-  async getSnapshot(seasonId: Hex, blockNumber: bigint): Promise<DailySnapshot | undefined> {
+  async rewind(_fromBlock: bigint): Promise<void> {
+    if (!this.planetContractAddress) throw new Error('Planet contract address is required to reset ticket provenance.');
+    const planetContractAddress = getAddress(this.planetContractAddress).toLowerCase();
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.leaderboardEntry.deleteMany();
+      await transaction.leaderboardPeriod.deleteMany();
+      await transaction.dailySnapshotRecord.deleteMany();
+      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: { contractAddress: planetContractAddress } } });
+      await transaction.planetAccrualState.deleteMany({ where: { planet: { contractAddress: planetContractAddress } } });
+      await transaction.planetOwnershipHistory.deleteMany({ where: { planet: { contractAddress: planetContractAddress } } });
+      await transaction.processedBlockchainEvent.deleteMany({ where: { contractAddress: planetContractAddress } });
+      await transaction.planet.deleteMany({ where: { contractAddress: planetContractAddress } });
+      await transaction.mintVoucherRecord.deleteMany({ where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase() } } });
+      await transaction.ticketPurchase.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase() } });
+      await transaction.indexerCursor.deleteMany({
+        where: {
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          OR: [
+            { contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), stream: 'megapot-tickets' },
+            { contractAddress: planetContractAddress, stream: 'megaplanets-v2' },
+          ],
+        },
+      });
+    });
+  }
+
+  async getSnapshot(blockNumber: bigint): Promise<DailySnapshot | undefined> {
     const record = await this.prisma.dailySnapshotRecord.findUnique({
-      where: { seasonId_blockNumber: { seasonId: seasonId.toLowerCase(), blockNumber } },
+      where: { blockNumber },
     });
     return record ? deserializeDailySnapshot(record.snapshot as PersistedSnapshot) : undefined;
   }
@@ -146,7 +178,6 @@ export class PrismaEligibilityStore implements EligibilityStore {
   async saveSnapshot(snapshot: DailySnapshot): Promise<void> {
     await this.prisma.dailySnapshotRecord.create({
       data: {
-        seasonId: snapshot.seasonId.toLowerCase(),
         blockNumber: snapshot.blockNumber,
         snapshot: jsonValue(serializeDailySnapshot(snapshot)),
         capturedAt: new Date(snapshot.capturedAt),

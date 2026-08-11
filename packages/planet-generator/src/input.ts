@@ -16,7 +16,6 @@ export function normalizePlanetInput(input: PlanetInput): NormalizedPlanetInput 
   if (input.drawingId <= 0n || input.drawingId > UINT256_MAX) {
     throw new RangeError('drawingId must be a positive uint256.');
   }
-  assertBytes32(input.seasonId, 'seasonId');
   assertBytes32(input.originTxHash, 'originTxHash');
   if (!Number.isInteger(input.bonusBall) || input.bonusBall < 1 || input.bonusBall > 255) {
     throw new RangeError('bonusBall must be an integer between 1 and 255.');
@@ -28,7 +27,6 @@ export function normalizePlanetInput(input: PlanetInput): NormalizedPlanetInput 
     throw new RangeError('Normal balls must be integers between 1 and 255.');
   }
   return {
-    seasonId: input.seasonId.toLowerCase() as Hex,
     ticketId: input.ticketId,
     drawingId: input.drawingId,
     normals: normals as [number, number, number, number, number],
@@ -40,7 +38,6 @@ export function normalizePlanetInput(input: PlanetInput): NormalizedPlanetInput 
 export function serializePlanetInput(input: PlanetInput): SerializedPlanetInput {
   const normalized = normalizePlanetInput(input);
   return {
-    seasonId: normalized.seasonId,
     ticketId: normalized.ticketId.toString(),
     drawingId: normalized.drawingId.toString(),
     normals: [...normalized.normals],
@@ -51,7 +48,6 @@ export function serializePlanetInput(input: PlanetInput): SerializedPlanetInput 
 
 export function deserializePlanetInput(input: SerializedPlanetInput): NormalizedPlanetInput {
   return normalizePlanetInput({
-    seasonId: input.seasonId,
     ticketId: BigInt(input.ticketId),
     drawingId: BigInt(input.drawingId),
     normals: [...input.normals],

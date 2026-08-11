@@ -30,7 +30,7 @@ buy immediate tickets or create an all-random keeper bulk order -> confirm every
 
 The NFT contract is non-upgradeable and its normal mint functions are nonpayable: users
 pay Base gas only. A rotatable metadata signer may authorize only vouchers that bind the
-recipient, Megapot ticket ID, Season ID, origin transaction hash, deterministic seed,
+recipient, Megapot ticket ID, origin transaction hash, deterministic seed,
 traits hash, IPFS CID, and expiration. Batch mint validates each voucher and live ticket
 owner atomically. The ERC-721A collection uses sequential Planet token IDs starting at
 one; explicit bidirectional ticket/Planet mappings retain ticket provenance without
@@ -40,8 +40,8 @@ requiring Planet and Megapot ticket IDs to match.
 
 `packages/planet-generator` is a DOM-free TypeScript package shared
 by the browser and future metadata backend. The canonical generator hashes Solidity
-ABI-encoded `uint16 generatorVersion`, `bytes32 seasonId`,
-`uint256 ticketId`, `uint256 drawingId`, sorted `uint8[5] normals`, `uint8 bonusBall`,
+ABI-encoded `uint16 generatorVersion`, `uint256 ticketId`, `uint256 drawingId`,
+sorted `uint8[5] normals`, `uint8 bonusBall`,
 and `bytes32 originTxHash`. All Type, terrain, satellite, background, name, minerals,
 and rarity streams are derived by name from that seed. The technical generator version
 does not appear as a public NFT metadata attribute.
