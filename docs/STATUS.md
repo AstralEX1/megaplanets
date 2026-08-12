@@ -186,3 +186,10 @@ present in this environment. V2 event reconciliation through finalized block
 owner, or metadata hash mismatches. Targeted replay, mining-transition, leaderboard,
 and runner tests passed. Live purchase/keeper/voucher/batch/transfer/burn scenarios
 remain the next gated step once runtime secrets are supplied.
+
+The live E2E gate was re-checked on 2026-08-12. No server or wallet secrets are
+available in the execution environment, so no write was attempted. A temporary
+non-secret V2 frontend configuration still served the root and liveness/metrics
+routes with HTTP `200`; readiness correctly remained `503`. The browser bridge is
+unavailable, leaving the remaining live purchase, voucher, batch mint, transfer,
+burn, and PostgreSQL replay scenarios gated on external runtime configuration.

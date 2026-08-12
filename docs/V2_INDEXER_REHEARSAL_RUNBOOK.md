@@ -173,6 +173,21 @@ signing/metadata pinning, batch mint, transfer/burn, and production PostgreSQL
 replay. They require the gitignored runtime secrets and a funded signer; they
 must not be replaced with simulated success.
 
+## Live E2E gate re-check (2026-08-12)
+
+The gate was re-checked before attempting a write. No `.env.local` or server
+runtime secrets are present, including `BASE_SEPOLIA_RPC_URL`, `DATABASE_URL`,
+`PINATA_JWT`, and `MEGAPLANETS_METADATA_SIGNER_PRIVATE_KEY`; no wallet private
+key is available either. The approved wallet and drawing remain readable, and
+no approval, purchase, order, mint, transfer, or burn transaction was attempted.
+
+The frontend was started with temporary, non-secret V2 address/RPC variables only:
+the root page returned HTTP `200`, `/api/planets/health` returned HTTP `200`,
+`/api/planets/metrics` returned HTTP `200`, and `/api/planets/readiness` returned
+the expected HTTP `503` while server/database secrets are absent. The connected
+browser bridge is unavailable in this environment, so this remains an HTTP
+smoke-check rather than a visual/browser confirmation.
+
 ## Runtime activation gate
 
 Do not enable checked-in defaults. The deployed V2 stays inactive in normal
