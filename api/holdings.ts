@@ -32,7 +32,7 @@ export function reconstructPlanetOwners(transfers: readonly PlanetTransfer[]): R
   return owners;
 }
 
-/** Extracts the immutable scoring fields from canonical Planet metadata. */
+/** Extracts immutable fields for the compatibility-only block snapshot job. */
 export function parsePlanetMetadata(value: unknown): { planetType: string; minerals: bigint } {
   if (!value || typeof value !== 'object' || !Array.isArray((value as PlanetMetadata).attributes)) throw new Error('Planet metadata has no attributes array.');
   const attributes = (value as { attributes: unknown[] }).attributes;

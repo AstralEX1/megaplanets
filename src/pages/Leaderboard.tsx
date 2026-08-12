@@ -3,7 +3,7 @@ import { useAccount } from 'wagmi';
 import { Button } from '@/components/common/Button';
 import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable';
 import { WalletRankCard } from '@/components/leaderboard/WalletRankCard';
-import { WeekProgress } from '@/components/leaderboard/WeekProgress';
+import { DayProgress } from '@/components/leaderboard/DayProgress';
 import { useArchivedLeaderboard, useCurrentLeaderboard, useLeaderboardHistory, useWalletLeaderboardPosition } from '@/hooks/useLeaderboard';
 
 function dayLabel(startsAt: string, prefix = '') {
@@ -36,7 +36,7 @@ export function Leaderboard() {
         <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><span>Day</span><select aria-label="Leaderboard day" value={periodId} onChange={(event) => setPeriodId(event.target.value)} className="min-h-10 rounded-lg border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 font-semibold text-[var(--text-primary)]"><option value="current">{dayLabel(current.data?.period.startsAt ?? data.period.startsAt, 'Latest snapshot · ')}</option>{history.data?.periods.map((period) => <option key={period.id} value={period.id}>{dayLabel(period.startsAt)}</option>)}</select></label>
       </header>
 
-      {periodId === 'current' && data.asOf ? <WeekProgress period={data.period} asOf={data.asOf} /> : null}
+      {periodId === 'current' && data.asOf ? <DayProgress period={data.period} asOf={data.asOf} /> : null}
 
       {data.rows.length === 0 ? (
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center"><h2 className="font-hud text-xl font-bold">No mineral production yet</h2><p className="mt-2 text-sm text-[var(--text-secondary)]">Standings appear after the first revealed Planet begins mining.</p></section>

@@ -64,6 +64,7 @@ type PersistedStore = {
   cursorEpoch?: string;
   tickets: Record<string, PersistedTicket>;
   vouchers: Record<string, PersistedVoucher>;
+  /** Compatibility-only block snapshots; active leaderboard rows use dedicated tables. */
   snapshots: Record<string, PersistedSnapshot>;
   artifacts?: Record<string, PlanetArtifact>;
 };

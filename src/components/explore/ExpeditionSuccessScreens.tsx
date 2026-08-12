@@ -108,7 +108,7 @@ export function RevealCompleteScreen({
         Your new planets are ready.
       </h1>
       <p className="mt-2 text-sm text-[var(--text-secondary)]">
-        Drawing #{drawingId?.toString() ?? '—'} · Season 01
+        Drawing #{drawingId?.toString() ?? '—'}
       </p>
       <div className="mt-9 w-full">{cards}</div>
       <div className="mt-8 flex w-full max-w-[660px] flex-col gap-3 sm:flex-row">

@@ -23,7 +23,7 @@ describe('PlanetInventoryDetail', () => {
 
   it('shows revealed planet details with ticket provenance under either V2 env state', () => {
     const onClaim = vi.fn();
-    const { container } = render(<PlanetInventoryDetail preview={preview} tokenId="7" ticketTxHash={`0x${'1'.repeat(64)}`} revealed mining={{ tokenId: '7', baseMineralsPerDay: '24', multiplierBps: '10500', effectiveMineralsPerDayMicros: '25200000', pendingMicros: '1000000', earnedMicros: '10100000', activeSince: '2026-08-10T00:00:00.000Z' }} miningAsOf="2026-08-10T00:00:01.000Z" ticketStatus={{ kind: 'claim', amount: 12_500_000n, ticketId: 24n }} mintAction={null} onClaim={onClaim} />);
+    const { container } = render(<PlanetInventoryDetail preview={preview} tokenId="7" ticketTxHash={`0x${'1'.repeat(64)}`} revealed mining={{ tokenId: '7', baseMineralsPerDay: '24', effectiveMineralsPerDayMicros: '25200000', earnedMicros: '10100000', activeSince: '2026-08-10T00:00:00.000Z' }} miningAsOf="2026-08-10T00:00:01.000Z" ticketStatus={{ kind: 'claim', amount: 12_500_000n, ticketId: 24n }} mintAction={null} onClaim={onClaim} />);
 
     expect(screen.getByRole('heading', { name: 'Kepler' })).toBeInTheDocument();
     expect(screen.getByText('Animated planet GIF')).toBeInTheDocument();
@@ -83,7 +83,7 @@ describe('PlanetInventoryDetail', () => {
   });
 
   it('limits unrevealed detail to ticket provenance, claim state, and mint action', () => {
-    render(<PlanetInventoryDetail preview={preview} ticketTxHash={`0x${'1'.repeat(64)}`} revealed={false} mining={{ tokenId: '7', baseMineralsPerDay: '24', multiplierBps: '10500', effectiveMineralsPerDayMicros: '25200000', pendingMicros: '1000000', earnedMicros: '10100000', activeSince: '2026-08-10T00:00:00.000Z' }} miningAsOf="2026-08-10T00:00:01.000Z" ticketStatus={{ kind: 'claim', amount: 12_500_000n, ticketId: 24n }} mintAction={<button type="button">Mint</button>} />);
+    render(<PlanetInventoryDetail preview={preview} ticketTxHash={`0x${'1'.repeat(64)}`} revealed={false} mining={{ tokenId: '7', baseMineralsPerDay: '24', effectiveMineralsPerDayMicros: '25200000', earnedMicros: '10100000', activeSince: '2026-08-10T00:00:00.000Z' }} miningAsOf="2026-08-10T00:00:01.000Z" ticketStatus={{ kind: 'claim', amount: 12_500_000n, ticketId: 24n }} mintAction={<button type="button">Mint</button>} />);
 
     expect(screen.getByText('Ticket #24')).toBeInTheDocument();
     expect(screen.getByText('4')).toBeInTheDocument();

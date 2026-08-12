@@ -378,10 +378,19 @@ export async function readEligiblePlanetTickets(
   return mergeEligibleTickets(proofs, history, ...chainGroups);
 }
 
+export function shouldEnableEligiblePlanetTickets(input: {
+  chain: string;
+  hasAddress: boolean;
+  hasClient: boolean;
+  requested: boolean;
+}): boolean {
+  return input.chain === 'testnet' && input.hasAddress && input.hasClient && input.requested;
+}
+
 /** Discovers eligible tickets from server proofs, canonical receipts, and recent RPC recovery. */
 export function useEligiblePlanetTickets(
   address: `0x${string}` | undefined,
-  options: { refetchInterval?: number } = {},
+  options: { refetchInterval?: number; enabled?: boolean } = {},
 ) {
   const client = usePublicClient();
   const query = useQuery({
@@ -391,7 +400,12 @@ export function useEligiblePlanetTickets(
         throw new Error('A public RPC client and connected wallet are required.');
       return readEligiblePlanetTickets(client as PublicClient, address);
     },
-    enabled: CHAIN === 'testnet' && !!address && !!client,
+    enabled: shouldEnableEligiblePlanetTickets({
+      chain: CHAIN,
+      hasAddress: !!address,
+      hasClient: !!client,
+      requested: options.enabled ?? true,
+    }),
     staleTime: ONE_MINUTE,
     refetchInterval: options.refetchInterval,
   });

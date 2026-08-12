@@ -50,6 +50,16 @@ function isValidDraft(draft: BulkOrderDraft | null): draft is BulkOrderDraft {
   return draft.dynamicCount + draft.staticTickets.length > 0;
 }
 
+export function hasBulkPurchaseContext(
+  draft: BulkOrderDraft | null,
+  persistedOrder: PersistedBulkOrder | null,
+): boolean {
+  return (
+    (isValidDraft(draft) && draft.dynamicCount + draft.staticTickets.length > MAX_STATIC_BULK_TICKETS) ||
+    persistedOrder !== null
+  );
+}
+
 /** Keeper-executed Megapot checkout for 11+ ticket orders. */
 export function useBulkPurchase(draft: BulkOrderDraft | null) {
   const { address } = useAccount();
@@ -62,18 +72,20 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
   const [submissionError, setSubmissionError] = useState<Error | null>(null);
   const [cancellationError, setCancellationError] = useState<Error | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
+  const hasBulkContext = hasBulkPurchaseContext(draft, createdOrder);
 
   const minimum = useReadContract({
     address: BATCH_PURCHASE_FACILITATOR_ADDRESS,
     abi: batchOrderAbi,
     functionName: 'minimumTicketCount',
+    query: { enabled: hasBulkContext },
   });
   const activeOrder = useReadContract({
     address: BATCH_PURCHASE_FACILITATOR_ADDRESS,
     abi: batchOrderAbi,
     functionName: 'hasActiveBatchOrder',
     args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 5_000 },
+    query: { enabled: !!address && hasBulkContext, refetchInterval: 5_000 },
   });
   const orderInfo = useReadContract({
     address: BATCH_PURCHASE_FACILITATOR_ADDRESS,
@@ -81,7 +93,7 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
     functionName: 'getBatchOrderInfo',
     args: address && activeOrder.data === true ? [address] : undefined,
     query: {
-      enabled: !!address && activeOrder.data === true,
+      enabled: !!address && hasBulkContext && activeOrder.data === true,
       retry: false,
       refetchInterval: 5_000,
     },
@@ -176,7 +188,7 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
   );
 
   useWatchContractEvent({
-    address: BATCH_PURCHASE_FACILITATOR_ADDRESS,
+    address: hasBulkContext ? BATCH_PURCHASE_FACILITATOR_ADDRESS : undefined,
     abi: batchOrderAbi,
     eventName: 'BatchOrderExecuted',
     args: address ? { user: address } : undefined,
@@ -207,7 +219,7 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
       activeOrder.refetch();
       orderInfo.refetch();
     },
-    poll: true,
+    poll: hasBulkContext,
   });
 
   const createOrder = async () => {

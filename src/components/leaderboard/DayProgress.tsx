@@ -1,6 +1,6 @@
 import type { LeaderboardPeriod } from '@/hooks/useLeaderboard';
 
-export function WeekProgress({ period, asOf }: { period: LeaderboardPeriod; asOf: string }) {
+export function DayProgress({ period, asOf }: { period: LeaderboardPeriod; asOf: string }) {
   const startsAt = new Date(period.startsAt).getTime();
   const endsAt = new Date(period.endsAt).getTime();
   const snapshotAt = new Date(asOf).getTime();

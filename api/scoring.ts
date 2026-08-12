@@ -1,6 +1,15 @@
 import { type Address, getAddress } from 'viem';
 import { calculateLifetimeMinerals } from './mining';
 
+/**
+ * Compatibility-only block snapshot scorer.
+ *
+ * The active leaderboard is implemented by api/leaderboard.ts and
+ * api/leaderboardStore.ts. This module remains only to read old
+ * DailySnapshotRecord/FileEligibilityStore data during migration; do not add
+ * new runtime callers or reintroduce its historical collection multipliers.
+ */
+
 export type PlanetHolding = {
   holder: Address;
   tokenId: bigint;
