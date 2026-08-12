@@ -175,3 +175,14 @@ HTTP smoke-check returned `200` for the frontend and liveness/metrics routes; re
 returned the expected `503` while runtime secrets and database configuration were
 absent. No live transaction was submitted. A browser visual check remains pending
 because this execution environment has no connected browser.
+
+The controlled E2E continuation verified the approved test wallet and active
+Megapot drawing read-only. The wallet has `0.059610849887758417` ETH, `17.49` USDC,
+and both required USDC allowances at `uint256.max`; direct and three-ticket bulk
+purchase simulations succeeded on open drawing `7691`. No write transaction was
+submitted because no wallet private key, database, or Pinata runtime secrets are
+present in this environment. V2 event reconciliation through finalized block
+`45386902` found 41 sequential mints, 41 primary transfers, and zero mapping,
+owner, or metadata hash mismatches. Targeted replay, mining-transition, leaderboard,
+and runner tests passed. Live purchase/keeper/voucher/batch/transfer/burn scenarios
+remain the next gated step once runtime secrets are supplied.

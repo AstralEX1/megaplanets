@@ -138,6 +138,41 @@ and the invariant suite (8 runs at depth 40). A browser visual smoke-check could
 not be performed because no browser connection is available in the current
 environment; the HTTP smoke-check is the recorded fallback.
 
+## Controlled E2E continuation (2026-08-12)
+
+The approved test wallet was checked read-only before any write:
+
+- ETH balance: `0.059610849887758417` ETH.
+- USDC balance: `17.49` USDC.
+- Jackpot and facilitator USDC allowances: both already at `uint256.max`; no
+  approval transaction was needed or submitted.
+- No active bulk order was present.
+
+Drawing `7691` is open (`jackpotLock=false`), with ticket price `10,000` USDC
+base units, `ballMax=25`, `bonusballMax=13`, and facilitator minimum `3`. Exact
+viem simulations succeeded for one valid direct ticket and a three-ticket
+all-random bulk order. These are simulations only; no purchase transaction was
+signed or broadcast because no wallet private key is available to the runtime.
+
+The finalized V2 event stream was independently checked through block `45,386,902`:
+
+- `totalSupply() = 41` and there are 41 `PlanetMinted` plus 41 initial `Transfer`
+  events from the deployment block.
+- Token IDs are sequential `1..41`.
+- All 41 `ticketIdByPlanetTokenId` and reverse mappings match their mint events.
+- Every `ownerOf` recipient and every `tokenURI` hash matches its `PlanetMinted`
+  event (`0` mapping, owner, URI, or RPC-call mismatches).
+- The latest indexed mint is token `41`, transaction
+  `0xffa2299fabcf5aa5b04fa3dce5b45814fef9c77b0b5046b14225b0829b857`, block
+  `45,369,807`.
+
+Targeted local replay, mining-transition, leaderboard, and runner tests passed;
+the repository suite remains at 60 files and 238 tests. The remaining live E2E
+scenarios are direct purchase receipt persistence, keeper execution, voucher
+signing/metadata pinning, batch mint, transfer/burn, and production PostgreSQL
+replay. They require the gitignored runtime secrets and a funded signer; they
+must not be replaced with simulated success.
+
 ## Runtime activation gate
 
 Do not enable checked-in defaults. The deployed V2 stays inactive in normal
