@@ -88,7 +88,8 @@ describe('PlanetInventoryDetail', () => {
     expect(screen.getByText('Ticket #24')).toBeInTheDocument();
     expect(screen.getByText('4')).toBeInTheDocument();
     expect(screen.getByText('66', { selector: '[data-coordinate="bonus"]' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Claim ($12.50)' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Claim ($12.50)' })).not.toBeInTheDocument();
+    expect(screen.getByText(/reveal this planet before claiming/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ticket BaseScan' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mint' })).toBeInTheDocument();
     expect(screen.queryByText('Kepler')).not.toBeInTheDocument();
@@ -99,5 +100,12 @@ describe('PlanetInventoryDetail', () => {
     expect(screen.queryByTestId('planet-mining-overlay')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'NFT BaseScan' })).not.toBeInTheDocument();
     expect(screen.queryByText(/same type/i)).not.toBeInTheDocument();
+  });
+
+  it('guards an unrevealed winning ticket from burning itself through claim', () => {
+    render(<PlanetInventoryDetail preview={preview} ticketTxHash={`0x${'1'.repeat(64)}`} revealed={false} ticketStatus={{ kind: 'claim', amount: 12_500_000n, ticketId: 24n }} mintAction={<button type="button">Mint</button>} />);
+
+    expect(screen.queryByRole('button', { name: 'Claim ($12.50)' })).not.toBeInTheDocument();
+    expect(screen.getByText(/reveal this planet before claiming/i)).toBeInTheDocument();
   });
 });

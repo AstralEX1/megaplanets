@@ -6,11 +6,9 @@ import type { ReactNode } from 'react';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import type { NavKey } from '@/components/layout/Nav';
-import { LP_ENABLED } from '@/config/contracts';
 import { navPath, parseAppRoute } from '@/lib/appRoute';
 import { Home } from '@/pages/Home';
 import { Leaderboard } from '@/pages/Leaderboard';
-import { LP } from '@/pages/LP';
 import { Play } from '@/pages/Play';
 import { Tickets } from '@/pages/Tickets';
 
@@ -61,9 +59,6 @@ export default function App() {
       break;
     case 'lab':
       page = Lab ? <Lab /> : <Home onNavigate={navigate} />;
-      break;
-    case 'lp':
-      page = LP_ENABLED ? <LP /> : <Home onNavigate={navigate} />;
       break;
     case 'history':
       page = <Leaderboard />;

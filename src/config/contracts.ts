@@ -62,7 +62,7 @@ export const BONUSBALL_MIN = 1;
 
 /**
  * `bytes32` source identifier passed to ticket purchase calls (direct buys,
- * batch orders, and subscriptions) for analytics attribution. Replace with
+ * batch orders) for analytics attribution. Replace with
  * your app identifier to filter your purchases out of on-chain analytics.
  *
  * Computed from a UTF-8 string padded to 32 bytes via `viem.stringToHex`.
@@ -73,19 +73,6 @@ export const TICKET_SOURCE = stringToHex('MEGAPLANETS_V1', { size: 32 });
 export const MEGAPLANETS_LAUNCH_BLOCK = 44_997_183n;
 /** First canonical MegaPlanets_V1 ticket in the pre-launch activation window. */
 export const MEGAPLANETS_TICKET_START_BLOCK = 44_996_796n;
-
-/**
- * Toggle the LP page and nav entry. Default `false` — most forks surface only
- * the user-facing flows (Home / Play / Tickets / History). Set to `true` to
- * expose `JackpotLPManager.lpDeposit` / `initiateWithdraw` / `finalizeWithdraw`
- * to your users (typically operator-facing forks).
- *
- * The LP page module (`src/pages/LP.tsx`) and its hooks/components remain in
- * the bundle either way — this is a runtime visibility toggle, not a
- * build-time tree-shake. A fork that wants the bundle reduction can swap
- * `src/App.tsx`'s LP import to `React.lazy` and wrap the case in `<Suspense>`.
- */
-export const LP_ENABLED = false;
 
 /**
  * Referral split weights — must sum to 1e18 (= 100%). Single referrer = `[1e18]`.
@@ -137,14 +124,6 @@ const ADDRESSES = {
     mainnet: '0xBA343479D98a1Ed333899999D95a7343B808a76F',
     testnet: '0x62A5D60F486D01a28071652a7951Aff1EA4c5b7c',
   },
-  JackpotAutoSubscription: {
-    mainnet: '0x2694Bd48f3e6B4775943067DC842C93bf5F19DcD',
-    testnet: '0x6d589a1C65A937c25DA3F402C69F7C5d4FcbF053',
-  },
-  JackpotLPManager: {
-    mainnet: '0xE63E54DF82d894396B885CE498F828f2454d9dCf',
-    testnet: '0x36408921aB820305F109150003C0F90aE1CB1766',
-  },
   GuaranteedMinimumPayoutCalculator: {
     mainnet: '0x97a22361b6208aC8cd9afaea09D20feC47046CBD',
     testnet: '0xE9542aC6FaDC47be2Bc42Fc075c1f481529D28cB',
@@ -169,10 +148,6 @@ export const MEGAPLANETS_CONTRACT_ADDRESS: Address | undefined =
 export const BATCH_PURCHASE_FACILITATOR_ADDRESS = ADDRESSES.BatchPurchaseFacilitator[
   CHAIN
 ] as Address;
-export const JACKPOT_AUTO_SUBSCRIPTION_ADDRESS = ADDRESSES.JackpotAutoSubscription[
-  CHAIN
-] as Address;
-export const JACKPOT_LP_MANAGER_ADDRESS = ADDRESSES.JackpotLPManager[CHAIN] as Address;
 export const PAYOUT_CALCULATOR_ADDRESS = ADDRESSES.GuaranteedMinimumPayoutCalculator[
   CHAIN
 ] as Address;

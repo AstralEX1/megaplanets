@@ -1,10 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BASE_SEPOLIA_CHAIN_ID, MEGAPLANETS_LAUNCH_BLOCK } from './config';
+import { BASE_SEPOLIA_CHAIN_ID, MEGAPLANETS_LAUNCH_BLOCK, MEGAPLANETS_SOURCE } from './config';
 import { BASE_SEPOLIA_JACKPOT } from './eligibility';
 import type { PrismaClient } from './generated/prisma/client';
 import { PrismaEligibilityStore, TICKET_INDEX_STREAM } from './prismaEligibilityStore';
 
 const planetContract = '0x0000000000000000000000000000000000000003' as const;
+const proofRecord = {
+  recipient: '0x1111111111111111111111111111111111111111',
+  ticketId: { toFixed: () => '456' },
+  drawingId: { toFixed: () => '123' },
+  normals: [2, 7, 14, 22, 29],
+  bonusBall: 9,
+  originTxHash: `0x${'ab'.repeat(32)}`,
+  blockNumber: 44_997_183n,
+  blockHash: `0x${'cd'.repeat(32)}`,
+  logIndex: 4,
+  purchasedAt: new Date('2026-08-11T00:00:00.000Z'),
+  chainId: BASE_SEPOLIA_CHAIN_ID,
+  jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
+  source: `0x${Buffer.from(MEGAPLANETS_SOURCE).toString('hex').padEnd(64, '0')}`,
+};
 
 describe('PrismaEligibilityStore reorg resets', () => {
   it('rewinds ticket provenance in FK-safe order without touching legacy snapshots', async () => {
@@ -71,6 +86,40 @@ describe('PrismaEligibilityStore reorg resets', () => {
     });
     expect(transaction.mintVoucherRecord.deleteMany).toHaveBeenCalledWith({
       where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: MEGAPLANETS_LAUNCH_BLOCK } } },
+    });
+  });
+});
+
+describe('PrismaEligibilityStore Megastera proof lookup', () => {
+  it('lists canonical proofs for one recipient with bounded newest-first pagination', async () => {
+    const count = vi.fn(async () => 2);
+    const findMany = vi.fn(async () => [proofRecord]);
+    const prisma = {
+      ticketPurchase: { count, findMany },
+    } as unknown as PrismaClient;
+    const store = new PrismaEligibilityStore(prisma);
+
+    const result = await store.listProofs('0x1111111111111111111111111111111111111111', { offset: 1, limit: 1 });
+
+    expect(result).toMatchObject({ total: 2, offset: 1, limit: 1, proofs: [expect.objectContaining({ ticketId: 456n })] });
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+        jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
+        source: proofRecord.source,
+        recipient: proofRecord.recipient,
+      },
+    });
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+        jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
+        source: proofRecord.source,
+        recipient: proofRecord.recipient,
+      },
+      orderBy: [{ blockNumber: 'desc' }, { logIndex: 'desc' }],
+      skip: 1,
+      take: 1,
     });
   });
 });

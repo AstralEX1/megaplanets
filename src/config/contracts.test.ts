@@ -4,7 +4,6 @@ import {
   CHAIN,
   DEFAULT_REFERRER_ADDRESS,
   EXPLORER_NFT_URL,
-  LP_ENABLED,
   MEGAPLANETS_CONTRACT_ADDRESS,
   parseChainName,
   parseMegaPlanetsContractAddress,
@@ -52,7 +51,4 @@ describe('MegaPlanets protocol invariants', () => {
     ).toBe(true);
   });
 
-  it('keeps the LP surface disabled for the MVP', () => {
-    expect(LP_ENABLED).toBe(false);
-  });
 });

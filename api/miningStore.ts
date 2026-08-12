@@ -1,5 +1,10 @@
 import type { Prisma, PrismaClient } from './generated/prisma/client';
-import { accrueMinerals, getSameTypeMultipliers, MINERAL_SCALE } from './mining';
+import {
+  accrueMinerals,
+  calculateLifetimeMinerals,
+  getSameTypeMultipliers,
+  MINERAL_SCALE,
+} from './mining';
 import type { PlanetScope } from './stage2Store';
 
 const BASIS_POINTS = 10_000n;
@@ -117,7 +122,11 @@ export async function refreshWalletMiningRates(
 }
 
 /** Starts mining for indexed planets that predate the mining rollout, without retroactive accrual. */
-export async function initializeMissingMiningStates(prisma: PrismaClient, startedAt: Date, scope: PlanetScope): Promise<number> {
+export async function initializeMissingMiningStates(
+  prisma: PrismaClient,
+  startedAt: Date,
+  scope: PlanetScope,
+): Promise<number> {
   const owners = await prisma.planet.findMany({
     where: {
       chainId: scope.chainId,
@@ -131,97 +140,117 @@ export async function initializeMissingMiningStates(prisma: PrismaClient, starte
     distinct: ['ownerAddress'],
   });
   for (const { ownerAddress } of owners) {
-    await prisma.$transaction((transaction) => repriceWalletMiningRates(transaction, ownerAddress, startedAt, scope));
+    await prisma.$transaction((transaction) =>
+      repriceWalletMiningRates(transaction, ownerAddress, startedAt, scope),
+    );
   }
   return owners.length;
 }
 
-export async function getPlanetMiningSnapshot(prisma: PrismaClient, tokenId: string, now: Date, scope: PlanetScope) {
+export async function getPlanetMiningSnapshot(
+  prisma: PrismaClient,
+  tokenId: string,
+  now: Date,
+  scope: PlanetScope,
+) {
   const planet = await prisma.planet.findFirst({
-    where: { tokenId, chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() },
-    include: { accrualState: true },
+    where: {
+      tokenId,
+      chainId: scope.chainId,
+      contractAddress: scope.contractAddress.toLowerCase(),
+      ownerAddress: { not: '0x0000000000000000000000000000000000000000' },
+    },
+    select: {
+      tokenId: true,
+      ownerAddress: true,
+      baseMineralsPerDay: true,
+      mintedAt: true,
+    },
   });
-  if (!planet?.accrualState || planet.baseMineralsPerDay === null) return undefined;
-  const active = accrueMinerals({
+  if (
+    !planet ||
+    planet.baseMineralsPerDay === null ||
+    planet.ownerAddress.toLowerCase() === '0x0000000000000000000000000000000000000000'
+  )
+    return undefined;
+  const lifetimeMicros = calculateLifetimeMinerals({
     baseMineralsPerDay: planet.baseMineralsPerDay,
-    multiplierBps: BigInt(planet.accrualState.multiplierBps),
-    elapsedMilliseconds: elapsedMilliseconds(planet.accrualState.startedAt, now),
-    remainder: planet.accrualState.remainder,
+    mintedAt: planet.mintedAt,
+    asOf: now,
   });
-  const ledger = await prisma.mineralLedgerEntry.aggregate({
-    where: { planetId: planet.id, ownerAddress: planet.ownerAddress },
-    _sum: { amountMicros: true },
-  });
-  const settledMicros = ledger._sum.amountMicros ?? 0n;
   return {
     tokenId: planet.tokenId.toFixed(0),
     ownerAddress: planet.ownerAddress,
     baseMineralsPerDay: planet.baseMineralsPerDay.toString(),
-    multiplierBps: planet.accrualState.multiplierBps.toString(),
-    pendingMicros: active.minerals.toString(),
-    earnedMicros: (settledMicros + active.minerals).toString(),
-    activeSince: planet.accrualState.startedAt.toISOString(),
+    multiplierBps: BASIS_POINTS.toString(),
+    pendingMicros: '0',
+    earnedMicros: lifetimeMicros.toString(),
+    activeSince: planet.mintedAt.toISOString(),
   };
 }
 
-export async function getWalletMiningSnapshot(prisma: PrismaClient, ownerAddress: string, now: Date, scope: PlanetScope) {
-  const [planets, ledger] = await Promise.all([
-    prisma.planet.findMany({
-      where: { ownerAddress, chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase(), baseMineralsPerDay: { not: null }, accrualState: { isNot: null } },
-      select: {
-        id: true,
-        tokenId: true,
-        baseMineralsPerDay: true,
-        accrualState: { select: { startedAt: true, multiplierBps: true, remainder: true } },
-      },
-    }),
-    prisma.mineralLedgerEntry.findMany({
-      where: {
-        ownerAddress,
-        planet: { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() },
-      },
-      select: { planetId: true, amountMicros: true },
-    }),
-  ]);
-
-  const settledByPlanet = new Map<string, bigint>();
-  let settledMicros = 0n;
-  for (const entry of ledger) {
-    settledMicros += entry.amountMicros;
-    settledByPlanet.set(entry.planetId, (settledByPlanet.get(entry.planetId) ?? 0n) + entry.amountMicros);
+export async function getWalletMiningSnapshot(
+  prisma: PrismaClient,
+  ownerAddress: string,
+  now: Date,
+  scope: PlanetScope,
+) {
+  if (ownerAddress.toLowerCase() === '0x0000000000000000000000000000000000000000') {
+    return {
+      ownerAddress,
+      asOf: now.toISOString(),
+      ownedPlanetCount: 0,
+      pendingMicros: '0',
+      earnedMicros: '0',
+      effectiveMineralsPerDayMicros: '0',
+      planets: [],
+    };
   }
+  const planets = await prisma.planet.findMany({
+    where: {
+      ownerAddress,
+      chainId: scope.chainId,
+      contractAddress: scope.contractAddress.toLowerCase(),
+      baseMineralsPerDay: { not: null },
+    },
+    select: {
+      tokenId: true,
+      baseMineralsPerDay: true,
+      mintedAt: true,
+    },
+  });
 
-  let pendingMicros = 0n;
+  let lifetimeMicros = 0n;
   let effectiveMineralsPerDayMicros = 0n;
   const planetSnapshots = planets.flatMap((planet) => {
-    if (!planet.accrualState || planet.baseMineralsPerDay === null) return [];
-    const pending = accrueMinerals({
+    if (planet.baseMineralsPerDay === null) return [];
+    const lifetime = calculateLifetimeMinerals({
       baseMineralsPerDay: planet.baseMineralsPerDay,
-      multiplierBps: BigInt(planet.accrualState.multiplierBps),
-      elapsedMilliseconds: elapsedMilliseconds(planet.accrualState.startedAt, now),
-      remainder: planet.accrualState.remainder,
-    }).minerals;
-    const effectiveRate = planet.baseMineralsPerDay * MINERAL_SCALE
-      * BigInt(planet.accrualState.multiplierBps) / BASIS_POINTS;
-    pendingMicros += pending;
+      mintedAt: planet.mintedAt,
+      asOf: now,
+    });
+    const effectiveRate = planet.baseMineralsPerDay * MINERAL_SCALE;
+    lifetimeMicros += lifetime;
     effectiveMineralsPerDayMicros += effectiveRate;
-    return [{
-      tokenId: planet.tokenId.toFixed(0),
-      baseMineralsPerDay: planet.baseMineralsPerDay.toString(),
-      multiplierBps: planet.accrualState.multiplierBps.toString(),
-      effectiveMineralsPerDayMicros: effectiveRate.toString(),
-      pendingMicros: pending.toString(),
-      earnedMicros: ((settledByPlanet.get(planet.id) ?? 0n) + pending).toString(),
-      activeSince: planet.accrualState.startedAt.toISOString(),
-    }];
+    return [
+      {
+        tokenId: planet.tokenId.toFixed(0),
+        baseMineralsPerDay: planet.baseMineralsPerDay.toString(),
+        multiplierBps: BASIS_POINTS.toString(),
+        effectiveMineralsPerDayMicros: effectiveRate.toString(),
+        pendingMicros: '0',
+        earnedMicros: lifetime.toString(),
+        activeSince: planet.mintedAt.toISOString(),
+      },
+    ];
   });
 
   return {
     ownerAddress,
     asOf: now.toISOString(),
     ownedPlanetCount: planets.length,
-    pendingMicros: pendingMicros.toString(),
-    earnedMicros: (settledMicros + pendingMicros).toString(),
+    pendingMicros: '0',
+    earnedMicros: lifetimeMicros.toString(),
     effectiveMineralsPerDayMicros: effectiveMineralsPerDayMicros.toString(),
     planets: planetSnapshots,
   };

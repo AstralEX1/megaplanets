@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { createPublicClient, http, isHash, type Hex, type Log } from 'viem';
+import { createPublicClient, getAddress, http, isAddress, isHash, type Hex } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { loadStage5Config, type Stage5Config } from './config';
 import { getPrismaClient } from './database';
-import { findEligibleTicket, type EligibleTicket } from './eligibility';
+import { MegasteraVerifier, normalizeMegasteraProof, type MegasteraProof } from './eligibility';
 import { createLeaderboardRoutes } from './leaderboardRoutes';
 import { prepareVoucher } from './service';
 import { PrismaEligibilityStore } from './prismaEligibilityStore';
@@ -12,16 +12,42 @@ import { FileEligibilityStore, type EligibilityStore, type PreparedVoucher } fro
 import { createOperationalState, type OperationalState } from './operations';
 import { ensureOverdueLeaderboardPeriodsFinalized } from './leaderboardStore';
 import { privateKeyToAccount } from 'viem/accounts';
-import { BASE_SEPOLIA_CHAIN_ID } from './config';
+import { BASE_SEPOLIA_CHAIN_ID, DEFAULT_RECEIPT_CONFIRMATIONS } from './config';
 import { readBoundedJson, withTimeout } from './http';
 import { readWithRpcFallback } from './rpc';
 
 type VoucherRequest = { transactionHash: Hex; logIndex: number };
 
+export type ReceiptFinalityInput = {
+  blockNumber: bigint;
+  blockHash: string;
+};
+
+export type ReceiptFinalityState = {
+  latestBlock: bigint;
+  canonicalBlockHash: string;
+  confirmations?: bigint;
+};
+
+/** Fails closed when a receipt is not deep enough or its block was reorged. */
+export function assertReceiptFinality(
+  receipt: ReceiptFinalityInput,
+  state: ReceiptFinalityState,
+): void {
+  const confirmations = state.confirmations ?? DEFAULT_RECEIPT_CONFIRMATIONS;
+  if (confirmations < 0n) throw new Error('Receipt confirmation depth must be non-negative.');
+  if (state.latestBlock < receipt.blockNumber + confirmations) {
+    throw new Error(`Receipt requires ${confirmations.toString()} confirmations.`);
+  }
+  if (state.canonicalBlockHash.toLowerCase() !== receipt.blockHash.toLowerCase()) {
+    throw new Error('Receipt block hash is no longer canonical.');
+  }
+}
+
 type Stage5Dependencies = {
   loadConfig: () => Stage5Config;
-  findTicket: (config: Stage5Config, request: VoucherRequest) => Promise<EligibleTicket>;
-  prepare: (config: Stage5Config, ticket: EligibleTicket) => Promise<PreparedVoucher>;
+  findTicket: (config: Stage5Config, request: VoucherRequest) => Promise<MegasteraProof>;
+  prepare: (config: Stage5Config, ticket: MegasteraProof) => Promise<PreparedVoucher>;
   getStore: (config: Stage5Config) => EligibilityStore;
   rateLimiter: VoucherRateLimiter;
   workLimiter: VoucherWorkLimiter;
@@ -106,6 +132,37 @@ function parseVoucherRequest(value: unknown): VoucherRequest | undefined {
   return { transactionHash, logIndex };
 }
 
+type ProofPagination = { offset: number; limit: number };
+
+function parseProofPagination(c: { req: { query: (name: string) => string | undefined } }): ProofPagination | undefined {
+  const offsetValue = c.req.query('offset') ?? '0';
+  const limitValue = c.req.query('limit') ?? '50';
+  const offset = Number(offsetValue);
+  const limit = Number(limitValue);
+  if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+    return undefined;
+  }
+  return { offset, limit };
+}
+
+function serializeMegasteraProof(proof: MegasteraProof) {
+  return {
+    recipient: getAddress(proof.recipient),
+    ticketId: proof.ticketId.toString(),
+    drawingId: proof.drawingId.toString(),
+    normals: [...proof.normals],
+    bonusBall: proof.bonusBall,
+    originTxHash: proof.originTxHash,
+    blockNumber: proof.blockNumber.toString(),
+    blockHash: proof.blockHash,
+    logIndex: proof.logIndex.toString(),
+    purchasedAt: proof.purchasedAt?.toISOString(),
+    chainId: proof.chainId,
+    jackpotAddress: proof.jackpotAddress,
+    source: proof.source,
+  };
+}
+
 /** JSON cannot represent bigint values, so API responses use decimal strings for contract integers. */
 function serializePreparedVoucher(prepared: PreparedVoucher) {
   const { voucher } = prepared;
@@ -120,7 +177,7 @@ function serializePreparedVoucher(prepared: PreparedVoucher) {
   };
 }
 
-async function findTicketFromReceipt(config: Stage5Config, request: VoucherRequest): Promise<EligibleTicket> {
+async function findTicketFromReceipt(config: Stage5Config, request: VoucherRequest): Promise<MegasteraProof> {
   const rpcUrls = [config.rpcUrl, ...(config.rpcFallbackUrls ?? [])];
   const { client, receipt } = await readWithRpcFallback(rpcUrls, async (rpcUrl) => {
     const candidate = createPublicClient({ chain: baseSepolia, transport: http(rpcUrl) });
@@ -129,12 +186,27 @@ async function findTicketFromReceipt(config: Stage5Config, request: VoucherReque
     return { client: candidate, receipt };
   });
   if (receipt.status !== 'success') throw new Error('Ticket purchase transaction did not succeed.');
-  const ticket = findEligibleTicket(receipt.logs as readonly Log[], request.logIndex);
-  const block = await client.getBlock({ blockHash: receipt.blockHash });
+  const ticket = new MegasteraVerifier().verifyReceipt(receipt, { logIndex: request.logIndex });
+  const [latestBlock, canonicalBlock, receiptBlock] = await Promise.all([
+    client.getBlockNumber(),
+    client.getBlock({ blockNumber: receipt.blockNumber }),
+    client.getBlock({ blockHash: receipt.blockHash }),
+  ]);
+  assertReceiptFinality(
+    { blockNumber: receipt.blockNumber, blockHash: receipt.blockHash },
+    {
+      latestBlock,
+      canonicalBlockHash: canonicalBlock.hash,
+      confirmations: config.confirmations,
+    },
+  );
+  if (receiptBlock.hash.toLowerCase() !== receipt.blockHash.toLowerCase()) {
+    throw new Error('Receipt block hash lookup does not match the receipt.');
+  }
   return {
     ...ticket,
     blockHash: receipt.blockHash,
-    purchasedAt: new Date(Number(block.timestamp) * 1_000),
+    purchasedAt: new Date(Number(receiptBlock.timestamp) * 1_000),
   };
 }
 
@@ -174,6 +246,26 @@ export function createApp(
     service: 'api',
     operations: dependencies.operations.snapshot(),
   }));
+
+  app.get('/api/planets/megastera-proofs', async (c) => {
+    const recipient = c.req.query('recipient');
+    const pagination = parseProofPagination(c);
+    if (!recipient || !isAddress(recipient) || !pagination) {
+      return c.json({ error: 'recipient and bounded pagination are required.' }, 400);
+    }
+    try {
+      const config = dependencies.loadConfig();
+      const result = await dependencies.getStore(config).listProofs(getAddress(recipient), pagination);
+      return c.json({
+        proofs: result.proofs.map(serializeMegasteraProof),
+        total: result.total,
+        offset: result.offset,
+        limit: result.limit,
+      });
+    } catch {
+      return c.json({ error: 'Megastera proof lookup is not configured.' }, 503);
+    }
+  });
 
   app.get('/api/planets/readiness', async (c) => {
     try {
@@ -220,13 +312,14 @@ export function createApp(
       let preparation = inFlightPreparations.get(requestKey);
       if (!preparation) {
         preparation = (async () => {
-          const ticket = await withTimeout(dependencies.findTicket(config, request), 15_000, 'Receipt lookup');
+          const ticket = normalizeMegasteraProof(await withTimeout(dependencies.findTicket(config, request), 15_000, 'Receipt lookup'));
           const store = dependencies.getStore(config);
-          await store.saveTicket(ticket);
-          const cached = await store.getVoucher(ticket.ticketId, ticket.recipient, BigInt(Math.floor(Date.now() / 1_000)));
+          await store.saveProof(ticket);
+          const proof = await store.getProof({ transactionHash: ticket.originTxHash, logIndex: ticket.logIndex }) ?? ticket;
+          const cached = await store.getVoucher(proof.ticketId, proof.recipient, BigInt(Math.floor(Date.now() / 1_000)));
           if (cached) return cached;
-          const prepared = await dependencies.workLimiter.run(() => dependencies.prepare(config, ticket));
-          if (prepared.voucher.recipient.toLowerCase() !== ticket.recipient.toLowerCase()) throw new Error('Voucher recipient does not match the TicketPurchased recipient.');
+          const prepared = await dependencies.workLimiter.run(() => dependencies.prepare(config, proof));
+          if (prepared.voucher.recipient.toLowerCase() !== proof.recipient.toLowerCase()) throw new Error('Voucher recipient does not match the TicketPurchased recipient.');
           await store.saveVoucher(prepared);
           return prepared;
         })();

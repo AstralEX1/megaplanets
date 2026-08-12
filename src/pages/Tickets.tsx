@@ -3,13 +3,9 @@
  * @skill      https://llms.megapot.io/data-api
  *             https://llms.megapot.io/tasks/read-state
  *             https://llms.megapot.io/tasks/claim-winnings
- *             https://llms.megapot.io/tasks/claim-referral-fees
- *             https://llms.megapot.io/tasks/subscribe
  * @customize  Reads split between live + historical:
  *               - WalletStatsCard, UnclaimedWins, PastRoundTickets → Data API (api.megapot.io)
- *               - CurrentDrawingTickets, ActiveSubscription, ClaimReferralFees → RPC
- *             ClaimReferralFees + ActiveSubscription render conditionally
- *             (no earnings / no subscription = hidden).
+ *               - CurrentDrawingTickets → Data API + optimistic receipt cache
  *             PastRoundTickets uses `api.walletTickets` for the outer card
  *             list and `api.round` (lazy, on expansion) for matched-ball
  *             highlighting.
@@ -17,8 +13,6 @@
  */
 import { useAccount } from 'wagmi';
 import type { NavKey } from '@/components/layout/Nav';
-import { ActiveSubscription } from '@/components/tickets/ActiveSubscription';
-import { ClaimReferralFees } from '@/components/tickets/ClaimReferralFees';
 import { CurrentDrawingTickets } from '@/components/tickets/CurrentDrawingTickets';
 import { PastRoundTickets } from '@/components/tickets/PastRoundTickets';
 import { UnclaimedWins } from '@/components/tickets/UnclaimedWins';
@@ -41,8 +35,6 @@ export function Tickets({ onNavigate }: { onNavigate: (k: NavKey) => void }) {
   return (
     <div className="space-y-4">
       <WalletStatsCard address={address} />
-      <ClaimReferralFees />
-      <ActiveSubscription />
       <CurrentDrawingTickets drawingId={drawingId} onNavigate={onNavigate} />
       <UnclaimedWins />
       <PastRoundTickets />

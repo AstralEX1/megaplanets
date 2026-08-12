@@ -1,4 +1,5 @@
-import { getAddress, type Address } from 'viem';
+import { type Address, getAddress } from 'viem';
+import { calculateLifetimeMinerals } from './mining';
 
 export type PlanetHolding = {
   holder: Address;
@@ -30,6 +31,14 @@ export type DailySnapshot = {
   wallets: readonly WalletSnapshot[];
 };
 
+export type LifetimePlanetHolding = {
+  holder: Address;
+  tokenId: bigint;
+  planetType: string;
+  baseMineralsPerDay: bigint;
+  mintedAt: Date;
+};
+
 const BASIS_POINTS = 10_000n;
 
 function typeMultiplierBps(tokenCount: number): bigint {
@@ -50,13 +59,29 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+/** Returns the UTC day containing a timestamp, with deterministic ISO bounds. */
+export function getUtcDayBounds(value: Date): { id: string; startsAt: Date; endsAt: Date } {
+  const startsAt = new Date(
+    Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
+  );
+  return {
+    id: `${startsAt.getUTCFullYear()}-${String(startsAt.getUTCMonth() + 1).padStart(2, '0')}-${String(startsAt.getUTCDate()).padStart(2, '0')}`,
+    startsAt,
+    endsAt: new Date(startsAt.getTime() + 86_400_000),
+  };
+}
+
 /** Produces a deterministic, auditable score for one wallet's immutable Planet holdings. */
-export function scoreWalletHoldings(holder: Address, holdings: readonly PlanetHolding[]): WalletSnapshot {
+export function scoreWalletHoldings(
+  holder: Address,
+  holdings: readonly PlanetHolding[],
+): WalletSnapshot {
   const normalizedHolder = getAddress(holder);
   const byType = new Map<string, PlanetHolding[]>();
 
   for (const holding of holdings) {
-    if (getAddress(holding.holder) !== normalizedHolder) throw new Error('Holding owner does not match snapshot wallet.');
+    if (getAddress(holding.holder) !== normalizedHolder)
+      throw new Error('Holding owner does not match snapshot wallet.');
     if (!holding.planetType.trim()) throw new Error('Planet Type is required for scoring.');
     if (holding.minerals < 0n) throw new Error('Planet minerals cannot be negative.');
     const entries = byType.get(holding.planetType) ?? [];
@@ -82,7 +107,9 @@ export function scoreWalletHoldings(holder: Address, holdings: readonly PlanetHo
 
   return {
     holder: normalizedHolder,
-    tokenIds: holdings.map((holding) => holding.tokenId).sort((left, right) => (left < right ? -1 : 1)),
+    tokenIds: holdings
+      .map((holding) => holding.tokenId)
+      .sort((left, right) => (left < right ? -1 : 1)),
     typeScores,
     diversityMultiplierBps: diversityMultiplier,
     score: (typeTotal * diversityMultiplier) / BASIS_POINTS,
@@ -113,9 +140,35 @@ export function createDailySnapshot(input: {
   return {
     blockNumber: input.blockNumber,
     capturedAt: input.capturedAt,
-    holdings: [...input.holdings].sort((left, right) => (left.tokenId < right.tokenId ? -1 : left.tokenId > right.tokenId ? 1 : 0)),
+    holdings: [...input.holdings].sort((left, right) =>
+      left.tokenId < right.tokenId ? -1 : left.tokenId > right.tokenId ? 1 : 0,
+    ),
     wallets: [...byHolder.entries()]
       .map(([holder, holdings]) => scoreWalletHoldings(holder, holdings))
       .sort((left, right) => compareText(left.holder.toLowerCase(), right.holder.toLowerCase())),
   };
+}
+
+/** Builds the daily report from immutable Planet rates and mint timestamps. */
+export function createLifetimeDailySnapshot(input: {
+  blockNumber: bigint;
+  capturedAt: string;
+  asOf: Date;
+  planets: readonly LifetimePlanetHolding[];
+}): DailySnapshot {
+  const holdings: PlanetHolding[] = input.planets.map((planet) => ({
+    holder: planet.holder,
+    tokenId: planet.tokenId,
+    planetType: planet.planetType,
+    minerals: calculateLifetimeMinerals({
+      baseMineralsPerDay: planet.baseMineralsPerDay,
+      mintedAt: planet.mintedAt,
+      asOf: input.asOf,
+    }),
+  }));
+  return createDailySnapshot({
+    blockNumber: input.blockNumber,
+    capturedAt: input.capturedAt,
+    holdings,
+  });
 }

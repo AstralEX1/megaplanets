@@ -2,8 +2,10 @@ import { getPrismaClient } from './database';
 import { ensureOverdueLeaderboardPeriodsFinalized } from './leaderboardStore';
 import { loadStage2Config } from './stage2Config';
 
-/** Explicit worker entry point for the mutating weekly leaderboard finalization. */
-export async function runLeaderboardFinalization(env: Record<string, string | undefined> = process.env): Promise<void> {
+/** Explicit worker entry point for the mutating daily leaderboard finalization. */
+export async function runLeaderboardFinalization(
+  env: Record<string, string | undefined> = process.env,
+): Promise<void> {
   const config = loadStage2Config(env);
   await ensureOverdueLeaderboardPeriodsFinalized(getPrismaClient(config.databaseUrl), new Date());
 }

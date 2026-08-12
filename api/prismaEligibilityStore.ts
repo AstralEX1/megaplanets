@@ -1,7 +1,7 @@
 import { getAddress, stringToHex, type Address, type Hex } from 'viem';
 import type { PrismaClient } from './generated/prisma/client';
 import { BASE_SEPOLIA_CHAIN_ID, MEGAPLANETS_SOURCE } from './config';
-import { BASE_SEPOLIA_JACKPOT } from './eligibility';
+import { BASE_SEPOLIA_JACKPOT, normalizeMegasteraProof, type MegasteraProof, type MegasteraProofReference } from './eligibility';
 import type { DailySnapshot } from './scoring';
 import {
   deserializeDailySnapshot,
@@ -60,6 +60,93 @@ export class PrismaEligibilityStore implements EligibilityStore {
         purchasedAt: ticket.purchasedAt,
       },
     });
+  }
+
+  /** Persists a receipt-verified proof in the existing TicketPurchase table. */
+  async saveProof(proof: MegasteraProof): Promise<void> {
+    const normalized = normalizeMegasteraProof(proof);
+    const existing = await this.getProof({ transactionHash: normalized.originTxHash, logIndex: normalized.logIndex });
+    if (existing) {
+      if (
+        existing.ticketId !== normalized.ticketId ||
+        existing.recipient.toLowerCase() !== normalized.recipient.toLowerCase() ||
+        existing.drawingId !== normalized.drawingId
+      ) {
+        throw new Error(`Megastera proof ${normalized.originTxHash}:${normalized.logIndex} conflicts with existing provenance.`);
+      }
+      return;
+    }
+    await this.saveTicket(normalized);
+  }
+
+  async getProof(reference: MegasteraProofReference | Hex, logIndexOverride?: bigint | number): Promise<MegasteraProof | undefined> {
+    const normalizedReference = typeof reference === 'string'
+      ? { transactionHash: reference, logIndex: logIndexOverride }
+      : reference;
+    const transactionHash = normalizedReference.transactionHash ?? normalizedReference.originTxHash;
+    if (!transactionHash || normalizedReference.logIndex === undefined) throw new Error('Megastera proof reference is incomplete.');
+    const logIndex = typeof normalizedReference.logIndex === 'bigint' ? Number(normalizedReference.logIndex) : normalizedReference.logIndex;
+    if (!Number.isSafeInteger(logIndex) || logIndex < 0) throw new Error('Megastera proof log index is invalid.');
+    const record = await this.prisma.ticketPurchase.findUnique({
+      where: {
+        chainId_originTxHash_logIndex: {
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          originTxHash: transactionHash.toLowerCase(),
+          logIndex,
+        },
+      },
+    });
+    if (!record) return undefined;
+    return normalizeMegasteraProof({
+      recipient: getAddress(record.recipient),
+      ticketId: BigInt(record.ticketId.toFixed(0)),
+      drawingId: BigInt(record.drawingId.toFixed(0)),
+      normals: record.normals,
+      bonusBall: record.bonusBall,
+      originTxHash: record.originTxHash as Hex,
+      blockNumber: record.blockNumber,
+      logIndex: BigInt(record.logIndex),
+      blockHash: record.blockHash as Hex,
+      purchasedAt: record.purchasedAt,
+      chainId: record.chainId,
+      jackpotAddress: getAddress(record.jackpotAddress),
+      source: record.source as Hex,
+    });
+  }
+
+  async listProofs(recipient: Address, pagination: { offset: number; limit: number }) {
+    const normalizedRecipient = getAddress(recipient).toLowerCase();
+    const where = {
+      chainId: BASE_SEPOLIA_CHAIN_ID,
+      jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
+      source: stringToHex(MEGAPLANETS_SOURCE, { size: 32 }),
+      recipient: normalizedRecipient,
+    } as const;
+    const [total, records] = await Promise.all([
+      this.prisma.ticketPurchase.count({ where }),
+      this.prisma.ticketPurchase.findMany({
+        where,
+        orderBy: [{ blockNumber: 'desc' }, { logIndex: 'desc' }],
+        skip: pagination.offset,
+        take: pagination.limit,
+      }),
+    ]);
+    const proofs = records.map((record) => normalizeMegasteraProof({
+      recipient: getAddress(record.recipient),
+      ticketId: BigInt(record.ticketId.toFixed(0)),
+      drawingId: BigInt(record.drawingId.toFixed(0)),
+      normals: record.normals,
+      bonusBall: record.bonusBall,
+      originTxHash: record.originTxHash as Hex,
+      blockNumber: record.blockNumber,
+      logIndex: BigInt(record.logIndex),
+      blockHash: record.blockHash as Hex,
+      purchasedAt: record.purchasedAt,
+      chainId: record.chainId,
+      jackpotAddress: getAddress(record.jackpotAddress),
+      source: record.source as Hex,
+    }));
+    return { total, offset: pagination.offset, limit: pagination.limit, proofs };
   }
 
   async getVoucher(ticketId: bigint, recipient: Address, now: bigint) {

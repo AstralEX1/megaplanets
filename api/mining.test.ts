@@ -1,29 +1,63 @@
 import { describe, expect, it } from 'vitest';
 import {
-  accrueMineralsForOverlap,
   accrueMinerals,
+  accrueMineralsForOverlap,
+  calculateLifetimeMinerals,
   getSameTypeBonusBps,
   getSameTypeMultipliers,
   MINERAL_SCALE,
 } from './mining';
 
 describe('mining accrual', () => {
-  it('counts only the part of a production segment inside the requested period', () => {
-    expect(accrueMineralsForOverlap({
+  it('calculates intrinsic lifetime production from mint time without wallet multipliers', () => {
+    expect(
+      calculateLifetimeMinerals({
+        baseMineralsPerDay: 10n,
+        mintedAt: new Date('2026-08-10T00:00:00.000Z'),
+        asOf: new Date('2026-08-11T12:00:00.000Z'),
+      }),
+    ).toBe(15_000_000n);
+  });
+
+  it('returns zero at the mint timestamp and rejects a timestamp before mint', () => {
+    const input = {
       baseMineralsPerDay: 10n,
-      multiplierBps: 10_000n,
-      startedAt: new Date('2026-08-09T12:00:00.000Z'),
-      endedAt: new Date('2026-08-10T12:00:00.000Z'),
-    }, new Date('2026-08-10T00:00:00.000Z'), new Date('2026-08-17T00:00:00.000Z'))).toBe(5_000_000n);
+      mintedAt: new Date('2026-08-10T00:00:00.000Z'),
+      asOf: new Date('2026-08-10T00:00:00.000Z'),
+    };
+    expect(calculateLifetimeMinerals(input)).toBe(0n);
+    expect(() =>
+      calculateLifetimeMinerals({ ...input, asOf: new Date('2026-08-09T23:59:59.000Z') }),
+    ).toThrow('Mining timestamp cannot be before mint time');
+  });
+  it('counts only the part of a production segment inside the requested period', () => {
+    expect(
+      accrueMineralsForOverlap(
+        {
+          baseMineralsPerDay: 10n,
+          multiplierBps: 10_000n,
+          startedAt: new Date('2026-08-09T12:00:00.000Z'),
+          endedAt: new Date('2026-08-10T12:00:00.000Z'),
+        },
+        new Date('2026-08-10T00:00:00.000Z'),
+        new Date('2026-08-17T00:00:00.000Z'),
+      ),
+    ).toBe(5_000_000n);
   });
 
   it('returns zero for a production segment outside the requested period', () => {
-    expect(accrueMineralsForOverlap({
-      baseMineralsPerDay: 10n,
-      multiplierBps: 10_000n,
-      startedAt: new Date('2026-08-01T00:00:00.000Z'),
-      endedAt: new Date('2026-08-02T00:00:00.000Z'),
-    }, new Date('2026-08-10T00:00:00.000Z'), new Date('2026-08-17T00:00:00.000Z'))).toBe(0n);
+    expect(
+      accrueMineralsForOverlap(
+        {
+          baseMineralsPerDay: 10n,
+          multiplierBps: 10_000n,
+          startedAt: new Date('2026-08-01T00:00:00.000Z'),
+          endedAt: new Date('2026-08-02T00:00:00.000Z'),
+        },
+        new Date('2026-08-10T00:00:00.000Z'),
+        new Date('2026-08-17T00:00:00.000Z'),
+      ),
+    ).toBe(0n);
   });
 
   it('mints exactly one fixed-point daily production at the base rate', () => {

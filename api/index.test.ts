@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Stage5Config } from './config';
-import { createApp, createVoucherRateLimiter } from './index';
+import { assertReceiptFinality, createApp, createVoucherRateLimiter } from './index';
 import type { EligibleTicket } from './eligibility';
 import type { MintVoucher } from './voucher';
 import { MemoryEligibilityStore } from './store';
@@ -42,6 +42,33 @@ const voucher: MintVoucher = {
 };
 
 describe('Stage 5 voucher endpoint', () => {
+  it('accepts a receipt only after the configured confirmation depth and canonical block hash check', () => {
+    expect(() => assertReceiptFinality({
+      blockNumber: 100n,
+      blockHash: `0x${'aa'.repeat(32)}`,
+    }, {
+      latestBlock: 106n,
+      canonicalBlockHash: `0x${'aa'.repeat(32)}`,
+      confirmations: 6n,
+    })).not.toThrow();
+    expect(() => assertReceiptFinality({
+      blockNumber: 100n,
+      blockHash: `0x${'aa'.repeat(32)}`,
+    }, {
+      latestBlock: 105n,
+      canonicalBlockHash: `0x${'aa'.repeat(32)}`,
+      confirmations: 6n,
+    })).toThrow(/confirm/i);
+    expect(() => assertReceiptFinality({
+      blockNumber: 100n,
+      blockHash: `0x${'aa'.repeat(32)}`,
+    }, {
+      latestBlock: 106n,
+      canonicalBlockHash: `0x${'bb'.repeat(32)}`,
+      confirmations: 6n,
+    })).toThrow(/canonical|reorg|block hash/i);
+  });
+
   it('exposes health and V2 configuration readiness probes', async () => {
     const app = createApp({ loadConfig: () => ({ ...config, planetDeploymentBlock: 45_347_860n }) });
 
@@ -98,6 +125,48 @@ describe('Stage 5 voucher endpoint', () => {
       body: JSON.stringify({ transactionHash: 'not-a-hash', logIndex: -1 }),
     });
 
+    expect(response.status).toBe(400);
+  });
+
+  it('lists server-side Megastera proofs only for the requested recipient with bounded pagination', async () => {
+    const store = new MemoryEligibilityStore();
+    await store.saveProof({
+      recipient: ticket.recipient,
+      ticketId: ticket.ticketId,
+      drawingId: ticket.drawingId,
+      normals: ticket.normals,
+      bonusBall: ticket.bonusBall,
+      originTxHash: ticket.originTxHash,
+      blockNumber: ticket.blockNumber,
+      blockHash: `0x${'cd'.repeat(32)}`,
+      logIndex: ticket.logIndex,
+      purchasedAt: new Date('2026-08-11T00:00:00.000Z'),
+      chainId: 84_532,
+      jackpotAddress: '0x465dA3c859f193A3807386387bEE941B2A4c3279',
+    });
+    await store.saveProof({
+      ...ticket,
+      ticketId: 457n,
+      recipient: '0x4444444444444444444444444444444444444444',
+      blockHash: `0x${'de'.repeat(32)}`,
+      logIndex: 5n,
+      purchasedAt: new Date('2026-08-11T00:00:01.000Z'),
+    });
+    const app = createApp({ loadConfig: () => config, getStore: () => store });
+
+    const response = await app.request(`/api/planets/megastera-proofs?recipient=${ticket.recipient}&offset=0&limit=1`);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      total: 1,
+      offset: 0,
+      limit: 1,
+      proofs: [{ recipient: ticket.recipient, ticketId: '456', logIndex: '4' }],
+    });
+  });
+
+  it('bounds Megastera proof lookup pagination', async () => {
+    const response = await createApp().request('/api/planets/megastera-proofs?recipient=0x3333333333333333333333333333333333333333&limit=101');
     expect(response.status).toBe(400);
   });
 

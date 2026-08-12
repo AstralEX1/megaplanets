@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAccount, useChainId, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import type { PlanetPreview } from '@megaplanets/planet-generator';
 import { Button } from '@/components/common/Button';
@@ -9,6 +10,7 @@ import { isPlanetVoucherServiceConfigured, requestPlanetVoucher } from '@/lib/pl
 import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 import { getPlanetAvailability } from '@/lib/planetAvailability';
 import { getLiveRevealCandidates, type RevealUnavailable } from '@/lib/planetReveal';
+import { invalidatePostWriteQueries } from '@/lib/queryInvalidation';
 import { baseSepolia } from 'viem/chains';
 
 type MintablePlanet = { preview: PlanetPreview; logIndex: bigint | undefined };
@@ -31,6 +33,7 @@ export function MintPlanetBatchButton({
   const { address } = useAccount();
   const walletChainId = useChainId();
   const publicClient = usePublicClient();
+  const queryClient = useQueryClient();
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
   const receiptSucceeded = isSuccessfulTransactionReceipt(receipt.data);
@@ -64,10 +67,11 @@ export function MintPlanetBatchButton({
       hasNotifiedMint.current = false;
       return;
     }
+    void invalidatePostWriteQueries(queryClient);
     if (hasNotifiedMint.current) return;
     hasNotifiedMint.current = true;
     onMinted?.(submittedPlanets.current.map(({ preview }) => preview.descriptor.input.ticketId));
-  }, [onMinted, receiptSucceeded]);
+  }, [onMinted, queryClient, receiptSucceeded]);
 
   useEffect(() => {
     if (receiptSucceeded) onStateChange?.('complete');

@@ -14,7 +14,6 @@ import {
   REFERRER_ADDRESS,
   TICKET_SOURCE,
 } from '@/config/contracts';
-import { API_BASE_URL, QK } from '@/lib/api';
 import {
   batchOrderAbi,
   clearPersistedBulkOrder,
@@ -30,6 +29,7 @@ import {
 } from '@/lib/purchaseReceipt';
 import type { CustomTicket } from '@/lib/tickets';
 import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
+import { invalidatePostWriteQueries } from '@/lib/queryInvalidation';
 
 const MAX_STATIC_BULK_TICKETS = 10;
 
@@ -113,14 +113,7 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
   const cancelSucceeded = isSuccessfulTransactionReceipt(cancelReceipt.data);
 
   const invalidateWalletData = useCallback(() => {
-    for (const resource of [
-      QK.walletTicketsByRound,
-      QK.walletTickets,
-      QK.walletStats,
-      QK.walletWins,
-    ]) {
-      queryClient.invalidateQueries({ queryKey: [QK.NS, API_BASE_URL, resource] });
-    }
+    void invalidatePostWriteQueries(queryClient);
   }, [queryClient]);
 
   useEffect(() => {
@@ -161,6 +154,7 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
       if (!address || !publicClient || !transactionHash) return;
       try {
         const receipt = await publicClient.getTransactionReceipt({ hash: transactionHash });
+        void invalidatePostWriteQueries(queryClient);
         const tickets = readPurchasedTickets(receipt, address);
         persistPurchasedTickets(address, tickets);
         setConfirmedTickets((current) => {
@@ -178,7 +172,7 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
         );
       }
     },
-    [address, publicClient, invalidateWalletData],
+    [address, publicClient, invalidateWalletData, queryClient],
   );
 
   useWatchContractEvent({

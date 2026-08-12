@@ -1,3 +1,4 @@
+import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { getAddress, isAddress } from 'viem';
 import { z } from 'zod';
@@ -43,12 +44,19 @@ function parsePagination(query: (name: string) => string | undefined) {
   return paginationSchema.safeParse({ offset: query('offset') ?? 0, limit: query('limit') ?? 50 });
 }
 
-function serializePeriod(period: { id: string; startsAt: Date; endsAt: Date; finalizedAt?: Date | null }) {
+function serializePeriod(period: {
+  id: string;
+  startsAt: Date;
+  endsAt: Date;
+  finalizedAt?: Date | null;
+}) {
   return {
     id: period.id,
     startsAt: period.startsAt.toISOString(),
     endsAt: period.endsAt.toISOString(),
-    ...(period.finalizedAt === undefined ? {} : { finalizedAt: period.finalizedAt?.toISOString() ?? null }),
+    ...(period.finalizedAt === undefined
+      ? {}
+      : { finalizedAt: period.finalizedAt?.toISOString() ?? null }),
   };
 }
 
@@ -72,7 +80,8 @@ export function createLeaderboardRoutes(overrides: Partial<LeaderboardDependenci
 
   app.get('/current', async (c) => {
     const pagination = parsePagination((name) => c.req.query(name));
-    if (!pagination.success) return c.json({ error: 'offset and limit must be bounded integers.' }, 400);
+    if (!pagination.success)
+      return c.json({ error: 'offset and limit must be bounded integers.' }, 400);
     try {
       const prisma = dependencies.getPrisma();
       const now = dependencies.now();
@@ -114,7 +123,8 @@ export function createLeaderboardRoutes(overrides: Partial<LeaderboardDependenci
 
   app.get('/history', async (c) => {
     const pagination = parsePagination((name) => c.req.query(name));
-    if (!pagination.success) return c.json({ error: 'offset and limit must be bounded integers.' }, 400);
+    if (!pagination.success)
+      return c.json({ error: 'offset and limit must be bounded integers.' }, 400);
     try {
       const prisma = dependencies.getPrisma();
       const result = await dependencies.listPeriods(prisma, pagination.data);
@@ -124,10 +134,11 @@ export function createLeaderboardRoutes(overrides: Partial<LeaderboardDependenci
     }
   });
 
-  app.get('/weeks/:periodId', async (c) => {
+  const archivedHandler = async (c: Context) => {
     const periodId = periodIdSchema.safeParse(c.req.param('periodId'));
     const pagination = parsePagination((name) => c.req.query(name));
-    if (!periodId.success || !pagination.success) return c.json({ error: 'A valid period ID and pagination are required.' }, 400);
+    if (!periodId.success || !pagination.success)
+      return c.json({ error: 'A valid period ID and pagination are required.' }, 400);
     try {
       const prisma = dependencies.getPrisma();
       const result = await dependencies.getArchived(prisma, periodId.data, pagination.data);
@@ -142,10 +153,15 @@ export function createLeaderboardRoutes(overrides: Partial<LeaderboardDependenci
     } catch {
       return c.json({ error: 'The leaderboard API is not configured.' }, 503);
     }
-  });
+  };
+
+  // Keep the old path as a compatibility alias while daily snapshots roll out.
+  app.get('/days/:periodId', archivedHandler);
+  app.get('/weeks/:periodId', archivedHandler);
 
   app.post('/finalize', async (c) => {
-    if (!dependencies.finalizationToken) return c.json({ error: 'Leaderboard worker is not configured.' }, 503);
+    if (!dependencies.finalizationToken)
+      return c.json({ error: 'Leaderboard worker is not configured.' }, 503);
     if (c.req.header('authorization') !== `Bearer ${dependencies.finalizationToken}`) {
       return c.json({ error: 'Leaderboard worker authentication is required.' }, 401);
     }

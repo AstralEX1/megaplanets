@@ -24,12 +24,8 @@ import type { ReactNode } from 'react';
 import { PlanetsIcon } from '@/components/icons/PlanetsIcon';
 import { PlayIcon } from '@/components/icons/PlayIcon';
 
-export type NavKey = 'home' | 'play' | 'tickets' | 'planets' | 'lab' | 'lp' | 'history';
+export type NavKey = 'home' | 'play' | 'tickets' | 'planets' | 'lab' | 'history';
 
-// LP is gated by LP_ENABLED in src/config/contracts.ts. When disabled (the
-// default), the entry is filtered out here so both `<Nav>` (desktop) and
-// `<MobileBottomNav>` (mobile) render without it. The mobile bar's
-// `flex-1 justify-around` rebalances from 5 → 4 tabs automatically.
 const ITEMS: { key: NavKey; label: string; icon: ReactNode }[] = [
   { key: 'play', label: 'Play', icon: <PlayIcon /> },
   { key: 'planets', label: 'My planets', icon: <PlanetsIcon /> },

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAccount, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import {
   JACKPOT_ADDRESS,
@@ -14,11 +15,13 @@ import {
 } from '@/lib/purchaseReceipt';
 import { buildDirectTickets, type CustomTicket, type TicketBounds } from '@/lib/tickets';
 import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
+import { invalidatePostWriteQueries } from '@/lib/queryInvalidation';
 
 /** Immediate Megapot checkout for one to ten custom and client quick-pick tickets. */
 export function useBuyTickets() {
   const { address } = useAccount();
   const publicClient = usePublicClient();
+  const queryClient = useQueryClient();
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
   const receiptSucceeded = isSuccessfulTransactionReceipt(receipt.data);
@@ -29,6 +32,7 @@ export function useBuyTickets() {
 
   useEffect(() => {
     if (!receipt.data || !address || !receiptSucceeded) return;
+    void invalidatePostWriteQueries(queryClient);
     try {
       const parsed = readPurchasedTickets(receipt.data, address);
       persistPurchasedTickets(address, parsed);
@@ -38,7 +42,7 @@ export function useBuyTickets() {
       setPurchasedTickets([]);
       setProvenanceError(error instanceof Error ? error : new Error('Ticket provenance failed.'));
     }
-  }, [receipt.data, address, receiptSucceeded]);
+  }, [receipt.data, address, queryClient, receiptSucceeded]);
 
   const buy = async (args: {
     customTickets: readonly CustomTicket[];

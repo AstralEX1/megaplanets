@@ -15,57 +15,54 @@ const PERIOD = {
 };
 
 describe('calculateLeaderboardRows', () => {
-  it('combines canonical closed segments with active production inside the current week', () => {
+  it('calculates lifetime production from immutable Planet traits and mint times', () => {
     const rows = calculateLeaderboardRows({
       period: PERIOD,
       asOf: new Date('2026-08-11T00:00:00.000Z'),
-      ledger: [{
-        ownerAddress: ADDRESS_A,
-        startedAt: new Date('2026-08-10T00:00:00.000Z'),
-        endedAt: new Date('2026-08-10T12:00:00.000Z'),
-        baseMineralsPerDay: 24n,
-        multiplierBps: 10_000,
-        amountMicros: 12_000_000n,
-      }],
-      active: [
+      planets: [
         {
           ownerAddress: ADDRESS_A,
-          startedAt: new Date('2026-08-10T12:00:00.000Z'),
-          multiplierBps: 10_000,
-          remainder: 0n,
-          planet: { baseMineralsPerDay: 24n },
+          baseMineralsPerDay: 24n,
+          mintedAt: new Date('2026-08-09T00:00:00.000Z'),
         },
         {
           ownerAddress: ADDRESS_B,
-          startedAt: new Date('2026-08-10T00:00:00.000Z'),
-          multiplierBps: 10_000,
-          remainder: 0n,
-          planet: { baseMineralsPerDay: 12n },
+          baseMineralsPerDay: 12n,
+          mintedAt: new Date('2026-08-10T00:00:00.000Z'),
         },
       ],
     });
 
     expect(rows).toEqual([
-      { rank: 1, walletAddress: ADDRESS_A, scoreMicros: 24_000_000n, effectiveMineralsPerDayMicros: 24_000_000n },
-      { rank: 2, walletAddress: ADDRESS_B, scoreMicros: 12_000_000n, effectiveMineralsPerDayMicros: 12_000_000n },
+      {
+        rank: 1,
+        walletAddress: ADDRESS_A,
+        scoreMicros: 48_000_000n,
+        effectiveMineralsPerDayMicros: 24_000_000n,
+      },
+      {
+        rank: 2,
+        walletAddress: ADDRESS_B,
+        scoreMicros: 12_000_000n,
+        effectiveMineralsPerDayMicros: 12_000_000n,
+      },
     ]);
   });
 
-  it('does not count active production after the period end', () => {
+  it('does not count a Planet minted after the UTC snapshot boundary', () => {
     const rows = calculateLeaderboardRows({
       period: PERIOD,
       asOf: new Date('2026-08-20T00:00:00.000Z'),
-      ledger: [],
-      active: [{
-        ownerAddress: ADDRESS_A,
-        startedAt: new Date('2026-08-16T00:00:00.000Z'),
-        multiplierBps: 10_000,
-        remainder: 0n,
-        planet: { baseMineralsPerDay: 10n },
-      }],
+      planets: [
+        {
+          ownerAddress: ADDRESS_A,
+          baseMineralsPerDay: 10n,
+          mintedAt: new Date('2026-08-20T00:00:00.000Z'),
+        },
+      ],
     });
 
-    expect(rows[0]).toMatchObject({ scoreMicros: 10_000_000n, effectiveMineralsPerDayMicros: 0n });
+    expect(rows).toEqual([]);
   });
 });
 
@@ -93,7 +90,9 @@ describe('finalizeLeaderboardPeriod', () => {
     let periodWrites = 0;
     let lockCalls = 0;
     const transaction = {
-      $queryRaw: async () => { lockCalls += 1; },
+      $queryRaw: async () => {
+        lockCalls += 1;
+      },
       leaderboardPeriod: {
         findUnique: async () => periodRecord,
         upsert: async ({ create }: { create: { id: string; finalizedAt: Date } }) => {
@@ -106,17 +105,11 @@ describe('finalizeLeaderboardPeriod', () => {
         createMany: async () => ({ count: 0 }),
         findMany: async () => [],
       },
-      mineralLedgerEntry: {
-        findMany: async () => [],
-        create: async () => undefined,
-      },
-      planetAccrualState: {
-        findMany: async () => [],
-        update: async () => undefined,
-      },
+      planet: { findMany: async () => [] },
     };
     const prisma = {
-      $transaction: async (operation: (client: typeof transaction) => Promise<unknown>) => operation(transaction),
+      $transaction: async (operation: (client: typeof transaction) => Promise<unknown>) =>
+        operation(transaction),
     } as unknown as PrismaClient;
 
     await finalizeLeaderboardPeriod(prisma, PERIOD, new Date('2026-08-17T00:00:01.000Z'));
@@ -124,5 +117,67 @@ describe('finalizeLeaderboardPeriod', () => {
 
     expect(periodWrites).toBe(1);
     expect(lockCalls).toBe(2);
+  });
+});
+
+describe('daily leaderboard finalization', () => {
+  it('persists one deterministic daily snapshot and serves it as the latest completed result', async () => {
+    const period = {
+      id: '2026-08-10',
+      startsAt: new Date('2026-08-10T00:00:00.000Z'),
+      endsAt: new Date('2026-08-11T00:00:00.000Z'),
+    };
+    let periodRecord: { id: string; startsAt: Date; endsAt: Date; finalizedAt: Date } | undefined;
+    const entries = [
+      {
+        rank: 1,
+        walletAddress: ADDRESS_A,
+        scoreMicros: 48_000_000n,
+        effectiveMineralsPerDayMicros: 24_000_000n,
+      },
+    ];
+    const transaction = {
+      $queryRaw: async () => undefined,
+      leaderboardPeriod: {
+        findUnique: async () => periodRecord,
+        upsert: async ({ create }: { create: typeof period }) => {
+          periodRecord = { ...create, finalizedAt: new Date('2026-08-11T00:00:01.000Z') };
+          return periodRecord;
+        },
+      },
+      leaderboardEntry: {
+        createMany: async () => ({ count: entries.length }),
+        findMany: async () => entries,
+      },
+      planet: {
+        findMany: async () => [
+          {
+            ownerAddress: ADDRESS_A,
+            baseMineralsPerDay: 24n,
+            mintedAt: new Date('2026-08-09T00:00:00.000Z'),
+          },
+        ],
+      },
+    };
+    const prisma = {
+      $transaction: async (operation: (client: typeof transaction) => Promise<unknown>) =>
+        operation(transaction),
+      leaderboardPeriod: {
+        findFirst: async () => periodRecord,
+      },
+      leaderboardEntry: {
+        findMany: async () => entries,
+      },
+    } as unknown as PrismaClient;
+
+    await finalizeLeaderboardPeriod(prisma, period, new Date('2026-08-11T00:00:01.000Z'));
+    const current = await (await import('./leaderboardStore')).getCurrentLeaderboard(
+      prisma,
+      new Date('2026-08-11T00:01:00.000Z'),
+      { offset: 0, limit: 50 },
+    );
+
+    expect(current.asOf).toEqual(new Date('2026-08-11T00:00:01.000Z'));
+    expect(current.rows).toEqual(entries);
   });
 });

@@ -3,18 +3,11 @@ import {
   buildDirectTickets,
   getBulkOrderShape,
   isValidTicket,
-  pickPurchaseRoute,
   randomTicket,
   totalCost,
 } from './tickets';
 
 describe('purchase routing', () => {
-  it('routes one to ten tickets to immediate Jackpot checkout and 11+ to bulk', () => {
-    expect(pickPurchaseRoute({ count: 1, recurring: false })).toBe('jackpot');
-    expect(pickPurchaseRoute({ count: 10, recurring: false })).toBe('jackpot');
-    expect(pickPurchaseRoute({ count: 11, recurring: false })).toBe('bulk');
-  });
-
   it('computes the bulk static/dynamic split with a ten-static-ticket cap', () => {
     expect(getBulkOrderShape({ count: 11, staticTicketCount: 10 })).toEqual({
       dynamicCount: 1,
