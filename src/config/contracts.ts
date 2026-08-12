@@ -1,13 +1,9 @@
 /**
  * ---
  * @skill      https://llms.megapot.io/contracts/reference
- * @customize  Set VITE_REFERRER_ADDRESS in .env to your wallet — that's how
- *             you earn USDC on every ticket sold and every winning claimed
- *             through this app. The kit ships with a dead-address default
- *             so it runs out of the box; the diagnostics warning at boot
- *             (see config/diagnostics.ts) catches the unchanged default
- *             in dev. Switch chains by changing VITE_CHAIN in .env
- *             (mainnet | testnet).
+ * Set VITE_REFERRER_ADDRESS only for an explicitly approved deployment
+ * configuration. The checked-in value is the approved MegaPlanets referrer;
+ * never replace it with a dead address. Base Sepolia is the current target.
  * ---
  *
  * All Megapot contract addresses + chain-aware helpers. Single source of
@@ -61,15 +57,15 @@ export const USDC_DECIMALS = 6;
 export const BONUSBALL_MIN = 1;
 
 /**
- * `bytes32` source identifier passed to ticket purchase calls (direct buys,
- * batch orders) for analytics attribution. Replace with
- * your app identifier to filter your purchases out of on-chain analytics.
+ * `bytes32` source identifier passed to ticket purchase calls (direct buys and
+ * batch orders) for analytics attribution. It is part of the eligibility
+ * invariant and must remain unchanged.
  *
  * Computed from a UTF-8 string padded to 32 bytes via `viem.stringToHex`.
  */
 export const TICKET_SOURCE = stringToHex('MEGAPLANETS_V1', { size: 32 });
 
-/** First Base Sepolia block whose MegaPlanets ticket events can mint Season 1 Planets. */
+/** First Base Sepolia block whose MegaPlanets ticket events can mint Planets. */
 export const MEGAPLANETS_LAUNCH_BLOCK = 44_997_183n;
 /** First canonical MegaPlanets_V1 ticket in the pre-launch activation window. */
 export const MEGAPLANETS_TICKET_START_BLOCK = 44_996_796n;
@@ -83,9 +79,8 @@ export const REFERRAL_SPLIT_FULL: readonly bigint[] = [1_000_000_000_000_000_000
 /**
  * Wallet that earns referral fees on every ticket purchased and every
  * winning claimed through this app. Read from `VITE_REFERRER_ADDRESS`
- * in your `.env`; falls back to a dead address so a fresh fork runs
- * end-to-end without any config (fees earned on the fallback are
- * unrecoverable — change before shipping).
+ * in your `.env`; falls back to the approved project referrer. Override it
+ * only when the recipient has been explicitly approved for the environment.
  *
  * Per-ticket fee + win-share rates are protocol-level and readable at
  * runtime via `Jackpot.getDrawingState().referralFee` and
@@ -100,7 +95,7 @@ const configuredReferrer = (import.meta.env.VITE_REFERRER_ADDRESS as string | un
 /**
  * The project referrer is public configuration, never a signing credential.
  * An invalid local override falls back to the approved project address rather
- * than risking an unrecoverable dead-address referral assignment.
+ * than risking an unrecoverable referral assignment.
  */
 export const REFERRER_ADDRESS: Address =
   configuredReferrer && isAddress(configuredReferrer)

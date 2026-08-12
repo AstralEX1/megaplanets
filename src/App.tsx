@@ -1,5 +1,5 @@
 /**
- * Lightweight History API routing keeps the starter small while supporting
+ * Lightweight History API routing keeps the demo shell small while supporting
  * canonical collection and Planet detail deep links.
  */
 import type { ReactNode } from 'react';

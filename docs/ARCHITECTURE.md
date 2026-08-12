@@ -1,246 +1,123 @@
-# Architecture
+# MegaPlanets architecture
 
-## MegaPlanets current architecture
+This is the authoritative system map for the current seasonless ERC721A V2 MVP.
+Start with [`README.md`](../README.md) for the product loop, then read
+[`AGENTS.md`](../AGENTS.md) before editing. [`STATUS.md`](./STATUS.md) records what is
+actually ready; [`OPERATIONS.md`](./OPERATIONS.md) is the deployment and recovery
+runbook. Older implementation plans are historical and are not instructions.
 
-The imported frontend remains the integration baseline. The MVP now contains three
-implemented boundaries without rewriting the known-good Megapot hooks:
+## Authoritative sources
 
-1. `packages/planet-generator` owns deterministic traits, minerals, browser previews,
-   and server-side short WebM rendering.
-2. `contracts` owns one-ticket-one-planet enforcement, ERC-721A individual/batch
-   minting, ticket-to-Planet provenance, and immutable metadata CIDs.
-3. `api` owns Megastera Proof persistence, IPFS pinning, signed mint vouchers, a minimal
-   Planet ownership projector, lifetime mineral reads, and daily leaderboard snapshots.
+| Concern | Source of truth | What the other layers may do |
+| --- | --- | --- |
+| Ticket purchase and drawing state | Megapot contracts and Base Sepolia RPC | The Data API is discovery/history only. |
+| Ticket eligibility | Confirmed receipt containing the canonical `MEGAPLANETS_V1` event, validated by `MegasteraVerifier` | Server stores a durable Megastera Proof after receipt finality. |
+| Planet identity and mint validity | `contracts/src/MegaPlanets.sol` plus the deployed V2 bytecode/ABI | API signs constrained vouchers; frontend previews only. |
+| Current Planet holdings | ERC721A `ownerOf`/`balanceOf`/`tokenOfOwnerByIndex` through direct RPC | The PostgreSQL projector is a fallback/read model and operational index. |
+| Mint time and indexed traits | Finalized `PlanetMinted` plus initial `Transfer` events | Projector retries idempotently and rewinds on block-hash mismatch. |
+| Lifetime minerals | `baseMineralsPerDay × elapsed since mintedAt` in `api/mining.ts` | API and frontend interpolate display-only values between snapshots. |
+| Leaderboard | PostgreSQL `LeaderboardPeriod`/`LeaderboardEntry` daily UTC snapshots | A worker finalizes completed days; public routes are read-only. |
+| Canonical media | Immutable `PlanetArtifact` with IPFS JSON and bounded VP8 WebM CIDs/hashes | Checked-in GIFs are regression fixtures only. |
 
-Writes and live drawing state continue to use Base RPC. Historical Megapot data uses
-the Megapot Data API. Current Planet holdings are read directly from ERC721A, while
-PostgreSQL stores proofs, immutable artifact pointers, mint timestamps, projected owners,
-and daily snapshots. The repository now includes standalone
-API and indexer entry points plus readiness/metrics probes; external hosting and durable
-monitoring are still deployment work.
-
-Historical V1 deployments are no longer part of the active product and no default Planet
-contract address is configured in checked-in defaults. The active contract, ABI, database
-model, and product flow target the deployed seasonless ERC721A V2; runtime activation
-remains environment-only. See [`STATUS.md`](./STATUS.md) for current blockers.
-
-The backend does not maintain a custom wallet nonce/session layer. Public reads are
-address-scoped (with on-chain wallet connection handled by RainbowKit/wagmi), while
-voucher eligibility is authorized by Megastera Proof.
-
-The Planet mint flow is intentionally separate from the Megapot purchase transaction:
+## Product flow
 
 ```text
-buy immediate tickets or create an all-random keeper bulk order -> confirm every TicketPurchased -> prepare canonical metadata
--> sign one or more vouchers -> user mints MegaPlanets ERC-721A -> lifetime mineral value -> daily leaderboard
+Megapot ticket purchase
+  → confirmed receipt and Megastera Proof
+  → deterministic generator input
+  → immutable IPFS artifact and EIP-712 voucher
+  → free MegaPlanets mint
+  → direct current ownership
+  → lifetime minerals
+  → daily UTC leaderboard snapshot
 ```
 
-The NFT contract is non-upgradeable and its normal mint functions are nonpayable: users
-pay Base gas only. A rotatable metadata signer may authorize only vouchers that bind the
-recipient, Megapot ticket ID, origin transaction hash, deterministic seed,
-traits hash, IPFS CID, and expiration. Batch mint validates each voucher and live ticket
-owner atomically. The ERC-721A collection uses sequential Planet token IDs starting at
-one; explicit bidirectional ticket/Planet mappings retain ticket provenance without
-requiring Planet and Megapot ticket IDs to match.
+Direct purchases use one to ten tickets. Eleven to fifty all-random tickets use the
+keeper facilitator; each execution receipt, not the order-creation receipt, is the
+provenance source. Every route reads ticket price, drawing ID, ball limits, and bulk
+minimum dynamically. USDC approvals compare the exact required allowance and approve the
+route-specific spender with `maxUint256` only when insufficient; a successful receipt
+invalidates/refetches allowance state.
 
-## Deterministic generator boundary
+The source tag is always `MEGAPLANETS_V1`. This is Megapot attribution and is unrelated
+to the unsupported historical MegaPlanets V1 NFT deployment.
 
-`packages/planet-generator` is a DOM-free TypeScript package shared
-by the browser and future metadata backend. The canonical generator hashes Solidity
-ABI-encoded `uint16 generatorVersion`, `uint256 ticketId`, `uint256 drawingId`,
-sorted `uint8[5] normals`, `uint8 bonusBall`,
-and `bytes32 originTxHash`. All Type, terrain, satellite, background, name, minerals,
-and rarity streams are derived by name from that seed. The technical generator version
-does not appear as a public NFT metadata attribute.
+## Frontend boundaries
 
-The browser renders the 128×128 logical pixel scene and retains legacy GIF fixtures.
-New NFT artifacts are bounded three-second VP8 WebM files encoded only by the server
-subpath. Clients scale the asset with nearest-neighbor rendering.
-Eligible unrevealed tickets are discovered from indexed wallet history and a bounded recent
-chain window, then revalidated as Megastera Proofs. Browser-persisted purchase receipts
-are merged in for immediate post-purchase continuity.
+`src/pages/Play.tsx` owns checkout/reveal orchestration. It uses direct RPC receipt
+recovery, server Megastera Proofs, and bounded chain windows only while an expedition is
+active or a resumable session exists. The idle form does not start the expensive
+four-source recovery query. Bulk facilitator reads/watchers are similarly disabled for
+ordinary one-to-ten direct purchases.
 
-For an immediate `Jackpot.buyTickets` transaction, the ticket's origin transaction hash is
-the checkout receipt. For a keeper-executed bulk order, the initial
-`BatchOrderCreated` receipt is retained only for order UX; each Planet uses the transaction
-hash and log index of its actual `TicketPurchased` execution event. This avoids assigning one
-seed provenance value to tickets minted later in separate keeper transactions.
+`src/hooks/useIndexedPlanets.ts` reads current holdings directly from the V2 contract by
+default. `VITE_PLANET_HOLDINGS_SOURCE=indexed` is an explicit compatibility rollback, not
+the normal path. The frontend never treats an indexed row or a Data API row as proof that
+a ticket can mint.
 
-## Mineral and leaderboard boundary
+`src/hooks/useWalletMining.ts` consumes the public lifetime snapshot. The UI may render a
+live interpolated number, but it never writes mineral state and never displays a
+same-type multiplier, pending accrual, or transfer settlement.
 
-Minerals are calculated lazily in fixed-point integer units as the immutable Planet rate
-multiplied by elapsed time since mint. There are no accrual segments, same-Type repricing,
-or ledger writes. Current ownership is authoritative: transfer moves the Planet's entire
-lifetime value to the recipient and burn removes it from scoring. A small finalized
-`PlanetMinted`/`Transfer` projector persists only mint time and current owner for backend
-mining reads and the leaderboard. One completed UTC-day snapshot is materialized daily.
+## API and persistence
 
-## Imported starter-kit architecture
+The Hono app in `api/index.ts` exposes health/readiness/metrics, Megastera Proofs,
+voucher/artifact preparation, indexed Planet compatibility reads, mining, and leaderboard
+routes. Server secrets are loaded only from server environment variables. JSON bodies are
+bounded to 16 KiB; voucher work has a process-local concurrency guard and rate limiter.
+Production still needs a durable edge limiter across replicas.
 
-The kit splits reads between two sources and writes go on-chain. This doc
-explains the API-vs-RPC division, polling cadence, and the design choices
-that ripple across the codebase.
+Split frontend/API deployments must set the exact comma-separated
+`MEGAPLANETS_ALLOWED_ORIGINS` allowlist. Empty means same-origin only; wildcard, paths,
+credentials, and malformed origins are rejected. The API never enables credentialed CORS.
 
-If you came here from the README and want the rebrand checklist, jump to
-[`CUSTOMIZE.md`](./CUSTOMIZE.md) instead.
+PostgreSQL is the production store. The local JSON store is useful for one local process
+and is rejected for production voucher service startup. Current forward runtime tables are
+ticket proofs, immutable artifacts, vouchers, Planets, projector cursors/events,
+ownership read models, and daily leaderboard periods/entries. Historical Prisma models and
+migrations may remain for database compatibility, but no current code writes accrual
+ledgers, transfer settlements, same-type state, continuous Ticket-indexer state, or
+application user-auth records.
 
-## API vs RPC matrix
+## Finalized Planet projector
 
-The canonical table. Every read in `src/hooks/` resolves to one of these
-rows; if a fork adds a new hook, decide which column it belongs in before
-writing code.
+`api/planetIndexer.ts` and `api/planetIndexerWorker.ts` project only the deployed V2
+`PlanetMinted` and ERC721A `Transfer` stream. The cursor stores `nextBlock` and the last
+finalized block hash under `megaplanets-v2`. The worker:
 
-| Read type | Source | Why |
-|---|---|---|
-| Live drawing state (jackpot lock, time, ball bounds) | RPC | Sub-block latency matters. UI status flips on `JackpotLocked` / `JackpotSettled` events. |
-| Per-drawing prize-tier projection | RPC | The Data API only populates `prize_tiers` after settlement; pre-settle projections come from `getExpectedDrawingTierPayouts`. |
-| Real-time post-buy confirmation | RPC | The Data API is eventually consistent (indexer lag); the buy page needs to confirm tickets exist before navigating away. |
-| Wallet ticket / win / round historical aggregates | Data API | One paginated call vs. N RPC reads + manual decode. |
-| Wallet lifetime stats | Data API | The indexer pre-computes lifetime tickets, wins, spend, referral earnings. |
-| Round listing with aggregates | Data API | A single `/rounds` call returns 50 rounds with `prize_pool`, `lp_earnings`, `winning_numbers`, `prize_tiers` already folded in. |
-| Writes (buy, claim, lp, subscribe) | RPC | Always on-chain. |
+1. chooses a finalized range;
+2. compares the stored boundary hash with the chain;
+3. rewinds only the configured recent deployment-scoped window on mismatch;
+4. decodes and validates events;
+5. writes mint/owner state and processed-event idempotency records; and
+6. advances the cursor only after the range is complete.
 
-Files: see `src/hooks/useJackpotState.ts`, `src/hooks/useUserTickets.ts`,
-`src/hooks/usePrizeTiers.ts` for RPC reads; `src/hooks/useRound.ts`,
-`src/hooks/useRoundsList.ts`, `src/hooks/useWalletStats.ts`,
-`src/hooks/useWalletTickets.ts`, `src/hooks/useWalletWins.ts` for Data API
-reads. The Data API client + types live in `src/lib/api.ts`.
+`PlanetMinted` creates the Planet with zero owner; the same transaction's initial Transfer
+sets the recipient. Later transfers update only `ownerAddress`. The zero address is not a
+mining owner. A burn therefore removes a Planet from current-owner reads and leaderboard
+rows; it does not create an accrual settlement.
 
-## Polling cadence
+The legacy Megapot Ticket indexer is retired. Server-side Megastera Proofs are written
+only when the receipt verifier has checked the canonical event and confirmation depth.
 
-The kit avoids manual refresh buttons in favor of a hybrid pattern:
-phase-aware polling + event subscriptions for instant transitions.
+## Contracts and deployment identity
 
-`src/hooks/useJackpotState.ts` polls `getDrawingState` on this cadence:
+The active contract is Base Sepolia chain `84532`:
 
-| Phase | Interval | Why |
-|---|---|---|
-| `open` | 30 s | Only ticket counts move; users won't notice a 30 s lag on a 24 h drawing. |
-| `awaiting` | 5 s | Countdown crossed `drawingTime`; anyone can call `runJackpot()` at any second. |
-| `settling` | 5 s | Pyth entropy callback fires 1–2 blocks after `JackpotLocked`; sometimes ~30 s. |
-| `settled` | off | Settled state is immutable — re-polling is wasted bandwidth. |
+- V2 address: `0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2`
+- deployment transaction: `0xe29aa681e25ba222df04a1acdb2d2e48d2c47ac7cc1d46da0f2e8920ea9f9b6c`
+- deployment block: `45347860`
+- deployment owner, signer, and approved referrer: `0xCfc1044C749fD40E07FE33938414Fa573993F857`
+- Megapot ticket NFT: `0x45084829ac63f9dC6a3D4981A46FA896f9180ECd`
 
-The interval is set as a function inside `refetchInterval` so the cadence
-adapts the moment the phase changes, not at the next mount.
+Checked-in runtime addresses remain empty until the operations gate is approved. The
+historical OpenZeppelin V1 address is unsupported and must never be configured as V2.
+Keep launch block `44997183`, activation start `44996796`, and `TICKET_SOURCE` unchanged.
 
-In parallel, four event subscriptions on the Jackpot contract
-(`JackpotLocked`, `JackpotSettled`, `NewDrawingInitialized`,
-`JackpotUnlocked`) call `refetchAll()` for instant refresh — closing the
-gap any polling interval would leave.
+## Verification map
 
-`useRound.ts` follows the same idea on the Data API side: settled rounds
-get `staleTime: Infinity` because they never change.
-
-## Invalidation graph
-
-Writes invalidate the matching read keys; events from other writers do
-the same. Every key lives in `QK` constants in `src/lib/api.ts` so the
-invalidation site can't drift from the hook's query key.
-
-| Trigger | Invalidates | Source |
-|---|---|---|
-| Buy confirms (`useBuyTickets`, `useBulkPurchase`, `useSubscribe`) | `QK.walletTicketsByRound`, `QK.walletTickets`, `QK.walletStats`, `QK.walletWins` | `src/pages/Play.tsx` |
-| `BatchOrderExecuted` event | Same four keys as buy confirm (chunked bulk orders mint tickets over time) | `src/hooks/useBulkPurchase.ts` |
-| `JackpotSettled` event | `QK.rounds` (round list aggregates change at settlement) | `src/hooks/useRoundsList.ts` |
-| `JackpotLocked` / `JackpotSettled` / `NewDrawingInitialized` / `JackpotUnlocked` | `useJackpotState` refetches in-place | `src/hooks/useJackpotState.ts` |
-
-The pattern is verbatim across the kit: every write path that mutates
-indexer-tracked state invalidates the matching Data API keys; every
-phase-changing on-chain event refetches its RPC reader. A fork that adds
-a new write (e.g. a custom claim flow) follows the same shape — call
-`queryClient.invalidateQueries({ queryKey: [QK.NS, API_BASE_URL, <resource>] })`
-inside the success effect.
-
-## Three-tier API key handling
-
-The Data API supports three deployment shapes; all three live as
-documented options in [`.env.example`](../.env.example). Pick once
-per fork:
-
-- **Anonymous (default).** No key. Browser hits `api.megapot.io`
-  directly. Anonymous tier: 10 requests/minute, 500/day.
-- **Browser key.** Set `VITE_MEGAPOT_API_KEY`. Higher tier:
-  60/minute, 10K/day. Key ships in the browser bundle — acceptable for
-  the read-only Data API, rotate via the dashboard if leaked.
-- **Proxy.** Set `MEGAPOT_API_KEY` (server-side only, no `VITE_`
-  prefix) and `VITE_API_BASE_URL=/api/megapot`. Deploy
-  [`server/proxy.ts`](../server/proxy.ts) — a framework-agnostic Hono
-  proxy. See [`examples/README.md`](../examples/README.md) for the
-  Vercel Functions and Cloudflare Workers wrappers.
-
-The kit detects `mpk_dev_*` keys in production builds and warns at
-boot (`src/lib/api.ts`), so a forker doesn't chase a 403 chain.
-
-## Decisions worth knowing
-
-These are choices that ripple beyond their immediate file. Linked from
-[`CUSTOMIZE.md`](./CUSTOMIZE.md) at the relevant rebrand steps.
-
-### RainbowKit (not ConnectKit, not vanilla wagmi)
-
-Full WalletConnect modal + Rainbow + MetaMask mobile when
-`VITE_WALLETCONNECT_PROJECT_ID` is set; injected wallets + Coinbase
-Wallet only when it's empty (the kit hand-builds a WC-free wagmi config
-in that branch — see `src/config/wagmi.ts` for why
-`getDefaultConfig` can't run without a projectId). The kit treats the
-wallet provider as a swappable boundary — `src/config/wagmi.ts` and the
-`<RainbowKitProvider>` wrapper in `src/main.tsx` are the only two files
-that know about RainbowKit.
-Everything downstream uses wagmi's hooks (`useAccount`, `useReadContract`,
-`useWriteContract`, `useWatchContractEvent`) which are vendor-neutral.
-
-Swap path is documented in `CUSTOMIZE.md` § "Wallet provider".
-
-### `useState` tab routing (not TanStack Router)
-
-5 pages, no deep-link requirement. A router would add a dependency
-and force every page to think about URL state; tab state in `App.tsx`
-keeps the dependency graph one file shallower. If a fork later needs
-URL state, swapping to TanStack Router or React Router is a one-file
-change — each page is self-contained, so deletion stays cheap.
-
-### Unlimited approvals with an explicit allowance gate
-
-`<ApprovalButton>` (`src/components/common/ApprovalButton.tsx`) approves
-the route-specific spender with `maxUint256` when the current allowance is
-below the exact required amount. Every purchase/operation still compares the
-allowance with its exact cost first, so sufficient allowances render the real
-action without another signature. This is an intentional UX/security trade-off:
-an approved spender could drain more of the wallet's USDC if compromised, but
-users approve each spender only once and the allowance is refetched after a
-successful receipt.
-
-The behavior is centralized in `src/components/common/ApprovalButton.tsx` and
-covered by component tests for sufficient and insufficient allowances.
-
-### No UI library — Tailwind only
-
-Keeps the dependency graph shallow. `<Button>` (3 variants) +
-`brand.primary` Tailwind tokens + a handful of inline-SVG icons cover
-every action surface. A rebrand is a `tailwind.config.ts` color-scale
-edit + `BrandMark.tsx` logo swap; no Radix / shadcn / Headless UI to
-unwind.
-
-### `bigint` everywhere for amounts
-
-USDC raw 6-decimal units stay as `bigint` from contract read through
-display formatter. `BigInt.prototype.toJSON` is polyfilled in
-`src/main.tsx` for accidental JSON.stringify calls; wagmi's `hashFn`
-(also wired in `src/main.tsx`) handles bigints inside TanStack Query
-keys. Together: nothing in the React tree blows up on bigint
-serialization, and amounts never round-trip through floating point.
-
-### Data API + RPC, not just RPC
-
-Round listing on a forkable starter (no indexer of its own) would
-otherwise require ~50 backward-walking multicall pages on every
-History tab open. The Data API gives forks pre-computed round
-aggregates for free, so wallet aggregates, round listings, and ticket
-history come from the API while live state and writes stay on RPC.
-
-## See also
-
-- [`CUSTOMIZE.md`](./CUSTOMIZE.md) — every rebrand seam in one place
-- [`../examples/README.md`](../examples/README.md) — proxy deploy wrappers
-- [`../AGENTS.md`](../AGENTS.md) — JSDoc convention used in every src file
-- [`https://llms.megapot.io`](https://llms.megapot.io) — protocol-side skills
+Use the exact commands in [`OPERATIONS.md`](./OPERATIONS.md). The minimum application gate
+is `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm db:generate`, and
+`pnpm db:validate`. Contract changes additionally require Foundry build/tests and the
+checked-in ABI check. Browser smoke is evidence only when a real browser/dev-server path
+is available; it must cover Play, My Planets, and Leaderboard loading/empty/error states.

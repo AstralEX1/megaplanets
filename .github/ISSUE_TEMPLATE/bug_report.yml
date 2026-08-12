@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in the starter kit doesn't work as documented.
+description: Something in MegaPlanets does not work as documented.
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -15,15 +15,15 @@ body:
       options:
         - label: I've searched [existing issues](../../issues?q=is%3Aissue) and this isn't a duplicate.
           required: true
-        - label: I've read the [README](../../blob/main/README.md) and [CUSTOMIZE.md](../../blob/main/docs/CUSTOMIZE.md).
+        - label: I've read the [README](../../blob/main/README.md) and current [operations guide](../../blob/main/docs/OPERATIONS.md).
           required: true
-        - label: The bug reproduces on an unmodified clone of the starter (not just in my fork).
+        - label: The bug reproduces on an unmodified MegaPlanets checkout (not just in my fork).
           required: true
 
   - type: input
     id: version
     attributes:
-      label: Starter kit version
+      label: Commit or release
       description: Release tag or commit SHA you're running.
       placeholder: "v0.1.0"
     validations:
@@ -80,9 +80,6 @@ body:
       label: Package manager
       options:
         - pnpm
-        - npm
-        - yarn
-        - bun
     validations:
       required: true
 

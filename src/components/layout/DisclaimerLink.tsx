@@ -1,25 +1,11 @@
 /**
- * ---
- * @customize  Disclaimer link rendered inside <Footer /> (desktop) and
- *             <FooterMobile />. The URL is hardcoded — the component
- *             IS the seam. A fork that doesn't want the line just drops
- *             the `<DisclaimerLink />` reference from `Footer.tsx`; no
- *             env plumbing, no string juggling.
- *
- *             To point at your own disclaimer:
- *               - edit `DISCLAIMER_URL` below
- *               - update `docs/DISCLAIMER.md` (or your equivalent) so the
- *                 two stay in sync.
- *
- *             To customize the surrounding copy (e.g. swap "full disclaimer"
- *             for your wording), edit the children passed by `Footer.tsx`
- *             rather than this file — keeps the link primitive reusable.
- * ---
+ * Disclaimer link rendered inside <Footer />. The URL is hardcoded so the
+ * legal acknowledgement remains visible without runtime configuration.
  */
 import type { ReactNode } from 'react';
 
 const DISCLAIMER_URL =
-  'https://github.com/coordinationlabs/megapot-starter-kit/blob/main/docs/DISCLAIMER.md';
+  'https://github.com/AstralEX1/megaplanets/blob/main/docs/DISCLAIMER.md';
 
 export function DisclaimerLink({
   children = 'full disclaimer',

@@ -30,8 +30,8 @@ environment; the API key remains gitignored and must never be committed.
 ```sh
 cd contracts
 forge test
-forge build
-forge inspect MegaPlanets abi --json > abi/MegaPlanets.json
+forge build --sizes
+./script/check-abi.sh
 ```
 
 The deployment record in this repository comes from these exact commands:
