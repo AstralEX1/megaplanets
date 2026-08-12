@@ -7,6 +7,11 @@ This document is the current implementation snapshot. Product intent remains in
 [`ARCHITECTURE.md`](./ARCHITECTURE.md), and future work is ordered in
 [`ROADMAP.md`](./ROADMAP.md).
 
+The public game overview, local setup, deployment gate, and golden Planet GIF gallery
+are maintained in the repository root [`README.md`](../README.md). The renderer fixtures
+live in [`packages/planet-generator/tests/fixtures/`](../packages/planet-generator/tests/fixtures/)
+and are verified byte-for-byte by the focused generator suite.
+
 ## Executive summary
 
 MegaPlanets has a substantial local MVP implementation: Megapot ticket purchases,
@@ -134,7 +139,7 @@ gate passes; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 The seasonless rewrite and audit-remediation checks completed on 2026-08-12:
 
 - `pnpm db:generate`, `pnpm db:validate`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and
-  `pnpm build` pass. The test suite reports 60 files and 236 tests; lint checked 285 files.
+  `pnpm build` pass. The test suite reports 60 files and 238 tests; lint checked 285 files.
   Build output has
   only the existing external PURE-comment and large-chunk warnings.
 - Foundry unit, fuzz, and bounded invariant tests pass: 14 tests total, including 256

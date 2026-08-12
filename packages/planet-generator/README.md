@@ -94,3 +94,23 @@ produce NFT metadata. Production builds omit the Lab route and navigation entry.
 
 Run `pnpm --filter @megaplanets/planet-generator golden` to verify fixtures. Intentional
 fixture replacement uses `golden:update` and requires coordinator review.
+
+## Golden fixture gallery
+
+These files are the byte-for-byte visual regression fixtures used by the generator test
+suite. They are canonical examples of the current renderer, not hand-picked runtime
+metadata:
+
+| Fixture | Derived Type | Rarity | Preview |
+| --- | --- | --- | --- |
+| `ticket-456` | Volcanic | Common | ![Ticket 456](tests/fixtures/ticket-456.gif) |
+| `ticket-1001` | Nebula | Common | ![Ticket 1001](tests/fixtures/ticket-1001.gif) |
+| `ticket-4242` | Gaia | Uncommon | ![Ticket 4242](tests/fixtures/ticket-4242.gif) |
+
+The complete input, seed, canonical traits, SHA-256 hashes, and byte lengths are in
+[`tests/fixtures/manifest.json`](tests/fixtures/manifest.json). Reproduce the checks
+from the repository root with:
+
+```bash
+pnpm --filter @megaplanets/planet-generator golden
+```
