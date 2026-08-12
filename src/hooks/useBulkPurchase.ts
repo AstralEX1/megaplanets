@@ -29,6 +29,7 @@ import {
   readPurchasedTickets,
 } from '@/lib/purchaseReceipt';
 import type { CustomTicket } from '@/lib/tickets';
+import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 
 const MAX_STATIC_BULK_TICKETS = 10;
 
@@ -106,8 +107,10 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
 
   const create = useWriteContract();
   const createReceipt = useWaitForTransactionReceipt({ hash: create.data });
+  const createSucceeded = isSuccessfulTransactionReceipt(createReceipt.data);
   const cancel = useWriteContract();
   const cancelReceipt = useWaitForTransactionReceipt({ hash: cancel.data });
+  const cancelSucceeded = isSuccessfulTransactionReceipt(cancelReceipt.data);
 
   const invalidateWalletData = useCallback(() => {
     for (const resource of [
@@ -129,7 +132,7 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
   }, [address]);
 
   useEffect(() => {
-    if (!createReceipt.data || !address) return;
+    if (!createReceipt.data || !address || !createSucceeded) return;
     try {
       const order = readCreatedBulkOrder(createReceipt.data, address);
       persistBulkOrder(address, order);
@@ -142,16 +145,16 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
         error instanceof Error ? error : new Error('Batch order provenance failed.'),
       );
     }
-  }, [createReceipt.data, address, activeOrder, orderInfo]);
+  }, [createReceipt.data, address, activeOrder, orderInfo, createSucceeded]);
 
   useEffect(() => {
-    if (!cancelReceipt.isSuccess || !address) return;
+    if (!cancelSucceeded || !address) return;
     clearPersistedBulkOrder(address);
     setCreatedOrder(null);
     setProgress(null);
     activeOrder.refetch();
     orderInfo.refetch();
-  }, [cancelReceipt.isSuccess, address, activeOrder, orderInfo]);
+  }, [cancelSucceeded, address, activeOrder, orderInfo]);
 
   const processExecution = useCallback(
     async (transactionHash: `0x${string}` | null | undefined) => {
@@ -271,9 +274,9 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
       isPreparing,
       isMining: createReceipt.isLoading,
       isPending: isPreparing || create.isPending || createReceipt.isLoading,
-      isSuccess: createReceipt.isSuccess && provenanceError === null,
+      isSuccess: createSucceeded && provenanceError === null,
       isReady: createArgs !== undefined && activeOrder.data !== true && !isPreparing,
-      error: provenanceError ?? submissionError ?? create.error ?? createReceipt.error,
+      error: provenanceError ?? submissionError ?? create.error ?? createReceipt.error ?? getTransactionReceiptError(createReceipt.data),
       reset: () => {
         create.reset();
         setSubmissionError(null);
@@ -284,8 +287,8 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
       isWaitingSignature: cancel.isPending,
       isMining: cancelReceipt.isLoading,
       isPending: cancel.isPending || cancelReceipt.isLoading,
-      isSuccess: cancelReceipt.isSuccess,
-       error: cancellationError ?? cancel.error ?? cancelReceipt.error,
+      isSuccess: cancelSucceeded,
+       error: cancellationError ?? cancel.error ?? cancelReceipt.error ?? getTransactionReceiptError(cancelReceipt.data),
        reset: () => {
          cancel.reset();
          setCancellationError(null);

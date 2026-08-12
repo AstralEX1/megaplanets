@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { useAccount, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { JACKPOT_ADDRESS } from '@/config/contracts';
 import { MAX_CLAIM_BATCH } from '@/lib/tickets';
+import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 
 const abi = parseAbi(['function claimWinnings(uint256[] _userTicketIds)']);
 
@@ -21,6 +22,7 @@ export function useClaimWinnings() {
   const publicClient = usePublicClient();
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
+  const receiptSucceeded = isSuccessfulTransactionReceipt(receipt.data);
   const [preparationError, setPreparationError] = useState<Error | null>(null);
 
   const claim = async (ticketIds: readonly bigint[]) => {
@@ -56,8 +58,8 @@ export function useClaimWinnings() {
     isMining: receipt.isLoading,
     /** Combined "in-flight" flag. Kept for callers that only need a single bool. */
     isPending: write.isPending || receipt.isLoading,
-    isSuccess: receipt.isSuccess,
-    error: preparationError ?? write.error ?? receipt.error,
+    isSuccess: receiptSucceeded,
+    error: preparationError ?? write.error ?? receipt.error ?? getTransactionReceiptError(receipt.data),
     reset: () => {
       write.reset();
       setPreparationError(null);

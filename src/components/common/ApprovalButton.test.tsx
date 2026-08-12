@@ -12,18 +12,27 @@ const state = vi.hoisted(() => ({
   error: undefined as Error | undefined,
   writeContract: vi.fn(),
   refetch: vi.fn(),
+  reset: vi.fn(),
+  txHash: undefined as `0x${string}` | undefined,
+  receipt: undefined as { status: 'success' | 'reverted' } | undefined,
 }));
 
 vi.mock('wagmi', () => ({
   useAccount: () => ({ address: '0x0000000000000000000000000000000000000001' }),
   useWriteContract: () => ({
     writeContract: state.writeContract,
-    data: undefined,
+    data: state.txHash,
     isPending: false,
     error: undefined,
-    reset: vi.fn(),
+    reset: state.reset,
   }),
-  useWaitForTransactionReceipt: () => ({ isSuccess: false, isLoading: false }),
+  useWaitForTransactionReceipt: () => ({
+    data: state.receipt,
+    // Reproduce the wagmi state that only proves a receipt was found; the
+    // production helper must inspect data.status before treating it as success.
+    isSuccess: state.receipt !== undefined,
+    isLoading: false,
+  }),
 }));
 
 vi.mock('@/hooks/useUsdcAllowance', () => ({
@@ -44,6 +53,9 @@ describe('ApprovalButton', () => {
     state.error = undefined;
     state.writeContract.mockReset();
     state.refetch.mockReset();
+    state.reset.mockReset();
+    state.txHash = undefined;
+    state.receipt = undefined;
   });
 
   afterEach(cleanup);
@@ -74,5 +86,35 @@ describe('ApprovalButton', () => {
       functionName: 'approve',
       args: [spender, maxUint256],
     }));
+  });
+
+  it('does not treat a reverted approval receipt as successful', () => {
+    state.txHash = `0x${'ab'.repeat(32)}`;
+    state.receipt = { status: 'reverted' };
+    const onApproved = vi.fn();
+
+    render(
+      <ApprovalButton spender={spender} amount={1_000_000n} onApproved={onApproved}>
+        <button type="button">Explore</button>
+      </ApprovalButton>,
+    );
+
+    expect(onApproved).not.toHaveBeenCalled();
+    expect(state.refetch).not.toHaveBeenCalled();
+  });
+
+  it('refetches allowance and invokes the callback for a successful approval receipt', () => {
+    state.txHash = `0x${'cd'.repeat(32)}`;
+    state.receipt = { status: 'success' };
+    const onApproved = vi.fn();
+
+    render(
+      <ApprovalButton spender={spender} amount={1_000_000n} onApproved={onApproved}>
+        <button type="button">Explore</button>
+      </ApprovalButton>,
+    );
+
+    expect(onApproved).toHaveBeenCalledTimes(1);
+    expect(state.refetch).toHaveBeenCalledTimes(1);
   });
 });

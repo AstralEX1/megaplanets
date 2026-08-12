@@ -28,12 +28,13 @@
  * ---
  */
 import type { ReactNode } from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { erc20Abi, maxUint256 } from 'viem';
 import { useAccount, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { USDC_ADDRESS } from '@/config/contracts';
 import { useUsdcAllowance } from '@/hooks/useUsdcAllowance';
 import { Button } from './Button';
+import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 
 export function ApprovalButton({
   spender,
@@ -54,9 +55,12 @@ export function ApprovalButton({
   );
 
   const { writeContract, data: txHash, isPending, error, reset } = useWriteContract();
-  const { isSuccess, isLoading } = useWaitForTransactionReceipt({
+  const { data: receipt, isLoading } = useWaitForTransactionReceipt({
     hash: txHash,
   });
+  const isSuccess = isSuccessfulTransactionReceipt(receipt);
+  const receiptError = getTransactionReceiptError(receipt);
+  const [isRefreshingAllowance, setIsRefreshingAllowance] = useState(false);
 
   // Fire-once gate keyed on `txHash`. The parent may pass a fresh
   // `onApproved` reference each render, which would otherwise re-run
@@ -69,9 +73,12 @@ export function ApprovalButton({
     if (!isSuccess || !txHash) return;
     if (firedHashRef.current === txHash) return;
     firedHashRef.current = txHash;
-    refetch();
     onApproved?.();
-    reset();
+    setIsRefreshingAllowance(true);
+    void Promise.resolve(refetch()).finally(() => {
+      setIsRefreshingAllowance(false);
+      reset();
+    });
   }, [isSuccess, txHash, refetch, onApproved, reset]);
 
   const requiresAllowance = !!address && amount > 0n;
@@ -94,6 +101,14 @@ export function ApprovalButton({
     );
   }
 
+  if (requiresAllowance && isRefreshingAllowance) {
+    return (
+      <Button variant="secondary" size="md" disabled className="w-full">
+        Refreshing USDC approval…
+      </Button>
+    );
+  }
+
   // Only show the Approve CTA when the resolved allowance is insufficient.
   const needsApproval = !!address && amount > 0n && allowance !== undefined && allowance < amount;
 
@@ -107,7 +122,7 @@ export function ApprovalButton({
       args: [spender, maxUint256],
     });
 
-  const busy = isPending || isLoading;
+  const busy = isPending || isLoading || isRefreshingAllowance;
 
   return (
     <div className="space-y-1">
@@ -120,7 +135,7 @@ export function ApprovalButton({
           'Approve USDC'
         )}
       </Button>
-      {error && (
+      {(error ?? receiptError) && (
         <p className="text-xs text-rose-600 dark:text-rose-400">
           Approval failed — please try again.
         </p>

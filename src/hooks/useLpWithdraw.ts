@@ -13,6 +13,7 @@
 import { parseAbi } from 'viem';
 import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { JACKPOT_ADDRESS } from '@/config/contracts';
+import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 
 const abi = parseAbi([
   'function initiateWithdraw(uint256 _amountToWithdrawInShares)',
@@ -24,11 +25,13 @@ export function useLpWithdraw() {
   const initiateReceipt = useWaitForTransactionReceipt({
     hash: initiate.data,
   });
+  const initiateSucceeded = isSuccessfulTransactionReceipt(initiateReceipt.data);
 
   const finalize = useWriteContract();
   const finalizeReceipt = useWaitForTransactionReceipt({
     hash: finalize.data,
   });
+  const finalizeSucceeded = isSuccessfulTransactionReceipt(finalizeReceipt.data);
 
   const initiateWithdraw = (shares: bigint) => {
     if (shares <= 0n) return;
@@ -57,8 +60,8 @@ export function useLpWithdraw() {
       isMining: initiateReceipt.isLoading,
       /** Combined "in-flight" flag. */
       isPending: initiate.isPending || initiateReceipt.isLoading,
-      isSuccess: initiateReceipt.isSuccess,
-      error: initiate.error ?? initiateReceipt.error,
+      isSuccess: initiateSucceeded,
+      error: initiate.error ?? initiateReceipt.error ?? getTransactionReceiptError(initiateReceipt.data),
       reset: initiate.reset,
     },
     finalize: {
@@ -67,8 +70,8 @@ export function useLpWithdraw() {
       isMining: finalizeReceipt.isLoading,
       /** Combined "in-flight" flag. */
       isPending: finalize.isPending || finalizeReceipt.isLoading,
-      isSuccess: finalizeReceipt.isSuccess,
-      error: finalize.error ?? finalizeReceipt.error,
+      isSuccess: finalizeSucceeded,
+      error: finalize.error ?? finalizeReceipt.error ?? getTransactionReceiptError(finalizeReceipt.data),
       reset: finalize.reset,
     },
   };

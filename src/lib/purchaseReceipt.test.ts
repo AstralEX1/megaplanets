@@ -62,6 +62,7 @@ describe('readPurchasedTickets', () => {
   it('extracts every MegaPlanets ticket in canonical log order', () => {
     const tickets = readPurchasedTickets(
       {
+        status: 'success',
         transactionHash,
         logs: [
           purchaseLog({ ticketId: 457n, logIndex: 8n }),
@@ -96,6 +97,7 @@ describe('readPurchasedTickets', () => {
     expect(() =>
       readPurchasedTickets(
         {
+          status: 'success',
           transactionHash,
           logs: [purchaseLog({ ticketId: 456n, source: foreignSource, logIndex: 1n })],
         } as never,
@@ -105,6 +107,7 @@ describe('readPurchasedTickets', () => {
     expect(() =>
       readPurchasedTickets(
         {
+          status: 'success',
           transactionHash,
           logs: [
             purchaseLog({
@@ -123,6 +126,7 @@ describe('readPurchasedTickets', () => {
     expect(() =>
       readPurchasedTickets(
         {
+          status: 'success',
           transactionHash,
           logs: [
             purchaseLog({ ticketId: 456n, logIndex: 1n }),
@@ -135,12 +139,26 @@ describe('readPurchasedTickets', () => {
     expect(() =>
       readPurchasedTickets(
         {
+          status: 'success',
           transactionHash,
           logs: [{ ...purchaseLog({ ticketId: 456n, logIndex: 1n }), logIndex: undefined }],
         } as never,
         account,
       ),
     ).toThrow(/log index/i);
+  });
+
+  it('rejects a reverted receipt before decoding TicketPurchased logs', () => {
+    expect(() =>
+      readPurchasedTickets(
+        {
+          status: 'reverted',
+          transactionHash,
+          logs: [purchaseLog({ ticketId: 456n, logIndex: 1n })],
+        } as never,
+        account,
+      ),
+    ).toThrow(/did not succeed/i);
   });
 });
 

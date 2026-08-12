@@ -19,6 +19,7 @@ import {
   useWriteContract,
 } from 'wagmi';
 import { JACKPOT_ADDRESS } from '@/config/contracts';
+import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 
 const abi = parseAbi([
   'function referralFees(address) view returns (uint256)',
@@ -39,6 +40,7 @@ export function useClaimReferralFees() {
 
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
+  const receiptSucceeded = isSuccessfulTransactionReceipt(receipt.data);
   const [preparationError, setPreparationError] = useState<Error | null>(null);
 
   const claim = async () => {
@@ -70,8 +72,8 @@ export function useClaimReferralFees() {
     isMining: receipt.isLoading,
     /** Combined "in-flight" flag. Kept for callers that only need a single bool. */
     isPending: write.isPending || receipt.isLoading,
-    isSuccess: receipt.isSuccess,
-    error: preparationError ?? write.error ?? receipt.error,
+    isSuccess: receiptSucceeded,
+    error: preparationError ?? write.error ?? receipt.error ?? getTransactionReceiptError(receipt.data),
     reset: () => {
       write.reset();
       setPreparationError(null);

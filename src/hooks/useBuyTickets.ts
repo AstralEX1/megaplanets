@@ -13,6 +13,7 @@ import {
   readPurchasedTickets,
 } from '@/lib/purchaseReceipt';
 import { buildDirectTickets, type CustomTicket, type TicketBounds } from '@/lib/tickets';
+import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 
 /** Immediate Megapot checkout for one to ten custom and client quick-pick tickets. */
 export function useBuyTickets() {
@@ -20,13 +21,14 @@ export function useBuyTickets() {
   const publicClient = usePublicClient();
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
+  const receiptSucceeded = isSuccessfulTransactionReceipt(receipt.data);
   const [purchasedTickets, setPurchasedTickets] = useState<readonly PurchasedTicket[]>([]);
   const [provenanceError, setProvenanceError] = useState<Error | null>(null);
   const [submissionError, setSubmissionError] = useState<Error | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
 
   useEffect(() => {
-    if (!receipt.data || !address) return;
+    if (!receipt.data || !address || !receiptSucceeded) return;
     try {
       const parsed = readPurchasedTickets(receipt.data, address);
       persistPurchasedTickets(address, parsed);
@@ -36,7 +38,7 @@ export function useBuyTickets() {
       setPurchasedTickets([]);
       setProvenanceError(error instanceof Error ? error : new Error('Ticket provenance failed.'));
     }
-  }, [receipt.data, address]);
+  }, [receipt.data, address, receiptSucceeded]);
 
   const buy = async (args: {
     customTickets: readonly CustomTicket[];
@@ -80,9 +82,9 @@ export function useBuyTickets() {
     isPreparing,
     isMining: receipt.isLoading,
     isPending: isPreparing || write.isPending || receipt.isLoading,
-    isSuccess: receipt.isSuccess && provenanceError === null,
+    isSuccess: receiptSucceeded && provenanceError === null,
     isReady: address !== undefined && publicClient !== undefined && !isPreparing,
-    error: provenanceError ?? submissionError ?? write.error ?? receipt.error,
+    error: provenanceError ?? submissionError ?? write.error ?? receipt.error ?? getTransactionReceiptError(receipt.data),
     reset: () => {
       write.reset();
       setPurchasedTickets([]);

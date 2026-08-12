@@ -86,6 +86,16 @@ export function totalCost(args: {
 
 /** Generate one random custom ticket — 5 unique normals + 1 bonusball. */
 export function randomTicket(args: { ballMax: number; bonusballMax: number }): CustomTicket {
+  if (!Number.isSafeInteger(args.ballMax) || args.ballMax < 5 || args.ballMax > 255) {
+    throw new RangeError('ballMax must be a safe integer between 5 and 255.');
+  }
+  if (
+    !Number.isSafeInteger(args.bonusballMax) ||
+    args.bonusballMax < BONUSBALL_MIN ||
+    args.bonusballMax > 255
+  ) {
+    throw new RangeError('bonusballMax must be a safe integer between the protocol minimum and 255.');
+  }
   const normals = new Set<number>();
   while (normals.size < 5) {
     normals.add(1 + Math.floor(Math.random() * args.ballMax));

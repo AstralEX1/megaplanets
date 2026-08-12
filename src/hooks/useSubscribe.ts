@@ -20,6 +20,7 @@ import {
   TICKET_SOURCE,
 } from '@/config/contracts';
 import type { CustomTicket } from '@/lib/tickets';
+import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 
 const abi = parseAbi([
   'function createSubscription(address _recipient, uint64 _totalDays, uint64 _dynamicTicketCount, (uint8[] normals, uint8 bonusball)[] _userStaticTickets, address[] _referrers, uint256[] _referralSplit, bytes32 _source)',
@@ -45,9 +46,11 @@ export function useSubscribe() {
 
   const create = useWriteContract();
   const createReceipt = useWaitForTransactionReceipt({ hash: create.data });
+  const createSucceeded = isSuccessfulTransactionReceipt(createReceipt.data);
 
   const cancel = useWriteContract();
   const cancelReceipt = useWaitForTransactionReceipt({ hash: cancel.data });
+  const cancelSucceeded = isSuccessfulTransactionReceipt(cancelReceipt.data);
   const [preparationError, setPreparationError] = useState<Error | null>(null);
 
   // Reads getSubscriptionInfo. Reverts with NoActiveSubscription() when none —
@@ -123,8 +126,8 @@ export function useSubscribe() {
       isMining: createReceipt.isLoading,
       /** Combined "in-flight" flag. */
       isPending: create.isPending || createReceipt.isLoading,
-      isSuccess: createReceipt.isSuccess,
-       error: preparationError ?? create.error ?? createReceipt.error,
+       isSuccess: createSucceeded,
+       error: preparationError ?? create.error ?? createReceipt.error ?? getTransactionReceiptError(createReceipt.data),
        reset: () => {
          create.reset();
          setPreparationError(null);
@@ -136,8 +139,8 @@ export function useSubscribe() {
       isMining: cancelReceipt.isLoading,
       /** Combined "in-flight" flag. */
       isPending: cancel.isPending || cancelReceipt.isLoading,
-      isSuccess: cancelReceipt.isSuccess,
-       error: preparationError ?? cancel.error ?? cancelReceipt.error,
+       isSuccess: cancelSucceeded,
+       error: preparationError ?? cancel.error ?? cancelReceipt.error ?? getTransactionReceiptError(cancelReceipt.data),
        reset: () => {
          cancel.reset();
          setPreparationError(null);

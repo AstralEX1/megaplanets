@@ -6,6 +6,7 @@ import { TxStatus } from '@/components/common/TxStatus';
 import { CHAIN, MEGAPLANETS_CONTRACT_ADDRESS } from '@/config/contracts';
 import { megaPlanetsAbi } from '@/lib/megaPlanets';
 import { isPlanetVoucherServiceConfigured, requestPlanetVoucher } from '@/lib/planetVoucher';
+import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 
 type MintablePlanet = { preview: PlanetPreview; logIndex: bigint | undefined };
 
@@ -26,6 +27,8 @@ export function MintPlanetBatchButton({
   const publicClient = usePublicClient();
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
+  const receiptSucceeded = isSuccessfulTransactionReceipt(receipt.data);
+  const receiptError = getTransactionReceiptError(receipt.data);
   const hasNotifiedMint = useRef(false);
   const [preparationError, setPreparationError] = useState<Error | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
@@ -43,18 +46,18 @@ export function MintPlanetBatchButton({
     isPlanetVoucherServiceConfigured;
 
   useEffect(() => {
-    if (!receipt.isSuccess) {
+    if (!receiptSucceeded) {
       hasNotifiedMint.current = false;
       return;
     }
     if (hasNotifiedMint.current) return;
     hasNotifiedMint.current = true;
     onMinted?.(validPlanets.map(({ preview }) => preview.descriptor.input.ticketId));
-  }, [onMinted, receipt.isSuccess, validPlanets]);
+  }, [onMinted, receiptSucceeded, validPlanets]);
 
   useEffect(() => {
-    if (receipt.isSuccess) onStateChange?.('complete');
-    else if (preparationError || write.error || receipt.error) onStateChange?.('error');
+    if (receiptSucceeded) onStateChange?.('complete');
+    else if (preparationError || write.error || receipt.error || receiptError) onStateChange?.('error');
     else if (receipt.isLoading) onStateChange?.('confirming');
     else if (isPreparing || write.isPending) onStateChange?.('wallet-confirmation');
     else onStateChange?.('idle');
@@ -64,7 +67,8 @@ export function MintPlanetBatchButton({
     preparationError,
     receipt.error,
     receipt.isLoading,
-    receipt.isSuccess,
+    receiptError,
+    receiptSucceeded,
     write.error,
     write.isPending,
   ]);
@@ -132,8 +136,8 @@ export function MintPlanetBatchButton({
       <TxStatus
         hash={write.data}
         isPending={isPreparing || write.isPending || receipt.isLoading}
-        isSuccess={receipt.isSuccess}
-        error={preparationError ?? write.error ?? receipt.error}
+        isSuccess={receiptSucceeded}
+        error={preparationError ?? write.error ?? receipt.error ?? receiptError}
       />
     </div>
   );

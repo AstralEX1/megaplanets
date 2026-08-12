@@ -37,6 +37,11 @@ describe('purchase routing', () => {
     expect(isValidTicket(ticket, { ballMax: 30, bonusballMax: 12 })).toBe(true);
   });
 
+  it('rejects malformed random-pick bounds instead of looping forever', () => {
+    expect(() => randomTicket({ ballMax: 4, bonusballMax: 12 })).toThrow(/ballMax/i);
+    expect(() => randomTicket({ ballMax: 30, bonusballMax: 0 })).toThrow(/bonusballMax/i);
+  });
+
   it('fills only the unconfigured direct tickets with client-side quick-picks', () => {
     const configured = { normals: [1, 2, 3, 4, 5], bonusball: 6 };
     const generated = { normals: [6, 7, 8, 9, 10], bonusball: 11 };

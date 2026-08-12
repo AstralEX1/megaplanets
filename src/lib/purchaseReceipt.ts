@@ -1,5 +1,7 @@
 import { type Address, type Hex, parseAbi, parseEventLogs, type TransactionReceipt } from 'viem';
 import { JACKPOT_ADDRESS, TICKET_SOURCE } from '@/config/contracts';
+import { validateTicketPurchasedFields } from '../../shared/ticketValidation';
+import { isSuccessfulTransactionReceipt } from './transactionReceipt';
 
 export const jackpotPurchaseAbi = parseAbi([
   'function buyTickets((uint8[] normals, uint8 bonusball)[] _tickets, address _recipient, address[] _referrers, uint256[] _referralSplit, bytes32 _source) returns (uint256[] ticketIds)',
@@ -51,32 +53,14 @@ function validateEventTicket(
   },
   transactionHash: Hex,
 ): PurchasedTicket {
-  const ticketId = event.args.userTicketId;
-  const drawingId = event.args.currentDrawingId;
-  const normals = [...(event.args.normals ?? [])].map(Number).sort((left, right) => left - right);
-  const bonusBall = Number(event.args.bonusball ?? 0);
-  const rawLogIndex = event.logIndex;
-  const logIndex = typeof rawLogIndex === 'number' ? BigInt(rawLogIndex) : rawLogIndex;
-
-  if (ticketId === undefined || ticketId <= 0n)
-    throw new RangeError('TicketPurchased ticket ID is invalid.');
-  if (drawingId === undefined || drawingId <= 0n)
-    throw new RangeError('TicketPurchased drawing ID is invalid.');
-  if (
-    normals.length !== 5 ||
-    new Set(normals).size !== 5 ||
-    normals.some((normal) => !Number.isInteger(normal) || normal < 1 || normal > 255)
-  ) {
-    throw new RangeError('TicketPurchased normal balls are invalid.');
-  }
-  if (!Number.isInteger(bonusBall) || bonusBall < 1 || bonusBall > 255) {
-    throw new RangeError('TicketPurchased bonus ball is invalid.');
-  }
-  if (typeof logIndex !== 'bigint' || logIndex < 0n) {
-    throw new RangeError('TicketPurchased log index is missing.');
-  }
-
-  return { ticketId, drawingId, normals, bonusBall, originTxHash: transactionHash, logIndex };
+  const validated = validateTicketPurchasedFields({
+    ticketId: event.args.userTicketId,
+    drawingId: event.args.currentDrawingId,
+    normals: event.args.normals,
+    bonusBall: event.args.bonusball,
+    logIndex: event.logIndex,
+  });
+  return { ...validated, originTxHash: transactionHash };
 }
 
 /**
@@ -88,6 +72,9 @@ export function readPurchasedTickets(
   receipt: TransactionReceipt,
   expectedRecipient: Address,
 ): readonly PurchasedTicket[] {
+  if (!isSuccessfulTransactionReceipt(receipt)) {
+    throw new Error('Transaction receipt did not succeed.');
+  }
   if (!bytes32Pattern.test(receipt.transactionHash)) {
     throw new RangeError('Receipt transaction hash is invalid.');
   }
