@@ -87,5 +87,5 @@
 - [x] **Step 1: Run `pnpm lint`, `pnpm db:validate`, `pnpm typecheck`, `pnpm test`, and `pnpm build`.**
 - [x] **Step 2: Run Foundry unit, fuzz, and bounded invariant tests.**
 - [x] **Step 3: Run `git diff --check` and a secret-pattern scan over tracked files.**
-- [ ] **Step 4: Commit the stage with an explicit operations message and push `main`.**
-- [ ] **Step 5: Stop at the stage boundary and report changed files, verification results, observable endpoints, and the external deployment inputs still required.**
+- [x] **Step 4: Commit the stage with an explicit operations message and push `main`.**
+- [x] **Step 5: Stop at the stage boundary and report changed files, verification results, observable endpoints, and the external deployment inputs still required.**
