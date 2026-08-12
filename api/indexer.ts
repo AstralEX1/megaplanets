@@ -3,6 +3,7 @@ import { baseSepolia } from 'viem/chains';
 import { MEGAPLANETS_SOURCE } from './config';
 import { BASE_SEPOLIA_JACKPOT, decodeEligibleTicket, TICKET_PURCHASED_ABI } from './eligibility';
 import type { EligibilityStore } from './store';
+import { getLogsAdaptive } from './rpc';
 
 export type EligibilityIndexerOptions = {
   confirmations?: bigint;
@@ -46,13 +47,13 @@ export async function indexEligibleTickets(config: TicketIndexerConfig, store: E
   let ticketsIndexed = 0;
   for (let fromBlock = startBlock; fromBlock <= throughBlock;) {
     const toBlock = fromBlock + blockRange - 1n > throughBlock ? throughBlock : fromBlock + blockRange - 1n;
-    const logs = await client.getLogs({
+    const logs = await getLogsAdaptive({ fromBlock, toBlock, initialRange: blockRange, minRange: blockRange > 32n ? 32n : blockRange, maxRange: blockRange }, (rangeStart, rangeEnd) => client.getLogs({
       address: BASE_SEPOLIA_JACKPOT,
       event: TICKET_PURCHASED_ABI[0],
       args: { source: stringToHex(MEGAPLANETS_SOURCE, { size: 32 }) },
-      fromBlock,
-      toBlock,
-    });
+      fromBlock: rangeStart,
+      toBlock: rangeEnd,
+    }));
     const blocks = new Map<string, Awaited<ReturnType<typeof client.getBlock>>>();
     for (const log of logs) {
       if (!log.blockHash) throw new Error('Finalized TicketPurchased log has no block hash.');

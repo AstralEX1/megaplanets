@@ -13,7 +13,8 @@ MegaPlanets has a substantial local MVP implementation: Megapot ticket purchases
 canonical receipt provenance, deterministic Planet generation, individual and batch
 voucher mint flows, a PostgreSQL indexer, lazy mining, same-Type bonuses, weekly
 leaderboards, and the corresponding frontend surfaces all exist and are covered by unit
-tests.
+tests. USDC uses an intentional unlimited-approval policy: each route checks the exact
+required allowance and only requests `approve(spender, maxUint256)` when insufficient.
 
 It is not yet a releasable end-to-end testnet product. Historical V1 deployments are no
 longer part of the active product and the repository intentionally has no default
@@ -63,13 +64,13 @@ gate passes; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 
 | Layer | Implemented now | Readiness |
 | --- | --- | --- |
-| Megapot purchases | Direct 1-10 custom/quick-pick purchases, all-random keeper bulk orders for 11-50, exact USDC approvals, dynamic draw bounds, `MEGAPLANETS_V1`, and canonical `TicketPurchased` receipt decoding | Implemented and unit-tested; real wallet and keeper execution still need an end-to-end rehearsal |
+| Megapot purchases | Direct 1-10 custom/quick-pick purchases, all-random keeper bulk orders for 11-50, allowance-gated unlimited USDC approvals, dynamic draw bounds, `MEGAPLANETS_V1`, and canonical `TicketPurchased` receipt decoding | Implemented and unit-tested; real wallet and keeper execution still need an end-to-end rehearsal |
 | Planet generator | DOM-free deterministic V3 generator, namespaced randomness, seasonless metadata, 128x128 GIF renderer, web worker, serialization/integrity checks, and regenerated golden fixtures | Complete local checkpoint; final art/economy parameters still require product sign-off |
 | Contract V2 | Seasonless ERC721A, sequential token IDs from 1, bidirectional ticket/Planet mappings, atomic batches up to 50, EIP-712 v2 vouchers, live ticket ownership checks, and Foundry unit/fuzz/invariant tests | Deployed to Base Sepolia at `0x7a29...f9f2`; Sourcify exact match; BaseScan verified; runtime activation remains pending |
 | Voucher service | Hono endpoint validates the canonical purchase receipt, derives metadata, pins to Pinata, signs EIP-712 vouchers, caches results, and rate-limits/coalesces requests | Standalone Node API process, health/readiness/metrics probes, and local split-stack commands are implemented; production secrets, shared rate limiting, hosting, and ownership are not complete |
 | PostgreSQL/indexer | Prisma migrations for tickets, vouchers, Planets, ownership, processed events, cursors, mining ledger, and leaderboard; separate finalized-log runner with bounded ranges and ticket/Planet block-hash reorg detection | Disposable DB rehearsal, 462-ticket backfill, post-mint convergence, repeat idempotency, readiness/metrics probes, and standalone API/indexer processes verified |
 | Mining | Lazy fixed-point accrual, immutable ledger segments, same-Type multipliers of 0/5/10/15%, per-Planet and wallet snapshots | Transfer sender/receiver repricing, burn state removal, remainder persistence, and same-tx mint ordering are covered by tests; no live transfer/burn performed |
-| Leaderboard | Monday-to-Monday periods, deterministic rank/tie rules, live and archived APIs, history, wallet position, and frontend | Implemented locally; finalization is triggered by leaderboard requests rather than an independent operations job |
+| Leaderboard | Monday-to-Monday periods, deterministic rank/tie rules, live and archived APIs, history, wallet position, frontend, and explicit worker finalization route | Implemented locally; the worker still needs a deployed scheduler and shared database operations owner |
 | Frontend | Responsive Play, My Planets list/detail and reveal batches, live mining overlays, leaderboard, wallet integration, deep links, and deterministic GIF previews | Polished local UI; production backend routing, live-wallet flows, and mobile/desktop E2E smoke coverage remain |
 
 ## Current frontend behavior
@@ -80,9 +81,9 @@ gate passes; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 - Lab is development-only and is omitted from production navigation.
 - My Planets merges canonical eligible Megapot tickets with backend-indexed minted Planets.
 - Unrevealed tickets intentionally hide generated identity and traits until reveal.
-- The frontend uses relative same-origin routes for Planet index, mining, and leaderboard
-  reads. Only voucher requests honor `VITE_PLANET_API_BASE_URL`, so a split frontend/API
-  deployment needs an explicit proxy or a shared API-base abstraction.
+- Planet index, mining, leaderboard, and voucher requests share
+  `VITE_BACKEND_API_BASE_URL` (with the legacy voucher variable as a compatibility
+  fallback), so split frontend/API deployments use one tested base adapter.
 
 ## Release blockers and known gaps
 
@@ -106,14 +107,15 @@ gate passes; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
    mining accrual state, ledger entries, and leaderboard rows from canonical events.
 2. Keep the ticket and Planet block-hash/reorg handling under scheduled monitoring and
    add alerting for lag or repeated reorgs.
-3. Move weekly finalization to an explicit worker/cron instead of relying on a public read
-   request to discover overdue periods.
+3. Deploy and schedule the explicit leaderboard worker/cron; public reads no longer trigger
+   overdue-period finalization.
 4. Add external indexer lag metrics, structured logs, retry policy, alerting, database
    backups, restore tests, and a rollback runbook; the current readiness/metrics probes
    cover local configuration and process counters only.
 5. Use durable distributed voucher rate limiting in production and decide whether voucher
    preparation must require the existing wallet-session authentication flow.
-6. Unify backend URL handling for voucher, Planet index, mining, and leaderboard requests.
+6. Operate the shared backend API-base configuration consistently across frontend services;
+   the code-level abstraction and separate-origin tests are complete.
 
 ### P2 - cleanup and quality
 
@@ -121,18 +123,18 @@ gate passes; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
    modules; they remain in the schema/indexer code but are outside the active MVP.
 2. Add Playwright coverage for disconnected, connected, wrong-chain, failed signature,
    receipt failure, reveal, and responsive navigation states.
-3. Fix clean-checkout automation: CI must generate Prisma Client before typecheck/tests and
-   should initialize submodules and run Foundry checks.
+3. Keep clean-checkout CI coverage healthy: recursive submodules, Prisma generation, and
+   Foundry checks are now part of the workflow.
 4. Tune the default invariant-test workload. The invariant passes with bounded local runs,
    but the current unbounded/default `forge test` run is impractically slow on this machine.
 5. Replace remaining starter-kit branding and issue-template language where appropriate.
 
 ## Verification snapshot
 
-The seasonless rewrite and pre-deployment checks completed on 2026-08-11:
+The seasonless rewrite and audit-remediation checks completed on 2026-08-12:
 
 - `pnpm db:generate`, `pnpm db:validate`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and
-  `pnpm build` pass. The test suite reports 54 files and 213 tests; lint checked 272 files.
+  `pnpm build` pass. The test suite reports 60 files and 236 tests; lint checked 285 files.
   Build output has
   only the existing external PURE-comment and large-chunk warnings.
 - Foundry unit, fuzz, and bounded invariant tests pass: 14 tests total, including 256

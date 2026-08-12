@@ -1,5 +1,6 @@
 import { getAddress, isAddress, isHex, type Hex } from 'viem';
 import type { MintVoucher } from './megaPlanets';
+import { BACKEND_API_BASE_URL, backendApiFetch } from './backendApi';
 
 type SerializedVoucher = Omit<MintVoucher, 'ticketId' | 'drawingId' | 'expiresAt'> & {
   ticketId: string;
@@ -17,11 +18,8 @@ export type PreparedMintVoucher = {
   signature: Hex;
 };
 
-const configuredPlanetApiBaseUrl = import.meta.env.VITE_PLANET_API_BASE_URL?.trim();
-/** Local Vite development proxies this route to the server-only Hono app; production remains opt-in. */
-const PLANET_API_BASE_URL = configuredPlanetApiBaseUrl || (import.meta.env.DEV ? '' : undefined);
-
-export const isPlanetVoucherServiceConfigured = PLANET_API_BASE_URL !== undefined;
+/** Local Vite development proxies this route; production may use a separate API origin. */
+export const isPlanetVoucherServiceConfigured = import.meta.env.DEV || Boolean(BACKEND_API_BASE_URL);
 
 function parseVoucher(value: unknown): PreparedMintVoucher {
   if (!value || typeof value !== 'object') throw new Error('Voucher service returned an invalid response.');
@@ -64,11 +62,11 @@ export async function requestPlanetVoucher(args: {
   logIndex: bigint;
   signal?: AbortSignal;
 }): Promise<PreparedMintVoucher> {
-  if (PLANET_API_BASE_URL === undefined) throw new Error('Planet voucher service is not configured.');
+  if (!isPlanetVoucherServiceConfigured) throw new Error('Planet voucher service is not configured.');
   if (args.logIndex > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new Error('Ticket log index exceeds the voucher service limit.');
   }
-  const response = await fetch(`${PLANET_API_BASE_URL}/api/planets/vouchers`, {
+  const response = await backendApiFetch('/api/planets/vouchers', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ transactionHash: args.transactionHash, logIndex: Number(args.logIndex) }),

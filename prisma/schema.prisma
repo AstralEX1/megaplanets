@@ -131,6 +131,8 @@ model Planet {
 model PlanetOwnershipHistory {
   id              String   @id @default(uuid()) @db.Uuid
   planetId        String   @db.Uuid
+  chainId         Int
+  contractAddress String   @db.VarChar(42)
   fromAddress     String?  @db.VarChar(42)
   toAddress       String?  @db.VarChar(42)
   transactionHash String   @db.Char(66)
@@ -141,7 +143,8 @@ model PlanetOwnershipHistory {
   createdAt       DateTime @default(now()) @db.Timestamptz(3)
   planet          Planet   @relation(fields: [planetId], references: [id], onDelete: Restrict)
 
-  @@unique([transactionHash, logIndex])
+  @@unique([chainId, contractAddress, transactionHash, logIndex])
+  @@index([chainId, contractAddress, blockNumber])
   @@index([planetId, blockNumber])
   @@index([toAddress, blockTimestamp])
   @@map("planet_ownership_history")

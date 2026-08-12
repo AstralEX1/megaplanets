@@ -24,7 +24,7 @@
 - Read ticket price, drawing ID, ball limits, fees, and lifecycle state dynamically.
 - Keep `TICKET_SOURCE` equal to `MEGAPLANETS_V1`.
 - Never deploy with the dead referrer address.
-- Keep USDC approvals exact-amount unless a documented decision changes the policy.
+- Keep the approved unlimited USDC approval policy: compare allowance with the exact required amount before every action; when insufficient, approve the route-specific spender with `maxUint256`, then refetch/invalidate allowance after a successful receipt.
 
 ## Code conventions
 

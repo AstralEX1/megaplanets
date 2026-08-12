@@ -32,4 +32,11 @@ describe('Pinata uploads', () => {
     expect((request.body as FormData).get('network')).toBe('public');
     expect(((request.body as FormData).get('file') as File).type).toBe('image/gif');
   });
+
+  it('rejects a malformed Pinata response schema', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ data: { cid: 'x' } }) });
+    globalThis.fetch = fetchMock;
+
+    await expect(pinJson('token', 'planet.json', { name: 'Planet' })).rejects.toThrow(/valid CID/i);
+  });
 });

@@ -44,6 +44,16 @@ using a configured environment.
 The example environment targets Base Sepolia and includes the approved public MegaPlanets
 referrer. Override it only for an explicitly approved test or deployment configuration.
 
+USDC approvals intentionally use an unlimited allowance per route-specific spender:
+the frontend checks the exact required allowance before every operation, renders the
+real action immediately when it is sufficient, and requests `approve(spender, maxUint256)`
+only when needed. A successful approval receipt refetches allowance state. This avoids
+repeated signatures but means a compromised spender could use more than one operation's
+amount; review this trade-off before deploying.
+
+Planet, mining, leaderboard, and voucher requests share `VITE_BACKEND_API_BASE_URL` for
+split frontend/API deployments (same-origin routes remain the local default).
+
 ## Verification
 
 ```bash

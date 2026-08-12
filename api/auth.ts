@@ -5,9 +5,22 @@ import { getAddress, isAddress, verifyMessage, type Address, type Hex } from 'vi
 import { z } from 'zod';
 import type { Stage2Config } from './stage2Config';
 import type { Stage2Store } from './stage2Store';
+import { readBoundedJson } from './http';
 
 export const SESSION_COOKIE = 'megaplanets_session';
 const NONCE_TTL_MS = 5 * 60 * 1_000;
+
+export function createAuthRateLimiter(limit = 10, windowMs = 60_000, now = () => Date.now()) {
+  const counts = new Map<string, { count: number; resetsAt: number }>();
+  return { allows(key: string) {
+    const currentTime = now();
+    const current = counts.get(key);
+    if (!current || current.resetsAt <= currentTime) { counts.set(key, { count: 1, resetsAt: currentTime + windowMs }); return true; }
+    if (current.count >= limit) return false;
+    current.count += 1;
+    return true;
+  } };
+}
 
 const addressRequest = z.object({ address: z.string().refine(isAddress, 'Invalid wallet address.') });
 const verifyRequest = addressRequest.extend({
@@ -49,17 +62,22 @@ export function createAuthRoutes(dependencies: {
   const app = new Hono();
   const now = dependencies.now ?? (() => new Date());
   const random = dependencies.random ?? randomBytes;
+  const limiter = createAuthRateLimiter();
 
   app.post('/nonce', async (c) => {
-    const body = addressRequest.safeParse(await c.req.json().catch(() => undefined));
+    let raw: unknown;
+    try { raw = await readBoundedJson(c.req.raw); } catch { return c.json({ error: 'Request body is invalid or too large.' }, 400); }
+    const body = addressRequest.safeParse(raw);
     if (!body.success) return c.json({ error: 'A valid wallet address is required.' }, 400);
+    const walletAddress = normalized(body.data.address);
+    if (!limiter.allows(`nonce:${walletAddress}`)) return c.json({ error: 'Too many sign-in attempts. Please retry shortly.' }, 429);
     try {
       const config = dependencies.loadConfig();
       const store = dependencies.getStore(config);
       const issuedAt = now();
       const expiresAt = new Date(issuedAt.getTime() + NONCE_TTL_MS);
       const nonce = random(16).toString('hex');
-      const walletAddress = normalized(body.data.address);
+      await store.cleanupExpired?.(issuedAt);
       const message = createSignInMessage({ appOrigin: config.appOrigin, address: walletAddress, nonce, issuedAt, expiresAt, chainId: config.chainId });
       await store.saveNonce({ nonceHash: hash(nonce), walletAddress, message, expiresAt });
       return c.json({ nonce, message, expiresAt: expiresAt.toISOString() }, 201);
@@ -69,13 +87,17 @@ export function createAuthRoutes(dependencies: {
   });
 
   app.post('/verify', async (c) => {
-    const body = verifyRequest.safeParse(await c.req.json().catch(() => undefined));
+    let raw: unknown;
+    try { raw = await readBoundedJson(c.req.raw); } catch { return c.json({ error: 'Request body is invalid or too large.' }, 400); }
+    const body = verifyRequest.safeParse(raw);
     if (!body.success) return c.json({ error: 'Address, nonce, and signature are required.' }, 400);
+    const walletAddress = normalized(body.data.address);
+    if (!limiter.allows(`verify:${walletAddress}`)) return c.json({ error: 'Too many sign-in attempts. Please retry shortly.' }, 429);
     try {
       const config = dependencies.loadConfig();
       const store = dependencies.getStore(config);
       const timestamp = now();
-      const walletAddress = normalized(body.data.address);
+      await store.cleanupExpired?.(timestamp);
       const nonceHash = hash(body.data.nonce);
       const challenge = await store.findNonce(nonceHash, walletAddress, timestamp);
       if (!challenge) return c.json({ error: 'The sign-in challenge is invalid or expired.' }, 401);

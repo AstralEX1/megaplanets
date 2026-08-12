@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from './generated/prisma/client';
 import { accrueMinerals, getSameTypeMultipliers, MINERAL_SCALE } from './mining';
+import type { PlanetScope } from './stage2Store';
 
 const BASIS_POINTS = 10_000n;
 
@@ -118,9 +119,9 @@ export async function initializeMissingMiningStates(prisma: PrismaClient, starte
   return owners.length;
 }
 
-export async function getPlanetMiningSnapshot(prisma: PrismaClient, tokenId: string, now: Date) {
+export async function getPlanetMiningSnapshot(prisma: PrismaClient, tokenId: string, now: Date, scope?: PlanetScope) {
   const planet = await prisma.planet.findFirst({
-    where: { tokenId },
+    where: { tokenId, ...(scope ? { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() } : {}) },
     include: { accrualState: true },
   });
   if (!planet?.accrualState || planet.baseMineralsPerDay === null) return undefined;
@@ -146,10 +147,10 @@ export async function getPlanetMiningSnapshot(prisma: PrismaClient, tokenId: str
   };
 }
 
-export async function getWalletMiningSnapshot(prisma: PrismaClient, ownerAddress: string, now: Date) {
+export async function getWalletMiningSnapshot(prisma: PrismaClient, ownerAddress: string, now: Date, scope?: PlanetScope) {
   const [planets, ledger] = await Promise.all([
     prisma.planet.findMany({
-      where: { ownerAddress, baseMineralsPerDay: { not: null }, accrualState: { isNot: null } },
+      where: { ownerAddress, ...(scope ? { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() } : {}), baseMineralsPerDay: { not: null }, accrualState: { isNot: null } },
       select: {
         id: true,
         tokenId: true,
@@ -158,7 +159,10 @@ export async function getWalletMiningSnapshot(prisma: PrismaClient, ownerAddress
       },
     }),
     prisma.mineralLedgerEntry.findMany({
-      where: { ownerAddress },
+      where: {
+        ownerAddress,
+        ...(scope ? { planet: { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() } } : {}),
+      },
       select: { planetId: true, amountMicros: true },
     }),
   ]);

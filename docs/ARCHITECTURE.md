@@ -200,16 +200,19 @@ keeps the dependency graph one file shallower. If a fork later needs
 URL state, swapping to TanStack Router or React Router is a one-file
 change — each page is self-contained, so deletion stays cheap.
 
-### Exact-allowance approvals (not `maxUint256`)
+### Unlimited approvals with an explicit allowance gate
 
 `<ApprovalButton>` (`src/components/common/ApprovalButton.tsx`) approves
-the exact amount per purchase. Smaller blast radius if any of the four
-spenders (Jackpot, BatchPurchaseFacilitator, JackpotAutoSubscription,
-JackpotLPManager) is ever compromised — the attacker drains today's
-purchase, not the user's lifetime USDC balance.
+the route-specific spender with `maxUint256` when the current allowance is
+below the exact required amount. Every purchase/operation still compares the
+allowance with its exact cost first, so sufficient allowances render the real
+action without another signature. This is an intentional UX/security trade-off:
+an approved spender could drain more of the wallet's USDC if compromised, but
+users approve each spender only once and the allowance is refetched after a
+successful receipt.
 
-Forks that want approve-once UX swap one line — the JSDoc on
-`ApprovalButton` calls this out explicitly.
+The behavior is centralized in `src/components/common/ApprovalButton.tsx` and
+covered by component tests for sufficient and insufficient allowances.
 
 ### No UI library — Tailwind only
 

@@ -124,12 +124,13 @@ keys in production builds and warns at boot.
 ## ApprovalButton allowance strategy
 
 [`src/components/common/ApprovalButton.tsx`](../src/components/common/ApprovalButton.tsx)
-approves the exact purchase amount by default — smaller blast radius if
-any of the four USDC spenders is ever compromised.
+compares the current allowance with the exact operation amount and, when
+needed, approves the route-specific spender with `maxUint256`. This is an
+intentional approve-once trade-off: a compromised spender could use more than
+one operation's amount, but users do not sign repeated approvals.
 
-To switch to approve-once (`maxUint256`) UX: edit one line — the `args`
-of the `writeContract` call. The JSDoc on the file explains the
-trade-off inline.
+After the approval receipt succeeds, the hook refetches the allowance. When it
+is already sufficient, the real child action is rendered immediately.
 
 ## Disclaimer line
 

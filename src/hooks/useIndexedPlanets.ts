@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAddress } from 'viem';
 import { QK } from '@/lib/api';
+import { BACKEND_API_BASE_URL, backendApiFetch } from '@/lib/backendApi';
 
 export type IndexedPlanet = {
   tokenId: string;
@@ -30,7 +31,7 @@ export type IndexedPlanet = {
 type IndexedPlanetsResponse = { planets: IndexedPlanet[] };
 
 async function fetchIndexedPlanets(owner: `0x${string}`): Promise<IndexedPlanet[]> {
-  const response = await fetch(`/api/planets?owner=${encodeURIComponent(getAddress(owner))}`);
+  const response = await backendApiFetch(`/api/planets?owner=${encodeURIComponent(getAddress(owner))}`);
   if (!response.ok) throw new Error(`Planet index returned HTTP ${response.status}.`);
   const payload = (await response.json()) as IndexedPlanetsResponse;
   return payload.planets;
@@ -39,7 +40,7 @@ async function fetchIndexedPlanets(owner: `0x${string}`): Promise<IndexedPlanet[
 /** Reads canonical minted ownership from the Stage 2 backend index. */
 export function useIndexedPlanets(owner: `0x${string}` | undefined) {
   const query = useQuery({
-    queryKey: [QK.NS, 'indexed-planets', owner],
+    queryKey: [QK.NS, BACKEND_API_BASE_URL, 'indexed-planets', owner],
     queryFn: () => {
       if (!owner) throw new Error('A connected wallet is required.');
       return fetchIndexedPlanets(owner);

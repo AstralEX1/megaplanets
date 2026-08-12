@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { createAuthRoutes, resolveSession } from './auth';
 import { getPrismaClient } from './database';
 import { loadStage2Config, type Stage2Config } from './stage2Config';
-import { PrismaStage2Store, type Stage2Store } from './stage2Store';
+import { PrismaStage2Store, type PlanetScope, type Stage2Store } from './stage2Store';
 import { getPlanetMiningSnapshot, getWalletMiningSnapshot } from './miningStore';
 
 export type Stage2Dependencies = {
@@ -29,6 +29,8 @@ const tokenIdSchema = z.string().regex(/^\d{1,78}$/);
 export function createStage2Routes(overrides: Partial<Stage2Dependencies> = {}) {
   const dependencies = { ...defaultDependencies, ...overrides };
   const app = new Hono();
+  const scopeFor = (config: Stage2Config): PlanetScope | undefined =>
+    config.planetContractAddress ? { chainId: config.chainId, contractAddress: config.planetContractAddress } : undefined;
 
   app.route(
     '/auth',
@@ -62,6 +64,7 @@ export function createStage2Routes(overrides: Partial<Stage2Dependencies> = {}) 
         getPrismaClient(config.databaseUrl),
         session.walletAddress,
         dependencies.now(),
+        scopeFor(config),
       );
       return c.json({ mining });
     } catch {
@@ -75,7 +78,7 @@ export function createStage2Routes(overrides: Partial<Stage2Dependencies> = {}) 
       const store = dependencies.getStore(config);
       const session = await resolveSession(store, c.req, dependencies.now());
       if (!session) return c.json({ error: 'Wallet authentication is required.' }, 401);
-      return c.json({ planets: await store.listPlanets(session.walletAddress) });
+      return c.json({ planets: await store.listPlanets(session.walletAddress, scopeFor(config)) });
     } catch {
       return c.json({ error: 'The Stage 2 API is not configured.' }, 503);
     }
@@ -90,6 +93,7 @@ export function createStage2Routes(overrides: Partial<Stage2Dependencies> = {}) 
         getPrismaClient(config.databaseUrl),
         getAddress(address).toLowerCase(),
         dependencies.now(),
+        scopeFor(config),
       );
       return c.json({ mining });
     } catch {
@@ -103,7 +107,7 @@ export function createStage2Routes(overrides: Partial<Stage2Dependencies> = {}) 
     try {
       const config = dependencies.loadConfig();
       const store = dependencies.getStore(config);
-      return c.json({ planets: await store.listPlanets(getAddress(owner).toLowerCase() as `0x${string}`) });
+      return c.json({ planets: await store.listPlanets(getAddress(owner).toLowerCase() as `0x${string}`, scopeFor(config)) });
     } catch {
       return c.json({ error: 'The Stage 2 API is not configured.' }, 503);
     }
@@ -118,6 +122,7 @@ export function createStage2Routes(overrides: Partial<Stage2Dependencies> = {}) 
         getPrismaClient(config.databaseUrl),
         tokenId.data,
         dependencies.now(),
+        scopeFor(config),
       );
       return mining ? c.json({ mining }) : c.json({ error: 'Mining data is not available for this Planet.' }, 404);
     } catch {
@@ -131,7 +136,7 @@ export function createStage2Routes(overrides: Partial<Stage2Dependencies> = {}) 
     try {
       const config = dependencies.loadConfig();
       const store = dependencies.getStore(config);
-      const planet = await store.getPlanet(tokenId.data);
+      const planet = await store.getPlanet(tokenId.data, scopeFor(config));
       return planet ? c.json({ planet }) : c.json({ error: 'Planet not found.' }, 404);
     } catch {
       return c.json({ error: 'The Stage 2 API is not configured.' }, 503);

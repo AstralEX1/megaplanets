@@ -35,8 +35,6 @@ describe('PrismaEligibilityStore reorg resets', () => {
     await rewind.call(store, MEGAPLANETS_LAUNCH_BLOCK);
 
     expect(calls).toEqual([
-      'leaderboardEntry.deleteMany',
-      'leaderboardPeriod.deleteMany',
       'dailySnapshotRecord.deleteMany',
       'mineralLedgerEntry.deleteMany',
       'planetAccrualState.deleteMany',
@@ -62,13 +60,13 @@ describe('PrismaEligibilityStore reorg resets', () => {
         ],
       },
     });
-    expect(transaction.planet.deleteMany).toHaveBeenCalledWith({ where: { contractAddress: planetContract.toLowerCase() } });
-    expect(transaction.processedBlockchainEvent.deleteMany).toHaveBeenCalledWith({ where: { contractAddress: planetContract.toLowerCase() } });
+    expect(transaction.planet.deleteMany).toHaveBeenCalledWith({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContract.toLowerCase(), mintBlockNumber: { gte: MEGAPLANETS_LAUNCH_BLOCK } } });
+    expect(transaction.processedBlockchainEvent.deleteMany).toHaveBeenCalledWith({ where: { chainId: 84532, contractAddress: planetContract.toLowerCase(), blockNumber: { gte: MEGAPLANETS_LAUNCH_BLOCK } } });
     expect(transaction.ticketPurchase.deleteMany).toHaveBeenCalledWith({
-      where: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase() },
+      where: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: MEGAPLANETS_LAUNCH_BLOCK } },
     });
     expect(transaction.mintVoucherRecord.deleteMany).toHaveBeenCalledWith({
-      where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase() } },
+      where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: MEGAPLANETS_LAUNCH_BLOCK } } },
     });
   });
 });

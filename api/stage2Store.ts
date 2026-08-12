@@ -14,7 +14,11 @@ export type AuthSessionRecord = {
   expiresAt: Date;
 };
 
+export type PlanetScope = { chainId: number; contractAddress: Address };
+
 export type IndexedPlanetRecord = {
+  chainId?: number;
+  contractAddress?: Address;
   tokenId: string;
   ticketId: string | null;
   ownerAddress: Address;
@@ -40,18 +44,25 @@ export type IndexedPlanetRecord = {
   } | null;
 };
 
+function planetKey(planet: IndexedPlanetRecord): string {
+  return `${planet.chainId ?? 'unknown'}:${planet.contractAddress?.toLowerCase() ?? 'unknown'}:${planet.tokenId}`;
+}
+
 export type Stage2Store = {
+  cleanupExpired?(now: Date): Promise<void>;
   saveNonce(record: AuthNonceRecord): Promise<void>;
   findNonce(nonceHash: string, walletAddress: Address, now: Date): Promise<AuthNonceRecord | undefined>;
   consumeNonce(nonceHash: string, walletAddress: Address, now: Date): Promise<boolean>;
   createSession(record: AuthSessionRecord): Promise<void>;
   findSession(tokenHash: string, now: Date): Promise<AuthSessionRecord | undefined>;
   revokeSession(tokenHash: string, now: Date): Promise<void>;
-  listPlanets(ownerAddress: Address): Promise<IndexedPlanetRecord[]>;
-  getPlanet(tokenId: string): Promise<IndexedPlanetRecord | undefined>;
+  listPlanets(ownerAddress: Address, scope?: PlanetScope): Promise<IndexedPlanetRecord[]>;
+  getPlanet(tokenId: string, scope?: PlanetScope): Promise<IndexedPlanetRecord | undefined>;
 };
 
 function serializePlanet(planet: {
+  chainId: number;
+  contractAddress: string;
   tokenId: { toFixed: (digits?: number) => string };
   ticketId: { toFixed: (digits?: number) => string } | null;
   ownerAddress: string;
@@ -77,6 +88,8 @@ function serializePlanet(planet: {
   } | null;
 }): IndexedPlanetRecord {
   return {
+    chainId: planet.chainId,
+    contractAddress: planet.contractAddress as Address,
     tokenId: planet.tokenId.toFixed(0),
     ticketId: planet.ticketId?.toFixed(0) ?? null,
     ownerAddress: planet.ownerAddress as Address,
@@ -107,6 +120,13 @@ function serializePlanet(planet: {
 
 export class PrismaStage2Store implements Stage2Store {
   public constructor(private readonly prisma: PrismaClient) {}
+
+  async cleanupExpired(now: Date): Promise<void> {
+    await Promise.all([
+      this.prisma.authNonce.deleteMany({ where: { expiresAt: { lte: now } } }),
+      this.prisma.walletSession.deleteMany({ where: { OR: [{ expiresAt: { lte: now } }, { revokedAt: { lte: now } }] } }),
+    ]);
+  }
 
   async saveNonce(record: AuthNonceRecord): Promise<void> {
     await this.prisma.authNonce.create({ data: record });
@@ -159,17 +179,20 @@ export class PrismaStage2Store implements Stage2Store {
     });
   }
 
-  async listPlanets(ownerAddress: Address): Promise<IndexedPlanetRecord[]> {
+  async listPlanets(ownerAddress: Address, scope?: PlanetScope): Promise<IndexedPlanetRecord[]> {
     const planets = await this.prisma.planet.findMany({
-      where: { ownerAddress },
+      where: { ownerAddress, ...(scope ? { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() } : {}) },
       orderBy: [{ mintedAt: 'desc' }, { tokenId: 'asc' }],
       include: { ticketPurchase: true },
     });
     return planets.map(serializePlanet);
   }
 
-  async getPlanet(tokenId: string): Promise<IndexedPlanetRecord | undefined> {
-    const planet = await this.prisma.planet.findFirst({ where: { tokenId }, include: { ticketPurchase: true } });
+  async getPlanet(tokenId: string, scope?: PlanetScope): Promise<IndexedPlanetRecord | undefined> {
+    const planet = await this.prisma.planet.findFirst({
+      where: { tokenId, ...(scope ? { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() } : {}) },
+      include: { ticketPurchase: true },
+    });
     return planet ? serializePlanet(planet) : undefined;
   }
 }
@@ -178,6 +201,11 @@ export class MemoryStage2Store implements Stage2Store {
   private readonly nonces = new Map<string, AuthNonceRecord & { consumedAt?: Date }>();
   private readonly sessions = new Map<string, AuthSessionRecord & { revokedAt?: Date }>();
   private readonly planets = new Map<string, IndexedPlanetRecord>();
+
+  async cleanupExpired(now: Date) {
+    for (const [key, record] of this.nonces) if (record.expiresAt <= now) this.nonces.delete(key);
+    for (const [key, record] of this.sessions) if (record.expiresAt <= now || record.revokedAt && record.revokedAt <= now) this.sessions.delete(key);
+  }
 
   async saveNonce(record: AuthNonceRecord) {
     if (this.nonces.has(record.nonceHash)) throw new Error('Duplicate nonce.');
@@ -212,15 +240,22 @@ export class MemoryStage2Store implements Stage2Store {
     if (record) this.sessions.set(tokenHash, { ...record, revokedAt: now });
   }
 
-  async listPlanets(ownerAddress: Address) {
-    return [...this.planets.values()].filter((planet) => planet.ownerAddress === ownerAddress);
+  async listPlanets(ownerAddress: Address, scope?: PlanetScope) {
+    return [...this.planets.values()].filter((planet) =>
+      planet.ownerAddress === ownerAddress &&
+      (!scope || (planet.chainId === scope.chainId && planet.contractAddress?.toLowerCase() === scope.contractAddress.toLowerCase())),
+    );
   }
 
-  async getPlanet(tokenId: string) {
-    return this.planets.get(tokenId);
+  async getPlanet(tokenId: string, scope?: PlanetScope) {
+    const planet = scope
+      ? this.planets.get(`${scope.chainId}:${scope.contractAddress.toLowerCase()}:${tokenId}`)
+      : [...this.planets.values()].find((candidate) => candidate.tokenId === tokenId);
+    if (!planet) return undefined;
+    return planet;
   }
 
   seedPlanet(planet: IndexedPlanetRecord) {
-    this.planets.set(planet.tokenId, planet);
+    this.planets.set(planetKey(planet), planet);
   }
 }

@@ -105,8 +105,6 @@ describe('PrismaPlanetIndexStore reorg resets', () => {
     await new PrismaPlanetIndexStore(prisma).rewind(planetContract, deploymentBlock);
 
     expect(calls).toEqual([
-      'leaderboardEntry.deleteMany',
-      'leaderboardPeriod.deleteMany',
       'dailySnapshotRecord.deleteMany',
       'mineralLedgerEntry.deleteMany',
       'planetAccrualState.deleteMany',

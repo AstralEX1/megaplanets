@@ -196,11 +196,21 @@ export class FileEligibilityStore implements EligibilityStore {
     await this.update((store) => { store.cursor = { nextBlock: nextBlock.toString(), lastBlockHash }; });
   }
 
-  async rewind(_fromBlock: bigint): Promise<void> {
+  async rewind(fromBlock: bigint): Promise<void> {
     await this.update((store) => {
-      store.tickets = {};
-      store.vouchers = {};
-      store.snapshots = {};
+      const removedTicketIds = new Set<string>();
+      for (const [key, ticket] of Object.entries(store.tickets)) {
+        if (BigInt(ticket.blockNumber) >= fromBlock) {
+          removedTicketIds.add(key);
+          delete store.tickets[key];
+        }
+      }
+      for (const [key, voucher] of Object.entries(store.vouchers)) {
+        if (removedTicketIds.has(voucher.voucher.ticketId)) delete store.vouchers[key];
+      }
+      for (const [key, snapshot] of Object.entries(store.snapshots)) {
+        if (BigInt(snapshot.blockNumber) >= fromBlock) delete store.snapshots[key];
+      }
       store.cursor = undefined;
     });
   }
@@ -239,10 +249,20 @@ export class MemoryEligibilityStore implements EligibilityStore {
   async saveVoucher(prepared: PreparedVoucher) { this.vouchers.set(voucherKey(prepared.voucher.ticketId, prepared.voucher.recipient), prepared); }
   async getCursor() { return this.cursor; }
   async setCursor(nextBlock: bigint, lastBlockHash: Hex) { this.cursor = { nextBlock, lastBlockHash }; }
-  async rewind(_fromBlock: bigint) {
-    this.tickets.clear();
-    this.vouchers.clear();
-    this.snapshots.clear();
+  async rewind(fromBlock: bigint) {
+    const removedTicketIds = new Set<string>();
+    for (const [key, ticket] of this.tickets) {
+      if (ticket.blockNumber >= fromBlock) {
+        removedTicketIds.add(key);
+        this.tickets.delete(key);
+      }
+    }
+    for (const [key, voucher] of this.vouchers) {
+      if (removedTicketIds.has(voucher.voucher.ticketId.toString())) this.vouchers.delete(key);
+    }
+    for (const [key, snapshot] of this.snapshots) {
+      if (snapshot.blockNumber >= fromBlock) this.snapshots.delete(key);
+    }
     this.cursor = undefined;
   }
   async getSnapshot(blockNumber: bigint) { return this.snapshots.get(snapshotKey(blockNumber)); }

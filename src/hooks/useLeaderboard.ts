@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { BACKEND_API_BASE_URL, backendApiFetch } from '@/lib/backendApi';
 
 export type LeaderboardPeriod = {
   id: string;
@@ -38,7 +39,7 @@ export type LeaderboardHistory = {
 };
 
 async function readJson<T>(url: string, label: string): Promise<T> {
-  const response = await fetch(url);
+  const response = await backendApiFetch(url);
   if (!response.ok) throw new Error(`${label} returned HTTP ${response.status}.`);
   return response.json() as Promise<T>;
 }
@@ -61,7 +62,7 @@ export function fetchArchivedLeaderboard(periodId: string, offset = 0, limit = 5
 
 export function useCurrentLeaderboard(offset = 0, limit = 50) {
   return useQuery({
-    queryKey: ['megaplanets-backend', 'leaderboard', 'current', offset, limit],
+    queryKey: ['megaplanets-backend', BACKEND_API_BASE_URL, 'leaderboard', 'current', offset, limit],
     queryFn: () => fetchCurrentLeaderboard(offset, limit),
     staleTime: 15_000,
     refetchInterval: 30_000,
@@ -70,7 +71,7 @@ export function useCurrentLeaderboard(offset = 0, limit = 50) {
 
 export function useWalletLeaderboardPosition(address: `0x${string}` | undefined) {
   return useQuery({
-    queryKey: ['megaplanets-backend', 'leaderboard', 'current-wallet', address],
+    queryKey: ['megaplanets-backend', BACKEND_API_BASE_URL, 'leaderboard', 'current-wallet', address],
     queryFn: () => {
       if (!address) throw new Error('A connected wallet is required.');
       return fetchWalletLeaderboardPosition(address);
@@ -83,7 +84,7 @@ export function useWalletLeaderboardPosition(address: `0x${string}` | undefined)
 
 export function useLeaderboardHistory() {
   return useQuery({
-    queryKey: ['megaplanets-backend', 'leaderboard', 'history'],
+    queryKey: ['megaplanets-backend', BACKEND_API_BASE_URL, 'leaderboard', 'history'],
     queryFn: () => fetchLeaderboardHistory(),
     staleTime: 60_000,
   });
@@ -91,7 +92,7 @@ export function useLeaderboardHistory() {
 
 export function useArchivedLeaderboard(periodId: string | undefined) {
   return useQuery({
-    queryKey: ['megaplanets-backend', 'leaderboard', 'week', periodId],
+    queryKey: ['megaplanets-backend', BACKEND_API_BASE_URL, 'leaderboard', 'week', periodId],
     queryFn: () => {
       if (!periodId) throw new Error('A leaderboard period is required.');
       return fetchArchivedLeaderboard(periodId);

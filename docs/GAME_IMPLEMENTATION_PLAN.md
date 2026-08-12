@@ -56,7 +56,7 @@ Establish a reviewable MVP baseline without deleting unreviewed user work.
 ### Keep
 
 - Existing direct and bulk Megapot ticket purchase flows.
-- Exact USDC approvals, dynamic drawing reads, `MEGAPLANETS_V1`, and receipt
+- Allowance-gated unlimited USDC approvals, dynamic drawing reads, `MEGAPLANETS_V1`, and receipt
   confirmation.
 - The deterministic generator, metadata/GIF pipeline, ticket-backed EIP-712
   voucher flow,
@@ -257,7 +257,7 @@ Publish the verified MVP to public testnet users.
   metadata, mining, or leaderboard score.
 - Megapot ticket price, draw state, limits, and locks are dynamic reads.
 - Every MegaPlanets purchase uses `MEGAPLANETS_V1`, a configured non-dead
-  referrer, exact USDC approval, and receipt verification.
+  referrer, exact allowance comparison followed by unlimited approval when needed, and receipt verification.
 - API integers are serialized as decimal strings; JavaScript `number` is not
   used for onchain or mineral quantities.
 - Wallet addresses are normalized before persistence or ranking.

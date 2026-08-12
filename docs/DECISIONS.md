@@ -28,6 +28,7 @@
 | D-021 | Public metadata uses Type and omits generator version | Metadata attributes order the public traits as Name, Type, Satellites, Minerals, Rarity, and Seed. |
 | D-022 | Each bonus-ball Type profile weights its matching Type 55% and every other Type 5% | Preserves meaningful bonus-ball affinity while allowing every configured Type to mint from every ticket. |
 | D-024 | Historical V1 Planet deployments are unsupported | Active configuration stays empty until an explicitly approved ERC721A V2 deployment passes the deployment gate. |
+| D-025 | USDC approvals use unlimited allowance after an exact allowance check | Avoids repeated approval signatures while making the larger spender-risk trade-off explicit; successful approval receipts refetch allowance state. |
 
 ## Deferred decisions
 

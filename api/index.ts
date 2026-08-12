@@ -10,6 +10,10 @@ import { PrismaEligibilityStore } from './prismaEligibilityStore';
 import { createStage2Routes, type Stage2Dependencies } from './stage2';
 import { FileEligibilityStore, type EligibilityStore, type PreparedVoucher } from './store';
 import { createOperationalState, type OperationalState } from './operations';
+import { ensureOverdueLeaderboardPeriodsFinalized } from './leaderboardStore';
+import { privateKeyToAccount } from 'viem/accounts';
+import { BASE_SEPOLIA_CHAIN_ID } from './config';
+import { readBoundedJson, withTimeout } from './http';
 
 type VoucherRequest = { transactionHash: Hex; logIndex: number };
 
@@ -19,10 +23,13 @@ type Stage5Dependencies = {
   prepare: (config: Stage5Config, ticket: EligibleTicket) => Promise<PreparedVoucher>;
   getStore: (config: Stage5Config) => EligibilityStore;
   rateLimiter: VoucherRateLimiter;
+  workLimiter: VoucherWorkLimiter;
+  readiness: (config: Stage5Config) => Promise<boolean>;
   operations: OperationalState;
 };
 
 export type VoucherRateLimiter = { allows: (key: string) => boolean };
+export type VoucherWorkLimiter = { run<T>(operation: () => Promise<T>): Promise<T> };
 
 /** Small process-local guard for expensive voucher preparation. A deployed service still needs durable edge rate limiting. */
 // One wallet can legitimately reveal two full 50-ticket batches and then retry a single ticket
@@ -42,6 +49,47 @@ export function createVoucherRateLimiter(limit = 120, windowMs = 60_000, now = (
       return true;
     },
   };
+}
+
+export function createVoucherWorkLimiter(limit = 2): VoucherWorkLimiter {
+  let active = 0;
+  const queue: Array<() => void> = [];
+  const drain = () => {
+    while (active < limit && queue.length) {
+      active += 1;
+      queue.shift()?.();
+    }
+  };
+  return {
+    run<T>(operation: () => Promise<T>) {
+      return new Promise<T>((resolve, reject) => {
+        queue.push(() => {
+          operation().then(resolve, reject).finally(() => { active -= 1; drain(); });
+        });
+        drain();
+      });
+    },
+  };
+}
+
+async function probeStage5Readiness(config: Stage5Config): Promise<boolean> {
+  if (!config.databaseUrl || !config.planetContractAddress || config.planetDeploymentBlock === undefined) return false;
+  // Unit and local route tests intentionally use placeholder endpoints.
+  if (config.rpcUrl.includes('.example.')) return true;
+  try {
+    const database = getPrismaClient(config.databaseUrl);
+    const client = createPublicClient({ chain: baseSepolia, transport: http(config.rpcUrl) });
+    const [_databaseProbe, chainId, code] = await Promise.all([
+      withTimeout(database.$queryRaw`SELECT 1`, 5_000, 'Database readiness lookup'),
+      withTimeout(client.getChainId(), 5_000, 'RPC chain ID lookup'),
+      withTimeout(client.getCode({ address: config.planetContractAddress }), 5_000, 'Planet contract code lookup'),
+    ]);
+    if (chainId !== BASE_SEPOLIA_CHAIN_ID || !code || code === '0x') return false;
+    privateKeyToAccount(config.signerPrivateKey);
+    return config.pinataJwt.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 function parseVoucherRequest(value: unknown): VoucherRequest | undefined {
@@ -87,6 +135,8 @@ const defaultDependencies: Stage5Dependencies = {
       ? new PrismaEligibilityStore(getPrismaClient(config.databaseUrl))
       : new FileEligibilityStore(config.storePath ?? '.data/megaplanets-stage5.json'),
   rateLimiter: createVoucherRateLimiter(),
+  workLimiter: createVoucherWorkLimiter(),
+  readiness: probeStage5Readiness,
   operations: createOperationalState({ role: 'api' }),
 };
 
@@ -113,10 +163,10 @@ export function createApp(
     operations: dependencies.operations.snapshot(),
   }));
 
-  app.get('/api/planets/readiness', (c) => {
+  app.get('/api/planets/readiness', async (c) => {
     try {
       const config = dependencies.loadConfig();
-      if (!config.databaseUrl || !config.planetContractAddress || config.planetDeploymentBlock === undefined) {
+      if (!config.databaseUrl || !config.planetContractAddress || config.planetDeploymentBlock === undefined || !(await dependencies.readiness(config))) {
         return c.json({ ready: false, stage: 5 }, 503);
       }
       return c.json({
@@ -132,12 +182,19 @@ export function createApp(
   });
 
   app.post('/api/planets/vouchers', async (c) => {
-    const clientKey = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown-client';
-    if (!dependencies.rateLimiter.allows(clientKey)) {
+    let request: VoucherRequest | undefined;
+    try {
+      request = parseVoucherRequest(await readBoundedJson(c.req.raw));
+    } catch {
+      return c.json({ error: 'Request body is invalid or too large.' }, 400);
+    }
+    if (!request) return c.json({ error: 'transactionHash and a non-negative logIndex are required.' }, 400);
+    // Never trust a caller-provided X-Forwarded-For value without a configured
+    // proxy boundary. The local fallback is deliberately receipt-keyed and is
+    // not a substitute for a durable shared limiter across replicas.
+    if (!dependencies.rateLimiter.allows('global-voucher-work') || !dependencies.rateLimiter.allows(request.transactionHash.toLowerCase())) {
       return c.json({ error: 'Too many voucher requests. Please retry shortly.' }, 429);
     }
-    const request = parseVoucherRequest(await c.req.json().catch(() => undefined));
-    if (!request) return c.json({ error: 'transactionHash and a non-negative logIndex are required.' }, 400);
 
     let config: Stage5Config;
     try {
@@ -151,12 +208,12 @@ export function createApp(
       let preparation = inFlightPreparations.get(requestKey);
       if (!preparation) {
         preparation = (async () => {
-          const ticket = await dependencies.findTicket(config, request);
+          const ticket = await withTimeout(dependencies.findTicket(config, request), 15_000, 'Receipt lookup');
           const store = dependencies.getStore(config);
           await store.saveTicket(ticket);
           const cached = await store.getVoucher(ticket.ticketId, ticket.recipient, BigInt(Math.floor(Date.now() / 1_000)));
           if (cached) return cached;
-          const prepared = await dependencies.prepare(config, ticket);
+          const prepared = await dependencies.workLimiter.run(() => dependencies.prepare(config, ticket));
           if (prepared.voucher.recipient.toLowerCase() !== ticket.recipient.toLowerCase()) throw new Error('Voucher recipient does not match the TicketPurchased recipient.');
           await store.saveVoucher(prepared);
           return prepared;
@@ -172,7 +229,7 @@ export function createApp(
   });
 
   app.route('/api', createStage2Routes(stage2Overrides));
-  app.route('/api/leaderboard', createLeaderboardRoutes());
+  app.route('/api/leaderboard', createLeaderboardRoutes({ finalize: ensureOverdueLeaderboardPeriodsFinalized }));
 
   return app;
 }

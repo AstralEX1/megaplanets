@@ -10,11 +10,9 @@ const period = {
 
 describe('leaderboard routes', () => {
   it('serializes current bigint standings as decimal strings', async () => {
-    let finalizationChecks = 0;
     const app = createLeaderboardRoutes({
       getPrisma: () => ({}) as never,
       now: () => new Date('2026-08-12T12:00:00.000Z'),
-      ensureFinalized: async () => { finalizationChecks += 1; },
       getCurrent: async () => ({
         period,
         asOf: new Date('2026-08-12T12:00:00.000Z'),
@@ -28,7 +26,6 @@ describe('leaderboard routes', () => {
     const response = await app.request('/current');
 
     expect(response.status).toBe(200);
-    expect(finalizationChecks).toBe(1);
     expect(await response.json()).toEqual({
       period: { id: '2026-08-10', startsAt: '2026-08-10T00:00:00.000Z', endsAt: '2026-08-17T00:00:00.000Z' },
       asOf: '2026-08-12T12:00:00.000Z',
@@ -42,7 +39,6 @@ describe('leaderboard routes', () => {
   it('returns a wallet position and validates public query parameters', async () => {
     const app = createLeaderboardRoutes({
       getPrisma: () => ({}) as never,
-      ensureFinalized: async () => undefined,
       getWalletPosition: async (_prisma, address) => ({
         period,
         asOf: new Date('2026-08-12T12:00:00.000Z'),
@@ -59,5 +55,17 @@ describe('leaderboard routes', () => {
       row: { rank: 2, scoreMicros: '9' },
       distanceToNextRankMicros: '4',
     });
+  });
+
+  it('moves overdue finalization to an explicitly authenticated worker route', async () => {
+    let calls = 0;
+    const app = createLeaderboardRoutes({
+      getPrisma: () => ({}) as never,
+      finalizationToken: 'worker-secret',
+      finalize: async () => { calls += 1; },
+    });
+    expect((await app.request('/finalize', { method: 'POST' })).status).toBe(401);
+    expect((await app.request('/finalize', { method: 'POST', headers: { authorization: 'Bearer worker-secret' } })).status).toBe(200);
+    expect(calls).toBe(1);
   });
 });

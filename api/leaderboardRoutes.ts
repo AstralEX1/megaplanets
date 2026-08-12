@@ -7,7 +7,6 @@ import {
   getArchivedLeaderboard,
   getCurrentLeaderboard,
   getWalletLeaderboardPosition,
-  ensureOverdueLeaderboardPeriodsFinalized,
   listLeaderboardPeriods,
 } from './leaderboardStore';
 import { loadStage2Config } from './stage2Config';
@@ -25,7 +24,8 @@ type LeaderboardDependencies = {
   getWalletPosition: typeof getWalletLeaderboardPosition;
   listPeriods: typeof listLeaderboardPeriods;
   getArchived: typeof getArchivedLeaderboard;
-  ensureFinalized: typeof ensureOverdueLeaderboardPeriodsFinalized;
+  finalize: (prisma: PrismaClient, now: Date) => Promise<void>;
+  finalizationToken?: string;
 };
 
 const defaultDependencies: LeaderboardDependencies = {
@@ -35,7 +35,8 @@ const defaultDependencies: LeaderboardDependencies = {
   getWalletPosition: getWalletLeaderboardPosition,
   listPeriods: listLeaderboardPeriods,
   getArchived: getArchivedLeaderboard,
-  ensureFinalized: ensureOverdueLeaderboardPeriodsFinalized,
+  finalize: async () => undefined,
+  finalizationToken: process.env.MEGAPLANETS_WORKER_TOKEN?.trim() || undefined,
 };
 
 function parsePagination(query: (name: string) => string | undefined) {
@@ -75,7 +76,6 @@ export function createLeaderboardRoutes(overrides: Partial<LeaderboardDependenci
     try {
       const prisma = dependencies.getPrisma();
       const now = dependencies.now();
-      await dependencies.ensureFinalized(prisma, now);
       const result = await dependencies.getCurrent(prisma, now, pagination.data);
       return c.json({
         period: serializePeriod(result.period),
@@ -96,7 +96,6 @@ export function createLeaderboardRoutes(overrides: Partial<LeaderboardDependenci
     try {
       const prisma = dependencies.getPrisma();
       const now = dependencies.now();
-      await dependencies.ensureFinalized(prisma, now);
       const result = await dependencies.getWalletPosition(
         prisma,
         getAddress(address).toLowerCase(),
@@ -118,7 +117,6 @@ export function createLeaderboardRoutes(overrides: Partial<LeaderboardDependenci
     if (!pagination.success) return c.json({ error: 'offset and limit must be bounded integers.' }, 400);
     try {
       const prisma = dependencies.getPrisma();
-      await dependencies.ensureFinalized(prisma, dependencies.now());
       const result = await dependencies.listPeriods(prisma, pagination.data);
       return c.json({ ...result, periods: result.periods.map(serializePeriod) });
     } catch {
@@ -132,7 +130,6 @@ export function createLeaderboardRoutes(overrides: Partial<LeaderboardDependenci
     if (!periodId.success || !pagination.success) return c.json({ error: 'A valid period ID and pagination are required.' }, 400);
     try {
       const prisma = dependencies.getPrisma();
-      await dependencies.ensureFinalized(prisma, dependencies.now());
       const result = await dependencies.getArchived(prisma, periodId.data, pagination.data);
       if (!result) return c.json({ error: 'Leaderboard period not found.' }, 404);
       return c.json({
@@ -144,6 +141,19 @@ export function createLeaderboardRoutes(overrides: Partial<LeaderboardDependenci
       });
     } catch {
       return c.json({ error: 'The leaderboard API is not configured.' }, 503);
+    }
+  });
+
+  app.post('/finalize', async (c) => {
+    if (!dependencies.finalizationToken) return c.json({ error: 'Leaderboard worker is not configured.' }, 503);
+    if (c.req.header('authorization') !== `Bearer ${dependencies.finalizationToken}`) {
+      return c.json({ error: 'Leaderboard worker authentication is required.' }, 401);
+    }
+    try {
+      await dependencies.finalize(dependencies.getPrisma(), dependencies.now());
+      return c.json({ ok: true });
+    } catch {
+      return c.json({ error: 'Leaderboard finalization failed.' }, 503);
     }
   });
 

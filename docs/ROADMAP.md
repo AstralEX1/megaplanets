@@ -30,7 +30,9 @@ Target Base Sepolia with two purchase paths: one to ten immediate manual or clie
 quick-pick tickets through `Jackpot.buyTickets`, and 11 to 50 all-random tickets through
 `BatchPurchaseFacilitator`. Every bulk order passes its full quantity as
 `dynamicTicketCount` with an empty static-ticket array. Read dynamic bounds, ticket price,
-and bulk minimum dynamically; approve the exact amount to the contract that pulls USDC.
+and bulk minimum dynamically; compare allowance with the exact required amount and,
+when insufficient, approve the route-specific spender with `maxUint256` (an intentional
+approve-once security trade-off).
 
 Decode every canonical `TicketPurchased` event and persist ticket ID, drawing ID, numbers,
 origin transaction hash, and log index. For bulk orders, provenance comes from each keeper

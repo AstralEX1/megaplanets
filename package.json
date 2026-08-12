@@ -10,6 +10,7 @@
     "build": "tsc -b && vite build",
     "api:server": "node --import tsx/esm api/serverMain.ts",
     "api:indexer": "node --import tsx/esm api/planetIndexerMain.ts",
+    "api:leaderboard-worker": "node --import tsx/esm api/leaderboardWorker.ts",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run --passWithNoTests",

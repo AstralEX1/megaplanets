@@ -63,7 +63,11 @@ export class PrismaEligibilityStore implements EligibilityStore {
       where: {
         recipient: getAddress(recipient).toLowerCase(),
         expiresAt: { gt: new Date(Number(now) * 1_000) },
-        ticketPurchase: { ticketId: ticketId.toString() },
+        ticketPurchase: {
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
+          ticketId: ticketId.toString(),
+        },
       },
     });
     return record ? deserializePreparedVoucher(record.voucher as PersistedVoucher) : undefined;
@@ -142,20 +146,18 @@ export class PrismaEligibilityStore implements EligibilityStore {
     });
   }
 
-  async rewind(_fromBlock: bigint): Promise<void> {
+  async rewind(fromBlock: bigint): Promise<void> {
     if (!this.planetContractAddress) throw new Error('Planet contract address is required to reset ticket provenance.');
     const planetContractAddress = getAddress(this.planetContractAddress).toLowerCase();
     await this.prisma.$transaction(async (transaction) => {
-      await transaction.leaderboardEntry.deleteMany();
-      await transaction.leaderboardPeriod.deleteMany();
-      await transaction.dailySnapshotRecord.deleteMany();
-      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: { contractAddress: planetContractAddress } } });
-      await transaction.planetAccrualState.deleteMany({ where: { planet: { contractAddress: planetContractAddress } } });
-      await transaction.planetOwnershipHistory.deleteMany({ where: { planet: { contractAddress: planetContractAddress } } });
-      await transaction.processedBlockchainEvent.deleteMany({ where: { contractAddress: planetContractAddress } });
-      await transaction.planet.deleteMany({ where: { contractAddress: planetContractAddress } });
-      await transaction.mintVoucherRecord.deleteMany({ where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase() } } });
-      await transaction.ticketPurchase.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase() } });
+      await transaction.dailySnapshotRecord.deleteMany({ where: { blockNumber: { gte: fromBlock } } });
+      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: { contractAddress: planetContractAddress, chainId: BASE_SEPOLIA_CHAIN_ID } } });
+      await transaction.planetAccrualState.deleteMany({ where: { planet: { contractAddress: planetContractAddress, chainId: BASE_SEPOLIA_CHAIN_ID } } });
+      await transaction.planetOwnershipHistory.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, blockNumber: { gte: fromBlock } } });
+      await transaction.processedBlockchainEvent.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, blockNumber: { gte: fromBlock } } });
+      await transaction.planet.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, mintBlockNumber: { gte: fromBlock } } });
+      await transaction.mintVoucherRecord.deleteMany({ where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: fromBlock } } } });
+      await transaction.ticketPurchase.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: fromBlock } } });
       await transaction.indexerCursor.deleteMany({
         where: {
           chainId: BASE_SEPOLIA_CHAIN_ID,

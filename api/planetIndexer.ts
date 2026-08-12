@@ -18,6 +18,7 @@ import { BASE_SEPOLIA_CHAIN_ID } from './config';
 import type { PrismaClient } from './generated/prisma/client';
 import { repriceWalletMiningRates, settleWalletMiningRates } from './miningStore';
 import type { Stage2Config } from './stage2Config';
+import { getLogsAdaptive } from './rpc';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
 const STREAM = 'megaplanets-v2';
@@ -147,19 +148,17 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
   async rewind(contractAddress: Address, fromBlock: bigint): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
       const normalizedAddress = contractAddress.toLowerCase();
-      await transaction.leaderboardEntry.deleteMany();
-      await transaction.leaderboardPeriod.deleteMany();
-      await transaction.dailySnapshotRecord.deleteMany();
-      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: { contractAddress: normalizedAddress } } });
-      await transaction.planetAccrualState.deleteMany({ where: { planet: { contractAddress: normalizedAddress } } });
+      await transaction.dailySnapshotRecord.deleteMany({ where: { blockNumber: { gte: fromBlock } } });
+      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress } } });
+      await transaction.planetAccrualState.deleteMany({ where: { planet: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress } } });
       await transaction.planetOwnershipHistory.deleteMany({
-        where: { planet: { contractAddress: normalizedAddress } },
+        where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress, blockNumber: { gte: fromBlock } },
       });
       await transaction.processedBlockchainEvent.deleteMany({
-        where: { contractAddress: normalizedAddress },
+        where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress, blockNumber: { gte: fromBlock } },
       });
       await transaction.planet.deleteMany({
-        where: { contractAddress: normalizedAddress },
+        where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress, mintBlockNumber: { gte: fromBlock } },
       });
       await transaction.indexerCursor.updateMany({
         where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress, stream: STREAM },
@@ -266,6 +265,8 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
       await transaction.planetOwnershipHistory.create({
         data: {
           planetId: planet.id,
+          chainId: event.chainId,
+          contractAddress: event.contractAddress.toLowerCase(),
           fromAddress: from === ZERO_ADDRESS ? null : from,
           toAddress: to === ZERO_ADDRESS ? null : to,
           transactionHash: event.transactionHash.toLowerCase(),
@@ -299,33 +300,50 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
     eventName: string,
     apply: (transaction: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0]) => Promise<void>,
   ): Promise<boolean> {
-    const existing = await this.prisma.processedBlockchainEvent.findUnique({
-      where: {
-        chainId_contractAddress_transactionHash_logIndex: {
-          chainId: identity.chainId,
-          contractAddress: identity.contractAddress.toLowerCase(),
-          transactionHash: identity.transactionHash.toLowerCase(),
-          logIndex: identity.logIndex,
-        },
-      },
-    });
-    if (existing) return false;
-    await this.prisma.$transaction(async (transaction) => {
-      await apply(transaction);
-      await transaction.processedBlockchainEvent.create({
-        data: {
-          chainId: identity.chainId,
-          contractAddress: identity.contractAddress.toLowerCase(),
-          transactionHash: identity.transactionHash.toLowerCase(),
-          logIndex: identity.logIndex,
-          blockNumber: identity.blockNumber,
-          blockHash: identity.blockHash,
-          eventName,
-          payload: eventJson(identity as unknown as Record<string, unknown>),
-        },
+    let applied = false;
+    try {
+      await this.prisma.$transaction(async (transaction) => {
+        // Serialize replicas on the deployment/event identity before checking
+        // and applying it. The unique index remains the final idempotency guard.
+        const queryRaw = (transaction as unknown as { $queryRaw?: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown> }).$queryRaw;
+        if (queryRaw) {
+          await queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${identity.chainId}:${identity.contractAddress.toLowerCase()}:${identity.transactionHash.toLowerCase()}:${identity.logIndex}`}, 0))`;
+        }
+        const identityWhere = {
+          chainId_contractAddress_transactionHash_logIndex: {
+            chainId: identity.chainId,
+            contractAddress: identity.contractAddress.toLowerCase(),
+            transactionHash: identity.transactionHash.toLowerCase(),
+            logIndex: identity.logIndex,
+          },
+        };
+        const transactionEvents = transaction.processedBlockchainEvent as typeof transaction.processedBlockchainEvent & {
+          findUnique?: (args: typeof identityWhere) => Promise<unknown>;
+        };
+        const existing = transactionEvents.findUnique
+          ? await transactionEvents.findUnique({ where: identityWhere })
+          : await this.prisma.processedBlockchainEvent.findUnique({ where: identityWhere });
+        if (existing) return;
+        await apply(transaction);
+        applied = true;
+        await transaction.processedBlockchainEvent.create({
+          data: {
+            chainId: identity.chainId,
+            contractAddress: identity.contractAddress.toLowerCase(),
+            transactionHash: identity.transactionHash.toLowerCase(),
+            logIndex: identity.logIndex,
+            blockNumber: identity.blockNumber,
+            blockHash: identity.blockHash,
+            eventName,
+            payload: eventJson(identity as unknown as Record<string, unknown>),
+          },
+        });
       });
-    });
-    return true;
+      return applied;
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') return false;
+      throw error;
+    }
   }
 }
 
@@ -374,8 +392,8 @@ export async function indexPlanetEvents(
   for (let fromBlock = startBlock; fromBlock <= throughBlock; ) {
     const toBlock = fromBlock + blockRange - 1n > throughBlock ? throughBlock : fromBlock + blockRange - 1n;
     const [minted, transfers] = await Promise.all([
-      client.getLogs({ address, event: PLANET_MINTED_EVENT, fromBlock, toBlock }),
-      client.getLogs({ address, event: PLANET_TRANSFER_EVENT, fromBlock, toBlock }),
+      getLogsAdaptive({ fromBlock, toBlock, initialRange: blockRange, minRange: blockRange > 32n ? 32n : blockRange, maxRange: blockRange }, (rangeStart, rangeEnd) => client.getLogs({ address, event: PLANET_MINTED_EVENT, fromBlock: rangeStart, toBlock: rangeEnd })),
+      getLogsAdaptive({ fromBlock, toBlock, initialRange: blockRange, minRange: blockRange > 32n ? 32n : blockRange, maxRange: blockRange }, (rangeStart, rangeEnd) => client.getLogs({ address, event: PLANET_TRANSFER_EVENT, fromBlock: rangeStart, toBlock: rangeEnd })),
     ]);
     const logs: IndexedLog[] = [
       ...minted.map((log) => ({ kind: 'minted' as const, ...log, args: log.args })),

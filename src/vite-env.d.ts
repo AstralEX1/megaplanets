@@ -8,6 +8,8 @@ interface ImportMetaEnv {
   readonly VITE_MEGAPOT_API_KEY?: string;
   /** Base URL for the server-side Planet voucher service. Empty disables Planet minting. */
   readonly VITE_PLANET_API_BASE_URL?: string;
+  /** Shared base URL for Planet, mining, leaderboard, and voucher APIs. */
+  readonly VITE_BACKEND_API_BASE_URL?: string;
 }
 
 interface ImportMeta {
