@@ -167,3 +167,11 @@ approved owner and minted it once after preflight: transaction
 `0x3607f5f37657457db6d2c3d3c03642e472f01e364468b772b6ec1811d8a21612`, block
 `45,353,701`, token ID `16`, owner and metadata verified on-chain, in PostgreSQL, and
 through the local API. No transfer or burn was broadcast.
+
+The Stage 7 continuation preflight on 2026-08-12 reconfirmed Base Sepolia chain ID
+`84532`, deployed V2 bytecode, owner `0xCfc1044C749fD40E07FE33938414Fa573993F857`,
+`totalSupply() = 41`, Megapot drawing `7690`, and a bulk minimum of `3`. The local
+HTTP smoke-check returned `200` for the frontend and liveness/metrics routes; readiness
+returned the expected `503` while runtime secrets and database configuration were
+absent. No live transaction was submitted. A browser visual check remains pending
+because this execution environment has no connected browser.

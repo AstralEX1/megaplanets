@@ -116,6 +116,28 @@ in the same gitignored `.env.local` file. Never commit or print those values.
   API and DB map the selected ticket to Planet #16 with the same owner and URI.
   No transfer or burn was submitted.
 
+## Stage 7 continuation checkpoint (2026-08-12)
+
+The deployment remains healthy on Base Sepolia in read-only preflight checks:
+
+- `eth_chainId` returned `84532`.
+- The V2 address returned deployed runtime bytecode and `totalSupply() = 41`.
+- `owner()` returned `0xCfc1044C749fD40E07FE33938414Fa573993F857`.
+- Megapot `currentDrawingId()` returned `7690` and the facilitator reported a
+  dynamic minimum of `3` tickets.
+
+The local Vite/API smoke-check also passed: `/` returned HTTP `200`,
+`/api/planets/health` returned `{ "ok": true, "stage": 5 }`,
+`/api/planets/metrics` returned HTTP `200`, and `/api/planets/readiness` correctly
+returned HTTP `503` because runtime secrets and database configuration are not
+present in this environment. No live purchase, mint, transfer, burn, or approval
+transaction was submitted during this checkpoint.
+
+The local contract suite passed with 11 unit tests, 2 fuzz tests (256 runs each),
+and the invariant suite (8 runs at depth 40). A browser visual smoke-check could
+not be performed because no browser connection is available in the current
+environment; the HTTP smoke-check is the recorded fallback.
+
 ## Runtime activation gate
 
 Do not enable checked-in defaults. The deployed V2 stays inactive in normal

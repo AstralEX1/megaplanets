@@ -1,4 +1,7 @@
 {
+  "../lib/erc721a": {
+    "rev": "6f8a82a7b2833ad8b2fc7b54349281143a731fdd"
+  },
   "../lib/forge-std": {
     "rev": "bf647bd6046f2f7da30d0c2bf435e5c76a780c1b"
   },
