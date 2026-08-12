@@ -1,4 +1,4 @@
-import { createPublicClient, http, stringToHex, type Log } from 'viem';
+import { createPublicClient, fallback, http, stringToHex, type Log } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { MEGAPLANETS_SOURCE } from './config';
 import { BASE_SEPOLIA_JACKPOT, decodeEligibleTicket, TICKET_PURCHASED_ABI } from './eligibility';
@@ -17,7 +17,7 @@ export type EligibilityIndexResult = {
   reorgDetected: boolean;
 };
 
-export type TicketIndexerConfig = { rpcUrl: string; launchBlock: bigint };
+export type TicketIndexerConfig = { rpcUrl: string; rpcFallbackUrls?: readonly string[]; launchBlock: bigint };
 
 /**
  * Indexes finalized canonical purchase events in bounded chunks. This function is deliberately
@@ -28,7 +28,10 @@ export async function indexEligibleTickets(config: TicketIndexerConfig, store: E
   const blockRange = options.blockRange ?? 2_000n;
   if (confirmations < 0n || blockRange < 1n) throw new Error('Indexer confirmations and blockRange must be valid positive values.');
 
-  const client = createPublicClient({ chain: baseSepolia, transport: http(config.rpcUrl) });
+  const client = createPublicClient({
+    chain: baseSepolia,
+    transport: fallback([http(config.rpcUrl), ...(config.rpcFallbackUrls ?? []).map((url) => http(url))]),
+  });
   const latestBlock = await client.getBlockNumber();
   const throughBlock = latestBlock > confirmations ? latestBlock - confirmations : 0n;
   const cursor = await store.getCursor();

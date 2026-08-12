@@ -15,6 +15,10 @@ import {
   serializePreparedVoucher,
 } from './store';
 
+/** Versioned cursor stream so a previously launch-block-only cursor is replayed from activation. */
+export const TICKET_INDEX_STREAM = 'megapot-tickets-v2-activation';
+const LEGACY_TICKET_INDEX_STREAM = 'megapot-tickets';
+
 function jsonValue(value: unknown): object {
   return JSON.parse(JSON.stringify(value)) as object;
 }
@@ -117,7 +121,7 @@ export class PrismaEligibilityStore implements EligibilityStore {
         chainId_contractAddress_stream: {
           chainId: BASE_SEPOLIA_CHAIN_ID,
           contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
-          stream: 'megapot-tickets',
+          stream: TICKET_INDEX_STREAM,
         },
       },
     });
@@ -139,7 +143,7 @@ export class PrismaEligibilityStore implements EligibilityStore {
       create: {
         chainId: BASE_SEPOLIA_CHAIN_ID,
         contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
-        stream: 'megapot-tickets',
+        stream: TICKET_INDEX_STREAM,
         nextBlock,
         lastBlockHash,
       },
@@ -180,7 +184,8 @@ export class PrismaEligibilityStore implements EligibilityStore {
         where: {
           chainId: BASE_SEPOLIA_CHAIN_ID,
           OR: [
-            { contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), stream: 'megapot-tickets' },
+            { contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), stream: TICKET_INDEX_STREAM },
+            { contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), stream: LEGACY_TICKET_INDEX_STREAM },
             { contractAddress: planetContractAddress, stream: 'megaplanets-v2' },
           ],
         },

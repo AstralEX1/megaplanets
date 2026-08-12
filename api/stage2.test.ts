@@ -8,6 +8,7 @@ const account = privateKeyToAccount(`0x${'11'.repeat(32)}`);
 const config: Stage2Config = {
   databaseUrl: 'postgresql://not-used-in-tests',
   rpcUrl: 'https://rpc.example.test',
+  rpcFallbackUrls: [],
   appOrigin: 'http://127.0.0.1:5173',
   sessionTtlSeconds: 3_600,
   chainId: 84_532,

@@ -1,5 +1,5 @@
 import { decodeEventLog, getAddress, stringToHex, type Address, type Hex, type Log } from 'viem';
-import { MEGAPLANETS_LAUNCH_BLOCK, MEGAPLANETS_SOURCE } from './config';
+import { MEGAPLANETS_SOURCE, MEGAPLANETS_TICKET_START_BLOCK } from './config';
 import { validateTicketPurchasedFields } from '../shared/ticketValidation';
 
 export const BASE_SEPOLIA_JACKPOT = getAddress('0x465dA3c859f193A3807386387bEE941B2A4c3279');
@@ -14,7 +14,7 @@ export type EligibleTicket = { recipient: Address; ticketId: bigint; drawingId: 
 
 /** Decodes only a canonical MegaPlanets purchase log; all other logs fail closed. */
 export function decodeEligibleTicket(log: Log): EligibleTicket {
-  if (getAddress(log.address) !== BASE_SEPOLIA_JACKPOT || !log.blockNumber || log.blockNumber < MEGAPLANETS_LAUNCH_BLOCK || !log.transactionHash) throw new Error('Ticket log is outside the eligible MegaPlanets range.');
+  if (getAddress(log.address) !== BASE_SEPOLIA_JACKPOT || !log.blockNumber || log.blockNumber < MEGAPLANETS_TICKET_START_BLOCK || !log.transactionHash) throw new Error('Ticket log is outside the eligible MegaPlanets range.');
   const event = decodeEventLog({ abi: TICKET_PURCHASED_ABI, data: log.data, topics: log.topics });
   if (event.eventName !== 'TicketPurchased' || event.args.source !== stringToHex(MEGAPLANETS_SOURCE, { size: 32 })) throw new Error('Ticket was not purchased through MEGAPLANETS_V1.');
   const { recipient } = event.args;

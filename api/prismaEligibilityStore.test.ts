@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { BASE_SEPOLIA_CHAIN_ID, MEGAPLANETS_LAUNCH_BLOCK } from './config';
 import { BASE_SEPOLIA_JACKPOT } from './eligibility';
 import type { PrismaClient } from './generated/prisma/client';
-import { PrismaEligibilityStore } from './prismaEligibilityStore';
+import { PrismaEligibilityStore, TICKET_INDEX_STREAM } from './prismaEligibilityStore';
 
 const planetContract = '0x0000000000000000000000000000000000000003' as const;
 
@@ -48,6 +48,10 @@ describe('PrismaEligibilityStore reorg resets', () => {
       where: {
         chainId: BASE_SEPOLIA_CHAIN_ID,
         OR: [
+          {
+            contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
+            stream: TICKET_INDEX_STREAM,
+          },
           {
             contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
             stream: 'megapot-tickets',

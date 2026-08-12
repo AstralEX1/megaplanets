@@ -1,6 +1,7 @@
 import {
   createPublicClient,
   getAddress,
+  fallback,
   http,
   keccak256,
   stringToHex,
@@ -327,9 +328,14 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
       await this.prisma.$transaction(async (transaction) => {
         // Serialize replicas on the deployment/event identity before checking
         // and applying it. The unique index remains the final idempotency guard.
-        const queryRaw = (transaction as unknown as { $queryRaw?: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown> }).$queryRaw;
-        if (queryRaw) {
-          await queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${identity.chainId}:${identity.contractAddress.toLowerCase()}:${identity.transactionHash.toLowerCase()}:${identity.logIndex}`}, 0))`;
+        const transactionWithQueryRaw = transaction as typeof transaction & {
+          $queryRaw?: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
+        };
+        if (transactionWithQueryRaw.$queryRaw) {
+          await transactionWithQueryRaw.$queryRaw`SELECT 1 AS locked
+            FROM (
+              SELECT pg_advisory_xact_lock(hashtextextended(${`${identity.chainId}:${identity.contractAddress.toLowerCase()}:${identity.transactionHash.toLowerCase()}:${identity.logIndex}`}, 0)) AS acquired
+            ) AS lock_result`;
         }
         const identityWhere = {
           chainId_contractAddress_transactionHash_logIndex: {
@@ -393,7 +399,10 @@ export async function indexPlanetEvents(
   if (confirmations < 0n || blockRange < 1n || blockRange > 2_000n || reorgWindow < 0n) {
     throw new Error('Invalid Planet indexer bounds.');
   }
-  const client = createPublicClient({ chain: baseSepolia, transport: http(config.rpcUrl) });
+  const client = createPublicClient({
+    chain: baseSepolia,
+    transport: fallback([http(config.rpcUrl), ...(config.rpcFallbackUrls ?? []).map((url) => http(url))]),
+  });
   const latest = await client.getBlockNumber();
   const throughBlock = latest > confirmations ? latest - confirmations : 0n;
   let cursor = await store.getCursor(address);

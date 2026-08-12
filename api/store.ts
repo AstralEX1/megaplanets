@@ -4,6 +4,7 @@ import { getAddress, isAddress, isHash, type Address, type Hex } from 'viem';
 import type { EligibleTicket } from './eligibility';
 import type { DailySnapshot, PlanetHolding } from './scoring';
 import type { MintVoucher } from './voucher';
+import { MEGAPLANETS_TICKET_START_BLOCK } from './config';
 
 export type PreparedVoucher = {
   voucher: MintVoucher;
@@ -33,6 +34,7 @@ export type EligibilityStore = {
 type PersistedStore = {
   version: 2;
   cursor?: { nextBlock: string; lastBlockHash?: Hex };
+  cursorEpoch?: string;
   tickets: Record<string, PersistedTicket>;
   vouchers: Record<string, PersistedVoucher>;
   snapshots: Record<string, PersistedSnapshot>;
@@ -58,7 +60,7 @@ export type PersistedSnapshot = Omit<DailySnapshot, 'blockNumber' | 'holdings' |
   }>;
 };
 
-const emptyStore = (): PersistedStore => ({ version: 2, tickets: {}, vouchers: {}, snapshots: {} });
+const emptyStore = (): PersistedStore => ({ version: 2, cursorEpoch: MEGAPLANETS_TICKET_START_BLOCK.toString(), tickets: {}, vouchers: {}, snapshots: {} });
 const voucherKey = (ticketId: bigint, recipient: Address) => `${ticketId}:${getAddress(recipient).toLowerCase()}`;
 const snapshotKey = (blockNumber: bigint) => blockNumber.toString();
 
@@ -116,6 +118,7 @@ function validateStore(value: unknown): PersistedStore {
   const candidate = value as {
     version?: number;
     cursor?: string | { nextBlock: string; lastBlockHash?: Hex };
+    cursorEpoch?: string;
     tickets?: Record<string, PersistedTicket>;
     vouchers?: Record<string, PersistedVoucher>;
     snapshots?: Record<string, PersistedSnapshot>;
@@ -188,12 +191,17 @@ export class FileEligibilityStore implements EligibilityStore {
   }
 
   async getCursor(): Promise<IndexerCursor | undefined> {
-    const cursor = (await this.read()).cursor;
+    const store = await this.read();
+    if (store.cursorEpoch !== MEGAPLANETS_TICKET_START_BLOCK.toString()) return undefined;
+    const cursor = store.cursor;
     return cursor === undefined ? undefined : { nextBlock: BigInt(cursor.nextBlock), lastBlockHash: cursor.lastBlockHash };
   }
 
   async setCursor(nextBlock: bigint, lastBlockHash: Hex): Promise<void> {
-    await this.update((store) => { store.cursor = { nextBlock: nextBlock.toString(), lastBlockHash }; });
+    await this.update((store) => {
+      store.cursor = { nextBlock: nextBlock.toString(), lastBlockHash };
+      store.cursorEpoch = MEGAPLANETS_TICKET_START_BLOCK.toString();
+    });
   }
 
   async rewind(fromBlock: bigint): Promise<void> {
@@ -209,6 +217,7 @@ export class FileEligibilityStore implements EligibilityStore {
         if (removedTicketIds.has(voucher.voucher.ticketId)) delete store.vouchers[key];
       }
       store.cursor = undefined;
+      store.cursorEpoch = MEGAPLANETS_TICKET_START_BLOCK.toString();
     });
   }
 

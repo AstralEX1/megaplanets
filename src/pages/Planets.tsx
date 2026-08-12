@@ -30,6 +30,7 @@ import {
   PURCHASED_TICKETS_UPDATED_EVENT,
   readPersistedPurchasedTickets,
 } from '@/lib/purchaseReceipt';
+import type { RevealUnavailable } from '@/lib/planetReveal';
 
 type PlanetsProps = {
   onNavigate: (key: NavKey) => void;
@@ -72,10 +73,12 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [mobileDetailTicketId, setMobileDetailTicketId] = useState<string | null>(null);
   const [revealedTicketIds, setRevealedTicketIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [unavailableRevealTickets, setUnavailableRevealTickets] = useState<readonly RevealUnavailable[]>([]);
 
   useEffect(() => {
     if (!address) {
       setStored({ tickets: [], invalidKeys: [] });
+      setUnavailableRevealTickets([]);
       return;
     }
     const syncStoredTickets = () => setStored(readPersistedPurchasedTickets(address));
@@ -83,6 +86,7 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       const account = (event as CustomEvent<{ account?: string }>).detail?.account;
       if (account === address.toLowerCase()) syncStoredTickets();
     };
+    setUnavailableRevealTickets([]);
     syncStoredTickets();
     window.addEventListener(PURCHASED_TICKETS_UPDATED_EVENT, onTicketsUpdated);
     return () => window.removeEventListener(PURCHASED_TICKETS_UPDATED_EVENT, onTicketsUpdated);
@@ -216,6 +220,11 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
     [inventory, tickets],
   );
 
+  const liveRevealablePlanets = useMemo(
+    () => revealablePlanets.filter(({ preview }) => !unavailableRevealTickets.some(({ planet, reason }) => reason !== 'unreadable' && planet.ticketId === preview.descriptor.input.ticketId)),
+    [revealablePlanets, unavailableRevealTickets],
+  );
+
   useEffect(() => {
     if (routePlanetId) {
       const routeItem = inventory.find((item) => item.tokenId === routePlanetId);
@@ -247,16 +256,42 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   const markRevealed = (ticketIds: readonly bigint[]) => {
     setRevealedTicketIds((current) => new Set([...current, ...ticketIds.map(String)]));
   };
-  const mintAction = (preview: PlanetPreview) => (
-    <MintPlanetButton
-      preview={preview}
-      logIndex={
-        tickets.find((ticket) => ticket.ticketId === preview.descriptor.input.ticketId)?.logIndex
-      }
-      buttonLabel="Reveal"
-      onMinted={(ticketId) => markRevealed([ticketId])}
-    />
-  );
+  const rememberUnavailableRevealTickets = (ticketsToAdd: readonly RevealUnavailable[]) => {
+    if (ticketsToAdd.length === 0) return;
+    setUnavailableRevealTickets((current) => {
+      const merged = new Map(current.map((ticket) => [ticket.planet.ticketId.toString(), ticket] as const));
+      for (const ticket of ticketsToAdd) merged.set(ticket.planet.ticketId.toString(), ticket);
+      return [...merged.values()];
+    });
+  };
+  const blockedRevealTickets = unavailableRevealTickets.filter(({ reason }) => reason !== 'unreadable');
+  const mintAction = (preview: PlanetPreview) => {
+    const unavailable = unavailableRevealTickets.find(
+      ({ planet }) => planet.ticketId === preview.descriptor.input.ticketId,
+    );
+    if (unavailable) {
+      return (
+        <p className="text-xs text-amber-200">
+          {unavailable.reason === 'burned'
+            ? 'This ticket NFT was burned and cannot reveal.'
+            : unavailable.reason === 'transferred'
+              ? 'This ticket NFT is no longer owned by this wallet.'
+              : 'Ticket ownership could not be read. Retry when the RPC is available.'}
+        </p>
+      );
+    }
+    return (
+      <MintPlanetButton
+        preview={preview}
+        logIndex={
+          tickets.find((ticket) => ticket.ticketId === preview.descriptor.input.ticketId)?.logIndex
+        }
+        buttonLabel="Reveal"
+        onMinted={(ticketId) => markRevealed([ticketId])}
+        onUnavailable={(ticket) => rememberUnavailableRevealTickets([ticket])}
+      />
+    );
+  };
   const selectPlanet = (item: PlanetInventoryItem) => {
     setSelectedTicketId(item.ticketId);
     if (!isMobileViewport()) return;
@@ -410,14 +445,20 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
-          {revealablePlanets.length >= 2 ? (
+          {revealablePlanets.length >= 2 && liveRevealablePlanets.length > 0 ? (
             <div className="[&>div>button]:whitespace-nowrap">
               <MintPlanetBatchButton
-                planets={revealablePlanets.slice(0, 50)}
-                buttonLabel={`Reveal all (${revealablePlanets.length})`}
+                planets={liveRevealablePlanets.slice(0, 50)}
+                buttonLabel={`Reveal all (${liveRevealablePlanets.length})`}
                 onMinted={markRevealed}
+                onUnavailable={rememberUnavailableRevealTickets}
               />
-              {revealablePlanets.length > 50 ? (
+              {blockedRevealTickets.length > 0 ? (
+                <p className="mt-1 max-w-xs text-right text-[10px] text-[var(--text-muted)]">
+                  {blockedRevealTickets.length} ticket{blockedRevealTickets.length === 1 ? '' : 's'} can’t reveal because the NFT is no longer held by this wallet.
+                </p>
+              ) : null}
+              {liveRevealablePlanets.length > 50 ? (
                 <p className="mt-1 text-right text-[10px] text-[var(--text-muted)]">
                   This transaction reveals the next 50.
                 </p>

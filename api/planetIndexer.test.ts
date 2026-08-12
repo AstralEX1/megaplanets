@@ -32,6 +32,11 @@ describe('PrismaPlanetIndexStore mining settlements', () => {
     const ledger: Array<{ ownerAddress: string; amountMicros: bigint }> = [];
     const planet = { id: 'planet-1', ownerAddress: previousOwner, baseMineralsPerDay: 86_400n, planetType: 'volcanic' };
     const transaction = {
+      $queryRaw(this: unknown, strings: TemplateStringsArray, ..._values: unknown[]) {
+        expect(this).toBe(transaction);
+        expect(strings.join('?')).toContain('SELECT 1 AS locked');
+        return Promise.resolve();
+      },
       planet: {
         findUnique: async () => ({ ...planet, ownerAddress: currentOwner }),
         findMany: async ({ where }: { where: { ownerAddress: string } }) =>
@@ -138,6 +143,7 @@ describe('planet indexer cursor hashing', () => {
   const config: Stage2Config = {
     databaseUrl: 'postgresql://not-used-in-tests',
     rpcUrl: 'https://rpc.example.test',
+    rpcFallbackUrls: [],
     appOrigin: 'http://127.0.0.1:5173',
     sessionTtlSeconds: 86_400,
     chainId: BASE_SEPOLIA_CHAIN_ID,

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDailySnapshot } from './scoring';
+import { MEGAPLANETS_TICKET_START_BLOCK } from './config';
 import { FileEligibilityStore, MemoryEligibilityStore } from './store';
 
 const tempDirectories: string[] = [];
@@ -37,7 +38,7 @@ describe('legacy file eligibility store migration', () => {
     await Promise.all(tempDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
   });
 
-  it('migrates a v1 string cursor to the v2 cursor shape', async () => {
+  it('replays a legacy cursor once when the activation cursor epoch is missing', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'megaplanets-store-v1-'));
     tempDirectories.push(directory);
     const filePath = join(directory, 'store.json');
@@ -45,6 +46,17 @@ describe('legacy file eligibility store migration', () => {
 
     const cursor = await new FileEligibilityStore(filePath).getCursor();
 
-    expect(cursor).toEqual({ nextBlock: 123n, lastBlockHash: undefined });
+    expect(cursor).toBeUndefined();
+  });
+
+  it('persists the activation cursor epoch after the replay boundary is committed', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'megaplanets-store-epoch-'));
+    tempDirectories.push(directory);
+    const store = new FileEligibilityStore(join(directory, 'store.json'));
+    await store.setCursor(MEGAPLANETS_TICKET_START_BLOCK + 50n, `0x${'22'.repeat(32)}`);
+    expect(await store.getCursor()).toEqual({
+      nextBlock: MEGAPLANETS_TICKET_START_BLOCK + 50n,
+      lastBlockHash: `0x${'22'.repeat(32)}`,
+    });
   });
 });

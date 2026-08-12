@@ -2,10 +2,13 @@ import { isAddress, isHex } from 'viem';
 
 export const BASE_SEPOLIA_CHAIN_ID = 84_532;
 export const MEGAPLANETS_LAUNCH_BLOCK = 44_997_183n;
+/** First canonical MegaPlanets_V1 ticket in the activation window before launch. */
+export const MEGAPLANETS_TICKET_START_BLOCK = 44_996_796n;
 export const MEGAPLANETS_SOURCE = 'MEGAPLANETS_V1';
 
 export type Stage5Config = {
   rpcUrl: string;
+  rpcFallbackUrls?: readonly string[];
   databaseUrl?: string;
   pinataJwt: string;
   signerPrivateKey: `0x${string}`;
@@ -39,8 +42,15 @@ export function loadStage5Config(env: Record<string, string | undefined>): Stage
   const configuredDeploymentBlock = env.MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK?.trim();
   const planetDeploymentBlock = configuredDeploymentBlock === undefined || configuredDeploymentBlock === '' ? undefined : BigInt(configuredDeploymentBlock);
   if (planetDeploymentBlock !== undefined && planetDeploymentBlock < 0n) throw new Error('MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK must be non-negative.');
+  const rpcUrl = required(env, 'BASE_SEPOLIA_RPC_URL');
+  const rpcFallbackUrls = (env.BASE_SEPOLIA_RPC_FALLBACK_URLS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .filter((value, index, values) => value !== rpcUrl && values.indexOf(value) === index);
   return {
-    rpcUrl: required(env, 'BASE_SEPOLIA_RPC_URL'),
+    rpcUrl,
+    rpcFallbackUrls,
     databaseUrl: env.DATABASE_URL?.trim() || undefined,
     pinataJwt: required(env, 'PINATA_JWT'),
     signerPrivateKey: signerPrivateKey as `0x${string}`,

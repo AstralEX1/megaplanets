@@ -1,6 +1,6 @@
 import { encodeAbiParameters, encodeEventTopics, stringToHex, type Log } from 'viem';
 import { describe, expect, it } from 'vitest';
-import { MEGAPLANETS_LAUNCH_BLOCK, MEGAPLANETS_SOURCE } from './config';
+import { MEGAPLANETS_LAUNCH_BLOCK, MEGAPLANETS_SOURCE, MEGAPLANETS_TICKET_START_BLOCK } from './config';
 import {
   BASE_SEPOLIA_JACKPOT,
   decodeEligibleTicket,
@@ -50,12 +50,17 @@ describe('MegaPlanets eligibility', () => {
     });
   });
 
-  it('rejects purchases before the configured launch block', () => {
-    expect(() => decodeEligibleTicket(ticketLog({ blockNumber: MEGAPLANETS_LAUNCH_BLOCK - 1n }))).toThrow(
+  it('rejects purchases before the canonical activation boundary', () => {
+    expect(() => decodeEligibleTicket(ticketLog({ blockNumber: MEGAPLANETS_TICKET_START_BLOCK - 1n }))).toThrow(
       'outside the eligible MegaPlanets range',
     );
   });
 
+  it('accepts the canonical activation boundary before the Planet launch block', () => {
+    expect(
+      decodeEligibleTicket(ticketLog({ blockNumber: MEGAPLANETS_TICKET_START_BLOCK })).ticketId,
+    ).toBe(456n);
+  });
   it('locates the requested log index before decoding it', () => {
     const otherLog = ticketLog({ logIndex: 3 });
     expect(findEligibleTicket([otherLog, ticketLog()], 4).ticketId).toBe(456n);

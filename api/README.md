@@ -102,3 +102,11 @@ finality/reorg assumptions require it.
 focused cursor/reset and idempotency tests cover replay behavior. A production rollout
 still needs durable scheduling, monitoring, backups, and restore testing. Never expose the
 metadata signer private key to browser code.
+
+Ticket indexing starts at the canonical MegaPlanets activation boundary `44,996,796`, not
+at the later Planet launch gate `44,997,183`. This preserves the first activation purchases
+while keeping `TICKET_SOURCE=MEGAPLANETS_V1` and the launch gate immutable. Configure
+`BASE_SEPOLIA_RPC_FALLBACK_URLS` with comma-separated archive-capable endpoints when the
+primary RPC does not serve historical receipts.
+The ticket cursor stream is versioned for this boundary, so an existing launch-only cursor
+is replayed automatically from the activation block on the next indexer cycle.

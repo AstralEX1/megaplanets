@@ -63,7 +63,10 @@ activation gate remains env-only: do not check in defaults, and do not set front
 backend `MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` and
 `MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` until the remaining production operations
 gate passes; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
-`TICKET_SOURCE=MEGAPLANETS_V1` unchanged.
+`TICKET_SOURCE=MEGAPLANETS_V1` unchanged. The canonical ticket eligibility boundary is
+the first activation-window purchase at block `44,996,796`; the bounded recovery scan
+covers that activation window through launch, while normal post-launch purchases remain
+eligible. This is intentionally narrower than an unrestricted legacy scan.
 
 ## Layer-by-layer state
 
@@ -85,7 +88,13 @@ gate passes; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 - LP code remains available but `LP_ENABLED` is false.
 - Lab is development-only and is omitted from production navigation.
 - My Planets merges canonical eligible Megapot tickets with backend-indexed minted Planets.
+- Ticket discovery includes the bounded activation window (`44,996,796..44,997,183`) and
+  uses RPC fallbacks for historical receipts, so the original activation tickets do not
+  disappear when the Data API or primary RPC is incomplete.
 - Unrevealed tickets intentionally hide generated identity and traits until reveal.
+- Reveal preflights current ownership in `JackpotTicketNFT`; burned or transferred tickets
+  are skipped with an explicit explanation, while every currently-held ticket continues
+  through voucher preparation and contract simulation.
 - Planet index, mining, leaderboard, and voucher requests share
   `VITE_BACKEND_API_BASE_URL` (with the legacy voucher variable as a compatibility
   fallback), so split frontend/API deployments use one tested base adapter.

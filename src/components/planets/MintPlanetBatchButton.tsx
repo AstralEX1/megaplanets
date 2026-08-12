@@ -3,11 +3,12 @@ import { useAccount, useChainId, usePublicClient, useWaitForTransactionReceipt, 
 import type { PlanetPreview } from '@megaplanets/planet-generator';
 import { Button } from '@/components/common/Button';
 import { TxStatus } from '@/components/common/TxStatus';
-import { CHAIN, MEGAPLANETS_CONTRACT_ADDRESS } from '@/config/contracts';
+import { CHAIN, JACKPOT_TICKET_NFT_ADDRESS, MEGAPLANETS_CONTRACT_ADDRESS } from '@/config/contracts';
 import { megaPlanetsAbi } from '@/lib/megaPlanets';
 import { isPlanetVoucherServiceConfigured, requestPlanetVoucher } from '@/lib/planetVoucher';
 import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 import { getPlanetAvailability } from '@/lib/planetAvailability';
+import { getLiveRevealCandidates, type RevealUnavailable } from '@/lib/planetReveal';
 import { baseSepolia } from 'viem/chains';
 
 type MintablePlanet = { preview: PlanetPreview; logIndex: bigint | undefined };
@@ -16,11 +17,13 @@ export function MintPlanetBatchButton({
   planets,
   buttonLabel,
   onMinted,
+  onUnavailable,
   onStateChange,
 }: {
   planets: readonly MintablePlanet[];
   buttonLabel?: string;
   onMinted?: (ticketIds: readonly bigint[]) => void;
+  onUnavailable?: (tickets: readonly RevealUnavailable[]) => void;
   onStateChange?: (
     state: 'idle' | 'wallet-confirmation' | 'confirming' | 'complete' | 'error',
   ) => void;
@@ -35,6 +38,7 @@ export function MintPlanetBatchButton({
   const hasNotifiedMint = useRef(false);
   const [preparationError, setPreparationError] = useState<Error | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
+  const submittedPlanets = useRef<readonly MintablePlanet[]>([]);
   const validPlanets = useMemo(
     () => planets.filter((planet) => planet.logIndex !== undefined).slice(0, 50),
     [planets],
@@ -62,8 +66,8 @@ export function MintPlanetBatchButton({
     }
     if (hasNotifiedMint.current) return;
     hasNotifiedMint.current = true;
-    onMinted?.(validPlanets.map(({ preview }) => preview.descriptor.input.ticketId));
-  }, [onMinted, receiptSucceeded, validPlanets]);
+    onMinted?.(submittedPlanets.current.map(({ preview }) => preview.descriptor.input.ticketId));
+  }, [onMinted, receiptSucceeded]);
 
   useEffect(() => {
     if (receiptSucceeded) onStateChange?.('complete');
@@ -88,8 +92,26 @@ export function MintPlanetBatchButton({
     setPreparationError(null);
     setIsPreparing(true);
     try {
+      const availabilityCheck = await getLiveRevealCandidates(
+        publicClient,
+        address,
+        validPlanets.map(({ preview, logIndex }) => ({
+          ticketId: preview.descriptor.input.ticketId,
+          logIndex: logIndex as bigint,
+        })),
+        JACKPOT_TICKET_NFT_ADDRESS,
+      );
+      if (availabilityCheck.unavailable.length > 0) {
+        onUnavailable?.(availabilityCheck.unavailable.filter(({ reason }) => reason !== 'unreadable'));
+      }
+      const unreadable = availabilityCheck.unavailable.filter(({ reason }) => reason === 'unreadable');
+      if (unreadable.length > 0) throw new Error('Ticket ownership could not be read. Check the Base Sepolia RPC and retry.');
+      const liveTicketIds = new Set(availabilityCheck.live.map(({ ticketId }) => ticketId.toString()));
+      const livePlanets = validPlanets.filter(({ preview }) => liveTicketIds.has(preview.descriptor.input.ticketId.toString()));
+      if (livePlanets.length === 0) throw new Error('No revealable ticket is currently owned by this wallet.');
+      submittedPlanets.current = livePlanets;
       const prepared = await Promise.all(
-        validPlanets.map(({ preview, logIndex }) =>
+        livePlanets.map(({ preview, logIndex }) =>
           requestPlanetVoucher({
             transactionHash: preview.descriptor.input.originTxHash,
             logIndex: logIndex as bigint,

@@ -14,6 +14,7 @@ import { ensureOverdueLeaderboardPeriodsFinalized } from './leaderboardStore';
 import { privateKeyToAccount } from 'viem/accounts';
 import { BASE_SEPOLIA_CHAIN_ID } from './config';
 import { readBoundedJson, withTimeout } from './http';
+import { readWithRpcFallback } from './rpc';
 
 type VoucherRequest = { transactionHash: Hex; logIndex: number };
 
@@ -78,13 +79,19 @@ async function probeStage5Readiness(config: Stage5Config): Promise<boolean> {
   if (config.rpcUrl.includes('.example.')) return true;
   try {
     const database = getPrismaClient(config.databaseUrl);
-    const client = createPublicClient({ chain: baseSepolia, transport: http(config.rpcUrl) });
-    const [_databaseProbe, chainId, code] = await Promise.all([
+    const [_databaseProbe, chain] = await Promise.all([
       withTimeout(database.$queryRaw`SELECT 1`, 5_000, 'Database readiness lookup'),
-      withTimeout(client.getChainId(), 5_000, 'RPC chain ID lookup'),
-      withTimeout(client.getCode({ address: config.planetContractAddress }), 5_000, 'Planet contract code lookup'),
+      withTimeout(readWithRpcFallback([config.rpcUrl, ...(config.rpcFallbackUrls ?? [])], async (rpcUrl) => {
+        const client = createPublicClient({ chain: baseSepolia, transport: http(rpcUrl) });
+        const [chainId, code] = await Promise.all([
+          client.getChainId(),
+          client.getCode({ address: config.planetContractAddress as `0x${string}` }),
+        ]);
+        if (chainId !== BASE_SEPOLIA_CHAIN_ID || !code || code === '0x') throw new Error('Base Sepolia V2 contract probe failed.');
+        return { chainId, code };
+      }), 5_000, 'RPC chain and contract lookup'),
     ]);
-    if (chainId !== BASE_SEPOLIA_CHAIN_ID || !code || code === '0x') return false;
+    if (chain.chainId !== BASE_SEPOLIA_CHAIN_ID || !chain.code || chain.code === '0x') return false;
     privateKeyToAccount(config.signerPrivateKey);
     return config.pinataJwt.length > 0;
   } catch {
@@ -114,8 +121,13 @@ function serializePreparedVoucher(prepared: PreparedVoucher) {
 }
 
 async function findTicketFromReceipt(config: Stage5Config, request: VoucherRequest): Promise<EligibleTicket> {
-  const client = createPublicClient({ chain: baseSepolia, transport: http(config.rpcUrl) });
-  const receipt = await client.getTransactionReceipt({ hash: request.transactionHash });
+  const rpcUrls = [config.rpcUrl, ...(config.rpcFallbackUrls ?? [])];
+  const { client, receipt } = await readWithRpcFallback(rpcUrls, async (rpcUrl) => {
+    const candidate = createPublicClient({ chain: baseSepolia, transport: http(rpcUrl) });
+    const receipt = await candidate.getTransactionReceipt({ hash: request.transactionHash });
+    if (!receipt) throw new Error(`Receipt ${request.transactionHash} was not found on ${rpcUrl}.`);
+    return { client: candidate, receipt };
+  });
   if (receipt.status !== 'success') throw new Error('Ticket purchase transaction did not succeed.');
   const ticket = findEligibleTicket(receipt.logs as readonly Log[], request.logIndex);
   const block = await client.getBlock({ blockHash: receipt.blockHash });

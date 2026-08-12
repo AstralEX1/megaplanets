@@ -1,4 +1,4 @@
-import { MEGAPLANETS_LAUNCH_BLOCK } from './config';
+import { MEGAPLANETS_TICKET_START_BLOCK } from './config';
 import { getPrismaClient } from './database';
 import { indexEligibleTickets } from './indexer';
 import { initializeMissingMiningStates } from './miningStore';
@@ -12,7 +12,7 @@ export async function runPlanetIndexerCycle(config: Stage2Config) {
   const scope = { chainId: config.chainId, contractAddress: config.planetContractAddress };
   const prisma = getPrismaClient(config.databaseUrl);
   const tickets = await indexEligibleTickets(
-    { rpcUrl: config.rpcUrl, launchBlock: MEGAPLANETS_LAUNCH_BLOCK },
+    { rpcUrl: config.rpcUrl, rpcFallbackUrls: config.rpcFallbackUrls, launchBlock: MEGAPLANETS_TICKET_START_BLOCK },
     new PrismaEligibilityStore(prisma, config.planetContractAddress),
   );
   const planets = await indexPlanetEvents(config, new PrismaPlanetIndexStore(prisma));

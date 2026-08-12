@@ -183,6 +183,12 @@ MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860
 ```
 
 Keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and `TICKET_SOURCE=MEGAPLANETS_V1` unchanged.
+Ticket eligibility begins at the canonical activation boundary `44,996,796`; the bounded
+activation recovery scan covers that block through the launch block `44,997,183`, while
+normal post-launch purchases continue to be eligible. This preserves the original
+activation purchases without admitting unrelated legacy tickets. Historical receipt reads should configure
+`VITE_RPC_FALLBACK_URLS` (frontend) and `BASE_SEPOLIA_RPC_FALLBACK_URLS` (API/indexer)
+with comma-separated archive-capable endpoints.
 The remaining gate includes managed PostgreSQL, a long-running finalized indexer,
 backfill and replay checks, direct/keeper and batch rehearsals, transfer/burn mining
 checks, scheduler/monitoring, backups, and browser E2E coverage.

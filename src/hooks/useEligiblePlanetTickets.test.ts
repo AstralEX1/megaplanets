@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Ticket } from '@/lib/api';
 import type { PurchasedTicket } from '@/lib/purchaseReceipt';
 import {
+  readActivationEligibleTicketsFromChain,
   readEligibleTicketsFromWalletHistory,
   readRecentEligibleTicketsFromChain,
 } from './useEligiblePlanetTickets';
@@ -97,5 +98,34 @@ describe('readEligibleTicketsFromWalletHistory', () => {
     expect(getLogs).toHaveBeenCalledWith(
       expect.objectContaining({ fromBlock: 45_339_721n, toBlock: 45_341_720n }),
     );
+  });
+});
+
+describe('readActivationEligibleTicketsFromChain', () => {
+  it('recovers the canonical pre-launch activation window from receipts', async () => {
+    const getLogs = vi.fn().mockResolvedValue([{ transactionHash: HASH_A }, { transactionHash: HASH_A }]);
+    const getTransactionReceipt = vi.fn().mockResolvedValue({ transactionHash: HASH_A });
+    const readReceiptTickets = vi.fn().mockReturnValue([
+      confirmedTicket(90187820829801269348n, HASH_A),
+      confirmedTicket(71845936741832571838n, HASH_A, 8n),
+    ]);
+
+    const tickets = await readActivationEligibleTicketsFromChain(
+      { getLogs, getTransactionReceipt } as never,
+      ACCOUNT,
+      { readReceiptTickets },
+    );
+
+    expect(tickets.map((ticket) => ticket.ticketId)).toEqual([
+      71845936741832571838n,
+      90187820829801269348n,
+    ]);
+    expect(getLogs).toHaveBeenCalledWith(
+      expect.objectContaining({ fromBlock: 44_996_796n, toBlock: 44_996_845n }),
+    );
+    expect(getLogs).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fromBlock: 44_997_146n, toBlock: 44_997_183n }),
+    );
+    expect(getTransactionReceipt).toHaveBeenCalledTimes(1);
   });
 });

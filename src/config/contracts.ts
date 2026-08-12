@@ -71,6 +71,8 @@ export const TICKET_SOURCE = stringToHex('MEGAPLANETS_V1', { size: 32 });
 
 /** First Base Sepolia block whose MegaPlanets ticket events can mint Season 1 Planets. */
 export const MEGAPLANETS_LAUNCH_BLOCK = 44_997_183n;
+/** First canonical MegaPlanets_V1 ticket in the pre-launch activation window. */
+export const MEGAPLANETS_TICKET_START_BLOCK = 44_996_796n;
 
 /**
  * Toggle the LP page and nav entry. Default `false` — most forks surface only
@@ -151,6 +153,7 @@ const ADDRESSES = {
 
 export const USDC_ADDRESS = ADDRESSES.USDC[CHAIN] as Address;
 export const JACKPOT_ADDRESS = ADDRESSES.Jackpot[CHAIN] as Address;
+export const JACKPOT_TICKET_NFT_ADDRESS = ADDRESSES.JackpotTicketNFT[CHAIN] as Address;
 export function parseMegaPlanetsContractAddress(value: string | undefined): Address | undefined {
   const configured = value?.trim();
   if (!configured) return undefined;

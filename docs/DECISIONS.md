@@ -13,7 +13,7 @@
 | D-006 | The generator seed includes generator version and origin transaction hash | Identical picks remain distinct while the versioned ABI encoding remains explicit. |
 | D-007 | IPFS metadata is immutable at mint | Keeps token metadata independent of application hosting. |
 | D-008 | Backend signs canonical individual and batch mint vouchers | Prevents arbitrary attributes while allowing the contract to validate live ownership. |
-| D-009 | Normal eligibility requires `MEGAPLANETS_V1` after the launch block | Excludes legacy and unrelated third-party tickets. Verified referral-bonus eligibility is deferred pending Megapot confirmation. |
+| D-009 | Normal eligibility requires `MEGAPLANETS_V1` from the canonical activation boundary `44,996,796` | The first MegaPlanets activation purchases precede the Planet launch gate at `44,997,183`; the bounded grandfather window preserves those tickets while excluding unrelated legacy tickets. Verified referral-bonus eligibility is deferred pending Megapot confirmation. |
 | D-010 | Claimed or burned tickets never mint | The mint contract verifies that the ticket is live and currently owned by the recipient. |
 | D-011 | Lazy mineral production follows current Planet ownership | Transfers settle earned minerals for the previous owner at the transfer timestamp, then start production for the new owner. |
 | D-012 | Vercel + Supabase + Pinata | Minimizes MVP infrastructure operations. |

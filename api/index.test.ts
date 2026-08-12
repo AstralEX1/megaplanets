@@ -8,6 +8,7 @@ import { createOperationalState } from './operations';
 
 const config: Stage5Config = {
   rpcUrl: 'https://rpc.example.test',
+  rpcFallbackUrls: [],
   databaseUrl: 'postgresql://not-used-in-tests',
   pinataJwt: 'test-pinata-token',
   signerPrivateKey: `0x${'11'.repeat(32)}`,
