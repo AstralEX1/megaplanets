@@ -150,15 +150,33 @@ export class PrismaEligibilityStore implements EligibilityStore {
     if (!this.planetContractAddress) throw new Error('Planet contract address is required to reset ticket provenance.');
     const planetContractAddress = getAddress(this.planetContractAddress).toLowerCase();
     await this.prisma.$transaction(async (transaction) => {
-      await transaction.dailySnapshotRecord.deleteMany({ where: { blockNumber: { gte: fromBlock } } });
-      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: { contractAddress: planetContractAddress, chainId: BASE_SEPOLIA_CHAIN_ID } } });
-      await transaction.planetAccrualState.deleteMany({ where: { planet: { contractAddress: planetContractAddress, chainId: BASE_SEPOLIA_CHAIN_ID } } });
+      // Daily snapshots are legacy, deployment-agnostic records. Leave them
+      // untouched here; the snapshot job owns their canonicality policy.
+      const historicalMiningPlanets = await transaction.planet.findMany({
+        where: {
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          contractAddress: planetContractAddress,
+          mintBlockNumber: { lt: fromBlock },
+          ownershipHistory: { some: { blockNumber: { gte: fromBlock } } },
+        },
+        select: { id: true },
+      });
+      if (historicalMiningPlanets.length > 0) {
+        throw new Error('Reorg intersects historical Planet mining state; a full derived-state rebuild is required.');
+      }
+      const scopedPlanet = {
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+        contractAddress: planetContractAddress,
+        mintBlockNumber: { gte: fromBlock },
+      };
+      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: scopedPlanet } });
+      await transaction.planetAccrualState.deleteMany({ where: { planet: scopedPlanet } });
       await transaction.planetOwnershipHistory.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, blockNumber: { gte: fromBlock } } });
       await transaction.processedBlockchainEvent.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, blockNumber: { gte: fromBlock } } });
       await transaction.planet.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, mintBlockNumber: { gte: fromBlock } } });
       await transaction.mintVoucherRecord.deleteMany({ where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: fromBlock } } } });
       await transaction.ticketPurchase.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: fromBlock } } });
-      await transaction.indexerCursor.deleteMany({
+      await transaction.indexerCursor.updateMany({
         where: {
           chainId: BASE_SEPOLIA_CHAIN_ID,
           OR: [
@@ -166,6 +184,7 @@ export class PrismaEligibilityStore implements EligibilityStore {
             { contractAddress: planetContractAddress, stream: 'megaplanets-v2' },
           ],
         },
+        data: { nextBlock: fromBlock, lastBlockHash: null },
       });
     });
   }

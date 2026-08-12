@@ -208,9 +208,6 @@ export class FileEligibilityStore implements EligibilityStore {
       for (const [key, voucher] of Object.entries(store.vouchers)) {
         if (removedTicketIds.has(voucher.voucher.ticketId)) delete store.vouchers[key];
       }
-      for (const [key, snapshot] of Object.entries(store.snapshots)) {
-        if (BigInt(snapshot.blockNumber) >= fromBlock) delete store.snapshots[key];
-      }
       store.cursor = undefined;
     });
   }
@@ -259,9 +256,6 @@ export class MemoryEligibilityStore implements EligibilityStore {
     }
     for (const [key, voucher] of this.vouchers) {
       if (removedTicketIds.has(voucher.voucher.ticketId.toString())) this.vouchers.delete(key);
-    }
-    for (const [key, snapshot] of this.snapshots) {
-      if (snapshot.blockNumber >= fromBlock) this.snapshots.delete(key);
     }
     this.cursor = undefined;
   }

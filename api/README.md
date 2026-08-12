@@ -94,7 +94,11 @@ and restore/rollback procedures. Ticket vouchers remain bound to the original
 `TicketPurchased` recipient, while the contract independently checks current live ticket
 ownership.
 
-The Planet and ticket indexers now use block-hash cursors and FK-safe V2-scoped rewinds;
+The Planet and ticket indexers now use block-hash cursors and FK-safe deployment-scoped
+rewinds. A Planet reorg rewinds only a bounded recent window (12 blocks by default),
+preserving unrelated deployments and legacy daily snapshots; a separate snapshot job owns
+snapshot canonicality. Configure a larger window in the indexer caller when the provider's
+finality/reorg assumptions require it.
 focused cursor/reset and idempotency tests cover replay behavior. A production rollout
 still needs durable scheduling, monitoring, backups, and restore testing. Never expose the
 metadata signer private key to browser code.

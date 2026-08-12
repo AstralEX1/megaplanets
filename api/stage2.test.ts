@@ -11,6 +11,7 @@ const config: Stage2Config = {
   appOrigin: 'http://127.0.0.1:5173',
   sessionTtlSeconds: 3_600,
   chainId: 84_532,
+  planetContractAddress: '0x0000000000000000000000000000000000000004',
 };
 
 function testApp(store: MemoryStage2Store) {
@@ -55,6 +56,8 @@ describe('Stage 2 wallet authentication and Planet API', () => {
   it('returns indexed Planets by normalized owner and decimal token ID', async () => {
     const store = new MemoryStage2Store();
     store.seedPlanet({
+      chainId: config.chainId,
+      contractAddress: config.planetContractAddress,
       tokenId: '456',
       ticketId: '456',
       ownerAddress: account.address.toLowerCase() as `0x${string}`,
@@ -87,6 +90,16 @@ describe('Stage 2 wallet authentication and Planet API', () => {
 
     expect((await app.request('/planets/456')).status).toBe(200);
     expect((await app.request('/planets/not-a-token')).status).toBe(400);
+  });
+
+  it('fails closed when indexed Planet scope is not configured', async () => {
+    const app = createStage2Routes({
+      loadConfig: () => ({ ...config, planetContractAddress: undefined }),
+      getStore: () => new MemoryStage2Store(),
+    });
+
+    expect((await app.request(`/planets?owner=${account.address}`)).status).toBe(503);
+    expect((await app.request('/planets/456')).status).toBe(503);
   });
 
   it('returns a Planet mining snapshot as decimal strings', async () => {

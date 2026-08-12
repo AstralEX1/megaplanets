@@ -7,20 +7,20 @@ import { PrismaEligibilityStore } from './prismaEligibilityStore';
 const planetContract = '0x0000000000000000000000000000000000000003' as const;
 
 describe('PrismaEligibilityStore reorg resets', () => {
-  it('rewinds ticket provenance in FK-safe order and clears both cursors', async () => {
+  it('rewinds ticket provenance in FK-safe order without touching legacy snapshots', async () => {
     const calls: string[] = [];
     const transaction = {
-      leaderboardEntry: { deleteMany: async () => { calls.push('leaderboardEntry.deleteMany'); } },
-      leaderboardPeriod: { deleteMany: async () => { calls.push('leaderboardPeriod.deleteMany'); } },
-      dailySnapshotRecord: { deleteMany: async () => { calls.push('dailySnapshotRecord.deleteMany'); } },
       mineralLedgerEntry: { deleteMany: vi.fn(async () => { calls.push('mineralLedgerEntry.deleteMany'); }) },
       planetAccrualState: { deleteMany: vi.fn(async () => { calls.push('planetAccrualState.deleteMany'); }) },
       planetOwnershipHistory: { deleteMany: vi.fn(async () => { calls.push('planetOwnershipHistory.deleteMany'); }) },
       processedBlockchainEvent: { deleteMany: vi.fn(async () => { calls.push('processedBlockchainEvent.deleteMany'); }) },
-      planet: { deleteMany: vi.fn(async () => { calls.push('planet.deleteMany'); }) },
+      planet: {
+        findMany: async () => [],
+        deleteMany: vi.fn(async () => { calls.push('planet.deleteMany'); }),
+      },
       mintVoucherRecord: { deleteMany: vi.fn(async () => { calls.push('mintVoucherRecord.deleteMany'); }) },
       ticketPurchase: { deleteMany: vi.fn(async () => { calls.push('ticketPurchase.deleteMany'); }) },
-      indexerCursor: { deleteMany: vi.fn(async () => { calls.push('indexerCursor.deleteMany'); }) },
+      indexerCursor: { updateMany: vi.fn(async () => { calls.push('indexerCursor.updateMany'); }) },
     };
     const prisma = {
       $transaction: async (callback: (tx: typeof transaction) => Promise<void>) => callback(transaction),
@@ -35,7 +35,6 @@ describe('PrismaEligibilityStore reorg resets', () => {
     await rewind.call(store, MEGAPLANETS_LAUNCH_BLOCK);
 
     expect(calls).toEqual([
-      'dailySnapshotRecord.deleteMany',
       'mineralLedgerEntry.deleteMany',
       'planetAccrualState.deleteMany',
       'planetOwnershipHistory.deleteMany',
@@ -43,9 +42,9 @@ describe('PrismaEligibilityStore reorg resets', () => {
       'planet.deleteMany',
       'mintVoucherRecord.deleteMany',
       'ticketPurchase.deleteMany',
-      'indexerCursor.deleteMany',
+      'indexerCursor.updateMany',
     ]);
-    expect(transaction.indexerCursor.deleteMany).toHaveBeenCalledWith({
+    expect(transaction.indexerCursor.updateMany).toHaveBeenCalledWith({
       where: {
         chainId: BASE_SEPOLIA_CHAIN_ID,
         OR: [
@@ -59,6 +58,7 @@ describe('PrismaEligibilityStore reorg resets', () => {
           },
         ],
       },
+      data: { nextBlock: MEGAPLANETS_LAUNCH_BLOCK, lastBlockHash: null },
     });
     expect(transaction.planet.deleteMany).toHaveBeenCalledWith({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContract.toLowerCase(), mintBlockNumber: { gte: MEGAPLANETS_LAUNCH_BLOCK } } });
     expect(transaction.processedBlockchainEvent.deleteMany).toHaveBeenCalledWith({ where: { chainId: 84532, contractAddress: planetContract.toLowerCase(), blockNumber: { gte: MEGAPLANETS_LAUNCH_BLOCK } } });

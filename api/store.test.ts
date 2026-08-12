@@ -20,14 +20,14 @@ describe('eligibility store rewind', () => {
       tempDirectories.push(directory);
       return new FileEligibilityStore(join(directory, 'store.json'));
     }],
-  ])('clears snapshots during %s rewind', async (_name, createStore) => {
+  ])('preserves snapshots outside the owned ticket rewind boundary during %s rewind', async (_name, createStore) => {
     const store = await createStore();
     await store.saveSnapshot(snapshot);
     await store.setCursor(43n, `0x${'11'.repeat(32)}`);
 
-    await store.rewind(1n);
+    await store.rewind(43n);
 
-    expect(await store.getSnapshot(42n)).toBeUndefined();
+    expect(await store.getSnapshot(42n)).toEqual(snapshot);
     expect(await store.getCursor()).toBeUndefined();
   });
 });

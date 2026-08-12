@@ -78,20 +78,19 @@ describe('PrismaPlanetIndexStore mining settlements', () => {
 });
 
 describe('PrismaPlanetIndexStore reorg resets', () => {
-  it('rewinds by clearing derived V2 state in FK-safe order before resetting the cursor', async () => {
+  it('rewinds deployment-scoped derived state in FK-safe order before resetting the cursor', async () => {
     const calls: string[] = [];
+    const miningDeletes: unknown[] = [];
     const transaction = {
-      leaderboardEntry: { deleteMany: async () => { calls.push('leaderboardEntry.deleteMany'); } },
-      leaderboardPeriod: { deleteMany: async () => { calls.push('leaderboardPeriod.deleteMany'); } },
-      dailySnapshotRecord: { deleteMany: async () => { calls.push('dailySnapshotRecord.deleteMany'); } },
-      mineralLedgerEntry: { deleteMany: async () => { calls.push('mineralLedgerEntry.deleteMany'); } },
-      planetAccrualState: { deleteMany: async () => { calls.push('planetAccrualState.deleteMany'); } },
+      mineralLedgerEntry: { deleteMany: async ({ where }: { where: unknown }) => { miningDeletes.push(['ledger', where]); calls.push('mineralLedgerEntry.deleteMany'); } },
+      planetAccrualState: { deleteMany: async ({ where }: { where: unknown }) => { miningDeletes.push(['accrual', where]); calls.push('planetAccrualState.deleteMany'); } },
       planetOwnershipHistory: {
         findMany: async () => [],
         deleteMany: async () => { calls.push('planetOwnershipHistory.deleteMany'); },
       },
       processedBlockchainEvent: { deleteMany: async () => { calls.push('processedBlockchainEvent.deleteMany'); } },
       planet: {
+        findMany: async () => [],
         deleteMany: async () => { calls.push('planet.deleteMany'); },
         findUnique: async () => null,
         update: async () => undefined,
@@ -105,7 +104,6 @@ describe('PrismaPlanetIndexStore reorg resets', () => {
     await new PrismaPlanetIndexStore(prisma).rewind(planetContract, deploymentBlock);
 
     expect(calls).toEqual([
-      'dailySnapshotRecord.deleteMany',
       'mineralLedgerEntry.deleteMany',
       'planetAccrualState.deleteMany',
       'planetOwnershipHistory.deleteMany',
@@ -113,6 +111,26 @@ describe('PrismaPlanetIndexStore reorg resets', () => {
       'planet.deleteMany',
       'indexerCursor.updateMany',
     ]);
+    expect(miningDeletes).toEqual([
+      ['ledger', { planet: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContract, mintBlockNumber: { gte: deploymentBlock } } }],
+      ['accrual', { planet: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContract, mintBlockNumber: { gte: deploymentBlock } } }],
+    ]);
+  });
+
+  it('fails closed instead of deleting mining history for a pre-fork Planet', async () => {
+    const transaction = {
+      planet: {
+        findMany: async () => [{ id: 'old-planet' }],
+        deleteMany: async () => { throw new Error('must not delete'); },
+      },
+      mineralLedgerEntry: { deleteMany: async () => { throw new Error('must not delete'); } },
+      planetAccrualState: { deleteMany: async () => { throw new Error('must not delete'); } },
+    };
+    const prisma = {
+      $transaction: async (callback: (tx: typeof transaction) => Promise<void>) => callback(transaction),
+    } as unknown as PrismaClient;
+
+    await expect(new PrismaPlanetIndexStore(prisma).rewind(planetContract, deploymentBlock)).rejects.toThrow(/historical Planet mining state/i);
   });
 });
 
@@ -157,19 +175,18 @@ describe('planet indexer cursor hashing', () => {
     const result = await indexPlanetEvents(config, store, {
       confirmations: 6n,
       blockRange: 100n,
-      reorgWindow: 12n,
     });
 
-    expect(store.rewind).toHaveBeenCalledWith(planetContract, deploymentBlock);
+    expect(store.rewind).toHaveBeenCalledWith(planetContract, deploymentBlock + 28n);
     expect(client.getLogs).toHaveBeenCalledWith(
       expect.objectContaining({
         address: planetContract,
-        fromBlock: deploymentBlock,
+        fromBlock: deploymentBlock + 28n,
         toBlock: deploymentBlock + 40n,
       }),
     );
     expect(result).toMatchObject({
-      fromBlock: deploymentBlock,
+      fromBlock: deploymentBlock + 28n,
       throughBlock: deploymentBlock + 40n,
       eventsProcessed: 0,
       reorgDetected: true,

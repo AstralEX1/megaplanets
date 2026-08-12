@@ -91,7 +91,9 @@ describe('finalizeLeaderboardPeriod', () => {
   it('archives a period only once when finalization is retried', async () => {
     let periodRecord: { id: string; finalizedAt: Date } | undefined;
     let periodWrites = 0;
+    let lockCalls = 0;
     const transaction = {
+      $queryRaw: async () => { lockCalls += 1; },
       leaderboardPeriod: {
         findUnique: async () => periodRecord,
         upsert: async ({ create }: { create: { id: string; finalizedAt: Date } }) => {
@@ -121,5 +123,6 @@ describe('finalizeLeaderboardPeriod', () => {
     await finalizeLeaderboardPeriod(prisma, PERIOD, new Date('2026-08-17T00:01:00.000Z'));
 
     expect(periodWrites).toBe(1);
+    expect(lockCalls).toBe(2);
   });
 });

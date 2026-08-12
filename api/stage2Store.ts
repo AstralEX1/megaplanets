@@ -56,8 +56,8 @@ export type Stage2Store = {
   createSession(record: AuthSessionRecord): Promise<void>;
   findSession(tokenHash: string, now: Date): Promise<AuthSessionRecord | undefined>;
   revokeSession(tokenHash: string, now: Date): Promise<void>;
-  listPlanets(ownerAddress: Address, scope?: PlanetScope): Promise<IndexedPlanetRecord[]>;
-  getPlanet(tokenId: string, scope?: PlanetScope): Promise<IndexedPlanetRecord | undefined>;
+  listPlanets(ownerAddress: Address, scope: PlanetScope): Promise<IndexedPlanetRecord[]>;
+  getPlanet(tokenId: string, scope: PlanetScope): Promise<IndexedPlanetRecord | undefined>;
 };
 
 function serializePlanet(planet: {
@@ -179,18 +179,18 @@ export class PrismaStage2Store implements Stage2Store {
     });
   }
 
-  async listPlanets(ownerAddress: Address, scope?: PlanetScope): Promise<IndexedPlanetRecord[]> {
+  async listPlanets(ownerAddress: Address, scope: PlanetScope): Promise<IndexedPlanetRecord[]> {
     const planets = await this.prisma.planet.findMany({
-      where: { ownerAddress, ...(scope ? { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() } : {}) },
+      where: { ownerAddress, chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() },
       orderBy: [{ mintedAt: 'desc' }, { tokenId: 'asc' }],
       include: { ticketPurchase: true },
     });
     return planets.map(serializePlanet);
   }
 
-  async getPlanet(tokenId: string, scope?: PlanetScope): Promise<IndexedPlanetRecord | undefined> {
+  async getPlanet(tokenId: string, scope: PlanetScope): Promise<IndexedPlanetRecord | undefined> {
     const planet = await this.prisma.planet.findFirst({
-      where: { tokenId, ...(scope ? { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() } : {}) },
+      where: { tokenId, chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() },
       include: { ticketPurchase: true },
     });
     return planet ? serializePlanet(planet) : undefined;
@@ -240,17 +240,15 @@ export class MemoryStage2Store implements Stage2Store {
     if (record) this.sessions.set(tokenHash, { ...record, revokedAt: now });
   }
 
-  async listPlanets(ownerAddress: Address, scope?: PlanetScope) {
+  async listPlanets(ownerAddress: Address, scope: PlanetScope) {
     return [...this.planets.values()].filter((planet) =>
       planet.ownerAddress === ownerAddress &&
-      (!scope || (planet.chainId === scope.chainId && planet.contractAddress?.toLowerCase() === scope.contractAddress.toLowerCase())),
+      planet.chainId === scope.chainId && planet.contractAddress?.toLowerCase() === scope.contractAddress.toLowerCase(),
     );
   }
 
-  async getPlanet(tokenId: string, scope?: PlanetScope) {
-    const planet = scope
-      ? this.planets.get(`${scope.chainId}:${scope.contractAddress.toLowerCase()}:${tokenId}`)
-      : [...this.planets.values()].find((candidate) => candidate.tokenId === tokenId);
+  async getPlanet(tokenId: string, scope: PlanetScope) {
+    const planet = this.planets.get(`${scope.chainId}:${scope.contractAddress.toLowerCase()}:${tokenId}`);
     if (!planet) return undefined;
     return planet;
   }

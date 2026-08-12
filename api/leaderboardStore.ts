@@ -201,6 +201,7 @@ export async function finalizeLeaderboardPeriod(
   finalizedAt: Date,
 ) {
   return prisma.$transaction(async (transaction) => {
+    await transaction.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended('megaplanets:leaderboard-finalization', 0))`;
     const existing = await transaction.leaderboardPeriod.findUnique({ where: { id: period.id } });
     if (existing?.finalizedAt) {
       return transaction.leaderboardEntry.findMany({ where: { periodId: period.id }, orderBy: { rank: 'asc' } });

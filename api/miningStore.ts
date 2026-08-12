@@ -15,9 +15,16 @@ export async function settleWalletMiningRates(
   transaction: Prisma.TransactionClient,
   ownerAddress: string,
   effectiveAt: Date,
+  scope: PlanetScope,
 ): Promise<void> {
   const planets = await transaction.planet.findMany({
-    where: { ownerAddress, baseMineralsPerDay: { not: null }, planetType: { not: null } },
+    where: {
+      ownerAddress,
+      chainId: scope.chainId,
+      contractAddress: scope.contractAddress.toLowerCase(),
+      baseMineralsPerDay: { not: null },
+      planetType: { not: null },
+    },
     select: { id: true, baseMineralsPerDay: true, planetType: true },
   });
   if (planets.length === 0) return;
@@ -63,9 +70,16 @@ export async function repriceWalletMiningRates(
   transaction: Prisma.TransactionClient,
   ownerAddress: string,
   effectiveAt: Date,
+  scope: PlanetScope,
 ): Promise<void> {
   const planets = await transaction.planet.findMany({
-    where: { ownerAddress, baseMineralsPerDay: { not: null }, planetType: { not: null } },
+    where: {
+      ownerAddress,
+      chainId: scope.chainId,
+      contractAddress: scope.contractAddress.toLowerCase(),
+      baseMineralsPerDay: { not: null },
+      planetType: { not: null },
+    },
     select: { id: true, planetType: true },
   });
   const multipliers = getSameTypeMultipliers(
@@ -96,15 +110,18 @@ export async function refreshWalletMiningRates(
   transaction: Prisma.TransactionClient,
   ownerAddress: string,
   effectiveAt: Date,
+  scope: PlanetScope,
 ): Promise<void> {
-  await settleWalletMiningRates(transaction, ownerAddress, effectiveAt);
-  await repriceWalletMiningRates(transaction, ownerAddress, effectiveAt);
+  await settleWalletMiningRates(transaction, ownerAddress, effectiveAt, scope);
+  await repriceWalletMiningRates(transaction, ownerAddress, effectiveAt, scope);
 }
 
 /** Starts mining for indexed planets that predate the mining rollout, without retroactive accrual. */
-export async function initializeMissingMiningStates(prisma: PrismaClient, startedAt: Date): Promise<number> {
+export async function initializeMissingMiningStates(prisma: PrismaClient, startedAt: Date, scope: PlanetScope): Promise<number> {
   const owners = await prisma.planet.findMany({
     where: {
+      chainId: scope.chainId,
+      contractAddress: scope.contractAddress.toLowerCase(),
       ownerAddress: { not: '0x0000000000000000000000000000000000000000' },
       baseMineralsPerDay: { not: null },
       planetType: { not: null },
@@ -114,14 +131,14 @@ export async function initializeMissingMiningStates(prisma: PrismaClient, starte
     distinct: ['ownerAddress'],
   });
   for (const { ownerAddress } of owners) {
-    await prisma.$transaction((transaction) => repriceWalletMiningRates(transaction, ownerAddress, startedAt));
+    await prisma.$transaction((transaction) => repriceWalletMiningRates(transaction, ownerAddress, startedAt, scope));
   }
   return owners.length;
 }
 
-export async function getPlanetMiningSnapshot(prisma: PrismaClient, tokenId: string, now: Date, scope?: PlanetScope) {
+export async function getPlanetMiningSnapshot(prisma: PrismaClient, tokenId: string, now: Date, scope: PlanetScope) {
   const planet = await prisma.planet.findFirst({
-    where: { tokenId, ...(scope ? { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() } : {}) },
+    where: { tokenId, chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() },
     include: { accrualState: true },
   });
   if (!planet?.accrualState || planet.baseMineralsPerDay === null) return undefined;
@@ -147,10 +164,10 @@ export async function getPlanetMiningSnapshot(prisma: PrismaClient, tokenId: str
   };
 }
 
-export async function getWalletMiningSnapshot(prisma: PrismaClient, ownerAddress: string, now: Date, scope?: PlanetScope) {
+export async function getWalletMiningSnapshot(prisma: PrismaClient, ownerAddress: string, now: Date, scope: PlanetScope) {
   const [planets, ledger] = await Promise.all([
     prisma.planet.findMany({
-      where: { ownerAddress, ...(scope ? { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() } : {}), baseMineralsPerDay: { not: null }, accrualState: { isNot: null } },
+      where: { ownerAddress, chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase(), baseMineralsPerDay: { not: null }, accrualState: { isNot: null } },
       select: {
         id: true,
         tokenId: true,
@@ -161,7 +178,7 @@ export async function getWalletMiningSnapshot(prisma: PrismaClient, ownerAddress
     prisma.mineralLedgerEntry.findMany({
       where: {
         ownerAddress,
-        ...(scope ? { planet: { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() } } : {}),
+        planet: { chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() },
       },
       select: { planetId: true, amountMicros: true },
     }),

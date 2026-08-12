@@ -148,9 +148,30 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
   async rewind(contractAddress: Address, fromBlock: bigint): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
       const normalizedAddress = contractAddress.toLowerCase();
-      await transaction.dailySnapshotRecord.deleteMany({ where: { blockNumber: { gte: fromBlock } } });
-      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress } } });
-      await transaction.planetAccrualState.deleteMany({ where: { planet: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress } } });
+      // A pre-fork Planet can have ledger entries from before the fork. Since
+      // those entries have no block provenance, deleting its mining state would
+      // destroy canonical history. Fail closed for that case and only rewind
+      // planets minted inside the fork window, whose derived state is wholly
+      // attributable to the replayed chain segment.
+      const historicalMiningPlanets = await transaction.planet.findMany({
+        where: {
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          contractAddress: normalizedAddress,
+          mintBlockNumber: { lt: fromBlock },
+          ownershipHistory: { some: { blockNumber: { gte: fromBlock } } },
+        },
+        select: { id: true },
+      });
+      if (historicalMiningPlanets.length > 0) {
+        throw new Error('Reorg intersects historical Planet mining state; a full derived-state rebuild is required.');
+      }
+      const scopedPlanet = {
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+        contractAddress: normalizedAddress,
+        mintBlockNumber: { gte: fromBlock },
+      };
+      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: scopedPlanet } });
+      await transaction.planetAccrualState.deleteMany({ where: { planet: scopedPlanet } });
       await transaction.planetOwnershipHistory.deleteMany({
         where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress, blockNumber: { gte: fromBlock } },
       });
@@ -262,6 +283,7 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
       if (from !== ZERO_ADDRESS && planet.ownerAddress !== from) {
         throw new Error(`Planet ${event.tokenId} transfer owner is inconsistent.`);
       }
+      const scope = { chainId: event.chainId, contractAddress: event.contractAddress };
       await transaction.planetOwnershipHistory.create({
         data: {
           planetId: planet.id,
@@ -276,8 +298,8 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
           logIndex: event.logIndex,
         },
       });
-      if (from !== ZERO_ADDRESS) await settleWalletMiningRates(transaction, from, event.blockTimestamp);
-      if (to !== ZERO_ADDRESS && to !== from) await settleWalletMiningRates(transaction, to, event.blockTimestamp);
+      if (from !== ZERO_ADDRESS) await settleWalletMiningRates(transaction, from, event.blockTimestamp, scope);
+      if (to !== ZERO_ADDRESS && to !== from) await settleWalletMiningRates(transaction, to, event.blockTimestamp, scope);
       await transaction.planet.update({
         where: { id: planet.id },
         data: { ownerAddress: to },
@@ -290,8 +312,8 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
       } else if (to === ZERO_ADDRESS) {
         await transaction.planetAccrualState.deleteMany({ where: { planetId: planet.id } });
       }
-      if (from !== ZERO_ADDRESS) await repriceWalletMiningRates(transaction, from, event.blockTimestamp);
-      if (to !== ZERO_ADDRESS && to !== from) await repriceWalletMiningRates(transaction, to, event.blockTimestamp);
+      if (from !== ZERO_ADDRESS) await repriceWalletMiningRates(transaction, from, event.blockTimestamp, scope);
+      if (to !== ZERO_ADDRESS && to !== from) await repriceWalletMiningRates(transaction, to, event.blockTimestamp, scope);
     });
   }
 
@@ -367,7 +389,8 @@ export async function indexPlanetEvents(
   const address = getAddress(config.planetContractAddress);
   const confirmations = options.confirmations ?? 6n;
   const blockRange = options.blockRange ?? 2_000n;
-  if (confirmations < 0n || blockRange < 1n || blockRange > 2_000n) {
+  const reorgWindow = options.reorgWindow ?? 12n;
+  if (confirmations < 0n || blockRange < 1n || blockRange > 2_000n || reorgWindow < 0n) {
     throw new Error('Invalid Planet indexer bounds.');
   }
   const client = createPublicClient({ chain: baseSepolia, transport: http(config.rpcUrl) });
@@ -379,7 +402,10 @@ export async function indexPlanetEvents(
   if (cursor?.lastBlockHash && startBlock > config.planetDeploymentBlock) {
     const previous = await client.getBlock({ blockNumber: startBlock - 1n });
     if (previous.hash !== cursor.lastBlockHash) {
-      startBlock = config.planetDeploymentBlock;
+      const rewindFrom = startBlock > config.planetDeploymentBlock + reorgWindow
+        ? startBlock - reorgWindow
+        : config.planetDeploymentBlock;
+      startBlock = rewindFrom < config.planetDeploymentBlock ? config.planetDeploymentBlock : rewindFrom;
       await store.rewind(address, startBlock);
       cursor = undefined;
       reorgDetected = true;

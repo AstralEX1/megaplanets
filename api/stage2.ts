@@ -29,8 +29,10 @@ const tokenIdSchema = z.string().regex(/^\d{1,78}$/);
 export function createStage2Routes(overrides: Partial<Stage2Dependencies> = {}) {
   const dependencies = { ...defaultDependencies, ...overrides };
   const app = new Hono();
-  const scopeFor = (config: Stage2Config): PlanetScope | undefined =>
-    config.planetContractAddress ? { chainId: config.chainId, contractAddress: config.planetContractAddress } : undefined;
+  const scopeFor = (config: Stage2Config): PlanetScope => {
+    if (!config.planetContractAddress) throw new Error('MegaPlanets contract configuration is required for indexed Planet reads.');
+    return { chainId: config.chainId, contractAddress: config.planetContractAddress };
+  };
 
   app.route(
     '/auth',
