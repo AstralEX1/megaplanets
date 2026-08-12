@@ -1,6 +1,6 @@
 # Development Status
 
-Last updated: 2026-08-11. The historical full-audit baseline was commit `e0e0e1a` (`main`).
+Last updated: 2026-08-12. The historical full-audit baseline was commit `e0e0e1a` (`main`).
 
 This document is the current implementation snapshot. Product intent remains in
 [`PRODUCT_SPEC.md`](./PRODUCT_SPEC.md), architectural boundaries remain in
@@ -55,8 +55,8 @@ BaseScan verification by itself does not authorize runtime activation. The runti
 activation gate remains env-only: do not check in defaults, and do not set frontend
 `VITE_MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` plus
 backend `MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` and
-`MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` until the V2 indexer rehearsal gates
-pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
+`MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` until the remaining production operations
+gate passes; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 `TICKET_SOURCE=MEGAPLANETS_V1` unchanged.
 
 ## Layer-by-layer state
@@ -66,8 +66,8 @@ pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 | Megapot purchases | Direct 1-10 custom/quick-pick purchases, all-random keeper bulk orders for 11-50, exact USDC approvals, dynamic draw bounds, `MEGAPLANETS_V1`, and canonical `TicketPurchased` receipt decoding | Implemented and unit-tested; real wallet and keeper execution still need an end-to-end rehearsal |
 | Planet generator | DOM-free deterministic V3 generator, namespaced randomness, seasonless metadata, 128x128 GIF renderer, web worker, serialization/integrity checks, and regenerated golden fixtures | Complete local checkpoint; final art/economy parameters still require product sign-off |
 | Contract V2 | Seasonless ERC721A, sequential token IDs from 1, bidirectional ticket/Planet mappings, atomic batches up to 50, EIP-712 v2 vouchers, live ticket ownership checks, and Foundry unit/fuzz/invariant tests | Deployed to Base Sepolia at `0x7a29...f9f2`; Sourcify exact match; BaseScan verified; runtime activation remains pending |
-| Voucher service | Hono endpoint validates the canonical purchase receipt, derives metadata, pins to Pinata, signs EIP-712 vouchers, caches results, and rate-limits/coalesces requests | Suitable for local/single-process use; production secrets, shared rate limiting, wallet authentication policy, and hosting are not complete |
-| PostgreSQL/indexer | Prisma migrations for tickets, vouchers, Planets, ownership, processed events, cursors, mining ledger, and leaderboard; separate finalized-log runner with bounded ranges and ticket/Planet block-hash reorg detection | Disposable DB rehearsal, 462-ticket backfill, post-mint convergence, repeat idempotency, and readiness probes verified |
+| Voucher service | Hono endpoint validates the canonical purchase receipt, derives metadata, pins to Pinata, signs EIP-712 vouchers, caches results, and rate-limits/coalesces requests | Standalone Node API process, health/readiness/metrics probes, and local split-stack commands are implemented; production secrets, shared rate limiting, hosting, and ownership are not complete |
+| PostgreSQL/indexer | Prisma migrations for tickets, vouchers, Planets, ownership, processed events, cursors, mining ledger, and leaderboard; separate finalized-log runner with bounded ranges and ticket/Planet block-hash reorg detection | Disposable DB rehearsal, 462-ticket backfill, post-mint convergence, repeat idempotency, readiness/metrics probes, and standalone API/indexer processes verified |
 | Mining | Lazy fixed-point accrual, immutable ledger segments, same-Type multipliers of 0/5/10/15%, per-Planet and wallet snapshots | Transfer sender/receiver repricing, burn state removal, remainder persistence, and same-tx mint ordering are covered by tests; no live transfer/burn performed |
 | Leaderboard | Monday-to-Monday periods, deterministic rank/tie rules, live and archived APIs, history, wallet position, and frontend | Implemented locally; finalization is triggered by leaderboard requests rather than an independent operations job |
 | Frontend | Responsive Play, My Planets list/detail and reveal batches, live mining overlays, leaderboard, wallet integration, deep links, and deterministic GIF previews | Polished local UI; production backend routing, live-wallet flows, and mobile/desktop E2E smoke coverage remain |
@@ -108,8 +108,9 @@ pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
    add alerting for lag or repeated reorgs.
 3. Move weekly finalization to an explicit worker/cron instead of relying on a public read
    request to discover overdue periods.
-4. Add indexer lag metrics, structured logs, retry policy, alerting, database backups,
-   restore tests, and a rollback runbook; the current readiness probe covers configuration.
+4. Add external indexer lag metrics, structured logs, retry policy, alerting, database
+   backups, restore tests, and a rollback runbook; the current readiness/metrics probes
+   cover local configuration and process counters only.
 5. Use durable distributed voucher rate limiting in production and decide whether voucher
    preparation must require the existing wallet-session authentication flow.
 6. Unify backend URL handling for voucher, Planet index, mining, and leaderboard requests.
@@ -130,8 +131,9 @@ pass together; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 
 The seasonless rewrite and pre-deployment checks completed on 2026-08-11:
 
-- `pnpm db:validate`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` pass.
-  The test suite reports 52 files and 204 tests; lint checked 268 files. Build output has
+- `pnpm db:generate`, `pnpm db:validate`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and
+  `pnpm build` pass. The test suite reports 54 files and 213 tests; lint checked 272 files.
+  Build output has
   only the existing external PURE-comment and large-chunk warnings.
 - Foundry unit, fuzz, and bounded invariant tests pass: 14 tests total, including 256
   fuzz runs per fuzz test and 8 invariant runs at depth 32. `forge build --sizes` reports

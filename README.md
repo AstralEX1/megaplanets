@@ -9,12 +9,11 @@ purchases, canonical receipt provenance, deterministic animated Planet generatio
 voucher-backed individual and batch minting, PostgreSQL indexing, passive mining,
 same-Type bonuses, and weekly leaderboards.
 
-The product is not ready for public testnet release. No active MegaPlanets contract is
-configured: the contract and product model target an undeployed ERC721A V2 with sequential
-Planet token IDs, and historical V1 deployments are no longer supported. The production
-API, database, indexer, metadata signer, and end-to-end rehearsal are also still pending.
-See the [current development status](docs/STATUS.md) before enabling minting or deploying
-services.
+The product is not ready for public testnet release. The seasonless ERC721A V2 is deployed
+and verified on Base Sepolia, but checked-in runtime defaults remain disabled and the
+production API, database, indexer, monitoring, and broader end-to-end coverage are still
+pending. Historical V1 deployments are no longer supported. See the [current development
+status](docs/STATUS.md) before enabling minting or deploying services.
 
 ## Requirements
 
@@ -31,6 +30,17 @@ pnpm db:generate
 pnpm dev
 ```
 
+For a production-like local split, run the API and finalized indexer separately:
+
+```bash
+pnpm api:server
+pnpm api:indexer
+```
+
+The standalone API defaults to `127.0.0.1:8787`; Vite remains the frontend dev server.
+Check `/api/planets/health`, `/api/planets/readiness`, and `/api/planets/metrics` before
+using a configured environment.
+
 The example environment targets Base Sepolia and includes the approved public MegaPlanets
 referrer. Override it only for an explicitly approved test or deployment configuration.
 
@@ -41,6 +51,7 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm db:validate
 ```
 
 ## Project documentation

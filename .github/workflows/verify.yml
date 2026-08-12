@@ -18,7 +18,21 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm db:validate
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: forge test --match-contract MegaPlanetsTest -vv
+        working-directory: contracts
+      - run: forge test --match-contract MegaPlanetsFuzzTest -vv
+        working-directory: contracts
+      - run: FOUNDRY_INVARIANT_RUNS=16 FOUNDRY_INVARIANT_DEPTH=16 forge test --match-contract MegaPlanetsInvariantTest -vv
+        working-directory: contracts

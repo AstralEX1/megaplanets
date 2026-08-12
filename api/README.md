@@ -16,6 +16,7 @@ This directory contains the current server-side boundary:
 
 - `GET /api/planets/health`
 - `GET /api/planets/readiness`
+- `GET /api/planets/metrics`
 - `POST /api/planets/vouchers`
 - `POST /api/auth/nonce`, `POST /api/auth/verify`, `POST /api/auth/logout`
 - `GET /api/me`, `GET /api/me/planets`, `GET /api/me/mining`
@@ -23,6 +24,19 @@ This directory contains the current server-side boundary:
 - `GET /api/planets/:tokenId/mining`, `GET /api/wallets/:address/mining`
 - `GET /api/leaderboard/current`, `/current/:address`, `/history`, and
   `/weeks/:periodId`
+
+`api/serverMain.ts` is the standalone Node HTTP entry point. The Vite server remains
+useful for frontend development, but a deployed API should run separately. Start it with:
+
+```sh
+set -a; . .env.local; set +a
+pnpm api:server
+```
+
+The default listener is `127.0.0.1:8787`; override it with
+`MEGAPLANETS_API_HOST` and `MEGAPLANETS_API_PORT`. The process can start with missing
+secrets so liveness stays observable, while readiness and voucher/auth routes fail closed
+with `503` until server configuration is complete.
 
 `api/planetIndexerMain.ts` is the separate long-running indexer entry point. The HTTP
 server does not start it. Run the local rehearsal stack in two processes:
@@ -42,9 +56,13 @@ cycle results. A public RPC with a sufficiently large `eth_getLogs` range is req
 the Nodies public endpoint currently caps ranges at 50 blocks, while the runner default
 is 2,000. `GET /api/planets/health` is a liveness probe and
 `GET /api/planets/readiness` validates the required database, V2 address, and deployment
-block configuration without exposing secrets. Leaderboard finalization currently runs
-lazily from leaderboard read routes; production should move this responsibility to an
-explicit operations job.
+block configuration without exposing secrets. `GET /api/planets/metrics` exposes only
+safe process counters and the latest indexer summary; it never includes exception text,
+RPC URLs, database URLs, Pinata credentials, or signer material. The metrics snapshot is
+process-local, so production should export it to the chosen monitoring system rather than
+treating it as a durable source of truth. Leaderboard finalization currently runs lazily
+from leaderboard read routes; production should move this responsibility to an explicit
+operations job.
 
 ## V2 deployment closure and runtime gate
 

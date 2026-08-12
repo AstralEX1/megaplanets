@@ -102,8 +102,9 @@ correct indexed gameplay state.
 
 ## Stage 8 — Testnet operations and public MVP release
 
-**Status: next stage.** The repository now contains a separate finalized indexer process,
-health/readiness probes, an operations runbook, and a disposable PostgreSQL rehearsal.
+**Status: in progress.** The repository now contains separate API and finalized indexer
+processes, health/readiness/metrics probes, CI Foundry checks, an operations runbook, and
+a disposable PostgreSQL rehearsal.
 
 Next, deploy the API, indexer, PostgreSQL, and frontend as separate testnet services;
 configure managed RPC and secret storage; add lag/alert monitoring, backups/restore,

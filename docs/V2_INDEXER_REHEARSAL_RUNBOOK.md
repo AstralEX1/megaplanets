@@ -23,7 +23,7 @@ finalized indexer runs as a separate process. Keep the V2 values in the gitignor
 
 ```sh
 set -a; . .env.local; set +a
-pnpm dev --host 127.0.0.1
+pnpm api:server
 ```
 
 In a second terminal:
@@ -33,10 +33,39 @@ set -a; . .env.local; set +a
 pnpm api:indexer
 ```
 
+Run the Vite frontend separately when a browser is needed:
+
+```sh
+pnpm dev --host 127.0.0.1
+```
+
 Use `GET /api/planets/health` for liveness and `GET /api/planets/readiness` for V2
-configuration readiness. The indexer emits cycle counts and reorg flags; use a Base
+configuration readiness. `GET /api/planets/metrics` exposes safe process counters; it
+does not expose credentials and is not a durable monitoring source. The indexer emits cycle
+counts and reorg flags; use a Base
 Sepolia RPC that accepts the configured 2,000-block log range. The public Nodies endpoint
 used during setup is capped at 50 blocks and is unsuitable for the default runner range.
+
+The API defaults to `127.0.0.1:8787`; override with `MEGAPLANETS_API_HOST` and
+`MEGAPLANETS_API_PORT`. It may start with incomplete secrets so liveness remains visible,
+but readiness, auth, mining, and voucher routes fail closed until configuration is valid.
+
+## Operations checklist
+
+- Store `DATABASE_URL`, `DIRECT_URL`, `BASE_SEPOLIA_RPC_URL`, `PINATA_JWT`, and
+  `MEGAPLANETS_METADATA_SIGNER_PRIVATE_KEY` in the host secret manager only.
+- Set the V2 address and deployment block atomically in API/indexer/frontend environments;
+  keep checked-in defaults empty and keep `MEGAPLANETS_LAUNCH_BLOCK=44997183`.
+- Scrape or poll health/readiness from the hosting platform and forward structured process
+  logs. Alert on readiness failure, repeated indexer failures, stale cycles, reorg flags,
+  and database connection errors.
+- Back up PostgreSQL before schema changes and on a documented cadence; rehearse restore
+  into a disposable database, run Prisma migrations, then replay both indexers from the
+  recorded launch/deployment blocks and compare ticket, Planet, ownership, mining, and
+  cursor counts.
+- For rollback, stop the indexer first, roll back API/frontend artifacts independently,
+  preserve immutable on-chain state, and use a forward-only migration or tested database
+  restore. Do not delete the live database as a first response.
 
 ## Exact commands
 

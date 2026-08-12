@@ -14,12 +14,14 @@ implemented boundaries without rewriting the known-good Megapot hooks:
 
 Writes and live drawing state continue to use Base RPC. Historical Megapot data uses
 the Megapot Data API. Planet eligibility and leaderboard state are designed to use the
-MegaPlanets indexer backed by PostgreSQL/Supabase. No production API, database, or indexer
-deployment is recorded in the repository yet.
+MegaPlanets indexer backed by PostgreSQL/Supabase. The repository now includes standalone
+API and indexer entry points plus readiness/metrics probes; external hosting and durable
+monitoring are still deployment work.
 
 Historical V1 deployments are no longer part of the active product and no default Planet
-contract address is configured. The active contract, ABI, database model, and product flow
-target an undeployed ERC721A V2. See [`STATUS.md`](./STATUS.md) for current blockers.
+contract address is configured in checked-in defaults. The active contract, ABI, database
+model, and product flow target the deployed seasonless ERC721A V2; runtime activation
+remains environment-only. See [`STATUS.md`](./STATUS.md) for current blockers.
 
 The Planet mint flow is intentionally separate from the Megapot purchase transaction:
 

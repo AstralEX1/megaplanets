@@ -9,6 +9,7 @@ import { prepareVoucher } from './service';
 import { PrismaEligibilityStore } from './prismaEligibilityStore';
 import { createStage2Routes, type Stage2Dependencies } from './stage2';
 import { FileEligibilityStore, type EligibilityStore, type PreparedVoucher } from './store';
+import { createOperationalState, type OperationalState } from './operations';
 
 type VoucherRequest = { transactionHash: Hex; logIndex: number };
 
@@ -18,6 +19,7 @@ type Stage5Dependencies = {
   prepare: (config: Stage5Config, ticket: EligibleTicket) => Promise<PreparedVoucher>;
   getStore: (config: Stage5Config) => EligibilityStore;
   rateLimiter: VoucherRateLimiter;
+  operations: OperationalState;
 };
 
 export type VoucherRateLimiter = { allows: (key: string) => boolean };
@@ -85,6 +87,7 @@ const defaultDependencies: Stage5Dependencies = {
       ? new PrismaEligibilityStore(getPrismaClient(config.databaseUrl))
       : new FileEligibilityStore(config.storePath ?? '.data/megaplanets-stage5.json'),
   rateLimiter: createVoucherRateLimiter(),
+  operations: createOperationalState({ role: 'api' }),
 };
 
 /** Creates the Stage 5 API without exposing server secrets to browser code. */
@@ -96,7 +99,19 @@ export function createApp(
   const app = new Hono();
   const inFlightPreparations = new Map<string, Promise<PreparedVoucher>>();
 
+  app.use('*', async (c, next) => {
+    await next();
+    dependencies.operations.recordHttpRequest(c.res.status);
+    return c.res;
+  });
+
   app.get('/api/planets/health', (c) => c.json({ ok: true, stage: 5 }));
+
+  app.get('/api/planets/metrics', (c) => c.json({
+    ok: true,
+    service: 'api',
+    operations: dependencies.operations.snapshot(),
+  }));
 
   app.get('/api/planets/readiness', (c) => {
     try {

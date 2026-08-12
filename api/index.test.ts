@@ -4,6 +4,7 @@ import { createApp, createVoucherRateLimiter } from './index';
 import type { EligibleTicket } from './eligibility';
 import type { MintVoucher } from './voucher';
 import { MemoryEligibilityStore } from './store';
+import { createOperationalState } from './operations';
 
 const config: Stage5Config = {
   rpcUrl: 'https://rpc.example.test',
@@ -51,6 +52,35 @@ describe('Stage 5 voucher endpoint', () => {
       contractAddress: config.planetContractAddress,
       deploymentBlock: '45347860',
     });
+  });
+
+  it('exposes safe operational metrics without server credentials', async () => {
+    const operations = createOperationalState({ role: 'api', now: () => 1_700_000_000_000 });
+    const app = createApp({ operations, loadConfig: () => ({ ...config, planetDeploymentBlock: 45_347_860n }) });
+
+    const response = await app.request('/api/planets/metrics');
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload).toMatchObject({
+      ok: true,
+      service: 'api',
+      operations: {
+        requestsTotal: 0,
+        errorsTotal: 0,
+        indexerCyclesTotal: 0,
+      },
+    });
+    expect(JSON.stringify(payload)).not.toContain('DATABASE_URL');
+  });
+
+  it('keeps readiness closed when the database or deployment block is missing', async () => {
+    const app = createApp({ loadConfig: () => ({ ...config, databaseUrl: undefined, planetDeploymentBlock: undefined }) });
+
+    const response = await app.request('/api/planets/readiness');
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ ready: false, stage: 5 });
   });
 
   it('mounts the public leaderboard API under /api/leaderboard', async () => {
