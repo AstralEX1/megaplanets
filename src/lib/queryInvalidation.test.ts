@@ -9,9 +9,7 @@ describe('post-write query invalidation', () => {
 
     await invalidatePostWriteQueries(queryClient as never);
 
-    const keys = queryClient.invalidateQueries.mock.calls.map(
-      ([call]) => call.queryKey,
-    );
+    const keys = queryClient.invalidateQueries.mock.calls.map(([call]) => call.queryKey);
     expect(keys).toEqual(
       expect.arrayContaining([
         ['megapot-api', expect.any(String), 'wallet-tickets-round'],
@@ -19,6 +17,7 @@ describe('post-write query invalidation', () => {
         ['megapot-api', expect.any(String), 'wallet-stats'],
         ['megapot-api', expect.any(String), 'wallet-wins'],
         ['megapot-api', 'eligible-planet-tickets'],
+        ['megapot-api', 'direct-planet-holdings'],
         ['megapot-api', expect.any(String), 'indexed-planets'],
       ]),
     );

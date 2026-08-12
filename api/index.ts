@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { createPublicClient, getAddress, http, isAddress, isHash, type Hex } from 'viem';
+import { createPublicClient, getAddress, http, isAddress, isHash, type Address, type Hex } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { loadStage5Config, type Stage5Config } from './config';
 import { getPrismaClient } from './database';
@@ -14,9 +14,18 @@ import { ensureOverdueLeaderboardPeriodsFinalized } from './leaderboardStore';
 import { privateKeyToAccount } from 'viem/accounts';
 import { BASE_SEPOLIA_CHAIN_ID, DEFAULT_RECEIPT_CONFIRMATIONS } from './config';
 import { readBoundedJson, withTimeout } from './http';
+import { assertMetadataSignerMatch, assertProductionDatabase } from './readiness';
 import { readWithRpcFallback } from './rpc';
 
 type VoucherRequest = { transactionHash: Hex; logIndex: number };
+
+const metadataSignerAbi = [{
+  type: 'function',
+  name: 'metadataSigner',
+  stateMutability: 'view',
+  inputs: [],
+  outputs: [{ name: '', type: 'address' }],
+}] as const;
 
 export type ReceiptFinalityInput = {
   blockNumber: bigint;
@@ -47,7 +56,7 @@ export function assertReceiptFinality(
 type Stage5Dependencies = {
   loadConfig: () => Stage5Config;
   findTicket: (config: Stage5Config, request: VoucherRequest) => Promise<MegasteraProof>;
-  prepare: (config: Stage5Config, ticket: MegasteraProof) => Promise<PreparedVoucher>;
+  prepare: (config: Stage5Config, ticket: MegasteraProof, artifact?: import('./store').PlanetArtifact) => Promise<PreparedVoucher>;
   getStore: (config: Stage5Config) => EligibilityStore;
   rateLimiter: VoucherRateLimiter;
   workLimiter: VoucherWorkLimiter;
@@ -99,26 +108,54 @@ export function createVoucherWorkLimiter(limit = 2): VoucherWorkLimiter {
   };
 }
 
-async function probeStage5Readiness(config: Stage5Config): Promise<boolean> {
+type ReadinessChain = { chainId: number; code: Hex; metadataSigner: Address };
+type ReadinessProbeOverrides = {
+  databaseProbe?: (databaseUrl: string) => Promise<unknown>;
+  readChain?: (config: Stage5Config) => Promise<ReadinessChain>;
+};
+
+/** Reads the contract's configured signer and validates the ABI result. */
+export async function readMetadataSigner(read: () => Promise<unknown>): Promise<Address> {
+  const value = await read();
+  if (typeof value !== 'string' || !isAddress(value)) throw new Error('V2 metadata signer lookup returned an invalid address.');
+  return value as Address;
+}
+
+async function readReadinessChain(config: Stage5Config): Promise<ReadinessChain> {
+  const rpcUrls = [config.rpcUrl, ...(config.rpcFallbackUrls ?? [])];
+  return readWithRpcFallback(rpcUrls, async (rpcUrl) => {
+    const client = createPublicClient({ chain: baseSepolia, transport: http(rpcUrl) });
+    const [chainId, code] = await Promise.all([
+      client.getChainId(),
+      client.getCode({ address: config.planetContractAddress as `0x${string}` }),
+    ]);
+    if (chainId !== BASE_SEPOLIA_CHAIN_ID || !code || code === '0x') throw new Error('Base Sepolia V2 contract probe failed.');
+    const metadataSigner = await readMetadataSigner(() => client.readContract({
+      address: config.planetContractAddress as `0x${string}`,
+      abi: metadataSignerAbi,
+      functionName: 'metadataSigner',
+    }));
+    return { chainId, code, metadataSigner };
+  });
+}
+
+export async function probeStage5Readiness(config: Stage5Config, overrides: ReadinessProbeOverrides = {}): Promise<boolean> {
   if (!config.databaseUrl || !config.planetContractAddress || config.planetDeploymentBlock === undefined) return false;
   // Unit and local route tests intentionally use placeholder endpoints.
-  if (config.rpcUrl.includes('.example.')) return true;
+  if (!overrides.readChain && config.rpcUrl.includes('.example.')) return true;
   try {
-    const database = getPrismaClient(config.databaseUrl);
+    const databaseProbe = overrides.databaseProbe ?? (async (databaseUrl: string) => {
+      const database = getPrismaClient(databaseUrl);
+      await withTimeout(database.$queryRaw`SELECT 1`, 5_000, 'Database readiness lookup');
+    });
+    const readChain = overrides.readChain ?? readReadinessChain;
+    const configuredSigner = privateKeyToAccount(config.signerPrivateKey);
     const [_databaseProbe, chain] = await Promise.all([
-      withTimeout(database.$queryRaw`SELECT 1`, 5_000, 'Database readiness lookup'),
-      withTimeout(readWithRpcFallback([config.rpcUrl, ...(config.rpcFallbackUrls ?? [])], async (rpcUrl) => {
-        const client = createPublicClient({ chain: baseSepolia, transport: http(rpcUrl) });
-        const [chainId, code] = await Promise.all([
-          client.getChainId(),
-          client.getCode({ address: config.planetContractAddress as `0x${string}` }),
-        ]);
-        if (chainId !== BASE_SEPOLIA_CHAIN_ID || !code || code === '0x') throw new Error('Base Sepolia V2 contract probe failed.');
-        return { chainId, code };
-      }), 5_000, 'RPC chain and contract lookup'),
+      withTimeout(databaseProbe(config.databaseUrl), 5_000, 'Database readiness lookup'),
+      withTimeout(readChain(config), 5_000, 'RPC chain and contract lookup'),
     ]);
     if (chain.chainId !== BASE_SEPOLIA_CHAIN_ID || !chain.code || chain.code === '0x') return false;
-    privateKeyToAccount(config.signerPrivateKey);
+    assertMetadataSignerMatch(configuredSigner.address, chain.metadataSigner);
     return config.pinataJwt.length > 0;
   } catch {
     return false;
@@ -210,14 +247,21 @@ async function findTicketFromReceipt(config: Stage5Config, request: VoucherReque
   };
 }
 
+export function createDefaultEligibilityStore(
+  config: Stage5Config,
+  env: Record<string, string | undefined> = process.env,
+): EligibilityStore {
+  assertProductionDatabase(config, env);
+  return config.databaseUrl
+    ? new PrismaEligibilityStore(getPrismaClient(config.databaseUrl))
+    : new FileEligibilityStore(config.storePath ?? '.data/megaplanets-stage5.json');
+}
+
 const defaultDependencies: Stage5Dependencies = {
   loadConfig: () => loadStage5Config(process.env),
   findTicket: findTicketFromReceipt,
   prepare: prepareVoucher,
-  getStore: (config) =>
-    config.databaseUrl
-      ? new PrismaEligibilityStore(getPrismaClient(config.databaseUrl))
-      : new FileEligibilityStore(config.storePath ?? '.data/megaplanets-stage5.json'),
+  getStore: (config) => createDefaultEligibilityStore(config),
   rateLimiter: createVoucherRateLimiter(),
   workLimiter: createVoucherWorkLimiter(),
   readiness: probeStage5Readiness,
@@ -285,6 +329,29 @@ export function createApp(
     }
   });
 
+  /** Ordered compatibility-preserving batch wrapper. Each item is resolved by
+   * the singular route, so durable proof/artifact/voucher caches make retries
+   * idempotent while preserving the caller's input order. */
+  app.post('/api/planets/vouchers/batch', async (c) => {
+    let body: unknown;
+    try { body = await readBoundedJson(c.req.raw); } catch { return c.json({ error: 'Request body is invalid or too large.' }, 400); }
+    const references = body && typeof body === 'object' && Array.isArray((body as { proofs?: unknown }).proofs)
+      ? (body as { proofs: unknown[] }).proofs
+      : undefined;
+    if (!references || references.length < 1 || references.length > 50) return c.json({ error: 'proofs must contain between 1 and 50 receipt references.' }, 400);
+    const vouchers: unknown[] = [];
+    for (let index = 0; index < references.length; index += 1) {
+      const response = await app.request('/api/planets/vouchers', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(references[index]),
+      });
+      if (!response.ok) return c.json({ error: 'Batch voucher preparation failed.', index, status: response.status }, response.status as 400 | 401 | 402 | 403 | 404 | 409 | 422 | 429 | 500 | 503);
+      vouchers.push(await response.json());
+    }
+    return c.json({ vouchers }, 201);
+  });
+
   app.post('/api/planets/vouchers', async (c) => {
     let request: VoucherRequest | undefined;
     try {
@@ -303,6 +370,7 @@ export function createApp(
     let config: Stage5Config;
     try {
       config = dependencies.loadConfig();
+      assertProductionDatabase(config, process.env);
     } catch {
       return c.json({ error: 'Voucher service is not configured.' }, 503);
     }
@@ -318,8 +386,11 @@ export function createApp(
           const proof = await store.getProof({ transactionHash: ticket.originTxHash, logIndex: ticket.logIndex }) ?? ticket;
           const cached = await store.getVoucher(proof.ticketId, proof.recipient, BigInt(Math.floor(Date.now() / 1_000)));
           if (cached) return cached;
-          const prepared = await dependencies.workLimiter.run(() => dependencies.prepare(config, proof));
+          const artifactKey = `${proof.originTxHash.toLowerCase()}:${proof.logIndex.toString()}`;
+          const artifact = await store.getArtifact?.(artifactKey);
+          const prepared = await dependencies.workLimiter.run(() => dependencies.prepare(config, proof, artifact));
           if (prepared.voucher.recipient.toLowerCase() !== proof.recipient.toLowerCase()) throw new Error('Voucher recipient does not match the TicketPurchased recipient.');
+          if (prepared.artifact) await store.saveArtifact?.(prepared.artifact);
           await store.saveVoucher(prepared);
           return prepared;
         })();

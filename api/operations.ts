@@ -1,9 +1,7 @@
 export type OperationalRole = 'api' | 'indexer';
 
 export type OperationalIndexerResult = {
-  tickets?: { ticketsIndexed?: number; reorgDetected?: boolean };
   planets?: { eventsProcessed?: number; reorgDetected?: boolean };
-  miningStatesInitialized?: number;
 };
 
 export type OperationalSnapshot = {
@@ -17,10 +15,7 @@ export type OperationalSnapshot = {
   lastIndexerFailureAt?: string;
   lastIndexerDurationMs?: number;
   lastIndexerResult?: {
-    ticketsIndexed: number;
     planetEventsProcessed: number;
-    miningStatesInitialized: number;
-    ticketReorgDetected: boolean;
     planetReorgDetected: boolean;
   };
 };
@@ -55,10 +50,7 @@ export function createOperationalState(options: { role: OperationalRole; now?: (
       lastIndexerCycleAt = new Date(now()).toISOString();
       lastIndexerDurationMs = durationMs;
       lastIndexerResult = {
-        ticketsIndexed: result.tickets?.ticketsIndexed ?? 0,
         planetEventsProcessed: result.planets?.eventsProcessed ?? 0,
-        miningStatesInitialized: result.miningStatesInitialized ?? 0,
-        ticketReorgDetected: result.tickets?.reorgDetected ?? false,
         planetReorgDetected: result.planets?.reorgDetected ?? false,
       };
     },

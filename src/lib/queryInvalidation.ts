@@ -17,6 +17,7 @@ export async function invalidatePostWriteQueries(
     [QK.NS, API_BASE_URL, QK.walletStats],
     [QK.NS, API_BASE_URL, QK.walletWins],
     [QK.NS, 'eligible-planet-tickets'],
+    [QK.NS, 'direct-planet-holdings'],
     [QK.NS, BACKEND_API_BASE_URL, 'indexed-planets'],
   ] as const;
 

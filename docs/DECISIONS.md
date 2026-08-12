@@ -21,7 +21,7 @@
 | D-014 | The generator uses Keccak-256 of standard ABI encoding | Browser, backend, and Solidity tooling share one unambiguous seed representation locked by golden fixtures. |
 | D-015 | Generator random streams are namespaced | Artwork changes cannot accidentally change minerals or unrelated traits. |
 | D-016 | Canonical Planet media is a 128×128 pixel-art GIF | The native logical canvas is pinned without resampling; clients scale it with nearest-neighbor rendering. |
-| D-017 | Superseded: early previews read local confirmed purchases only | The current implementation discovers candidates from wallet history plus a bounded recent-chain scan and revalidates canonical receipts. |
+| D-017 | Superseded: early previews read local confirmed purchases only | The current implementation discovers candidates from wallet history plus a bounded recent-chain scan and revalidates Megastera Proofs against Base RPC. |
 | D-018 | Normal Planet minting is free and supports batches | Users pay Base gas only; the contract accepts multiple valid vouchers atomically. |
 | D-019 | Same-Type Planet holdings apply configurable, capped production bonuses | This is the only MVP collection-combination mechanic. |
 | D-020 | No special-edition minting in the MVP | The collection contract is intentionally limited to ticket-backed procedural Planets. |

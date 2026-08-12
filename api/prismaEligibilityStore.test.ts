@@ -3,6 +3,7 @@ import { BASE_SEPOLIA_CHAIN_ID, MEGAPLANETS_LAUNCH_BLOCK, MEGAPLANETS_SOURCE } f
 import { BASE_SEPOLIA_JACKPOT } from './eligibility';
 import type { PrismaClient } from './generated/prisma/client';
 import { PrismaEligibilityStore, TICKET_INDEX_STREAM } from './prismaEligibilityStore';
+import type { PlanetArtifact } from './store';
 
 const planetContract = '0x0000000000000000000000000000000000000003' as const;
 const proofRecord = {
@@ -25,14 +26,13 @@ describe('PrismaEligibilityStore reorg resets', () => {
   it('rewinds ticket provenance in FK-safe order without touching legacy snapshots', async () => {
     const calls: string[] = [];
     const transaction = {
-      mineralLedgerEntry: { deleteMany: vi.fn(async () => { calls.push('mineralLedgerEntry.deleteMany'); }) },
-      planetAccrualState: { deleteMany: vi.fn(async () => { calls.push('planetAccrualState.deleteMany'); }) },
       planetOwnershipHistory: { deleteMany: vi.fn(async () => { calls.push('planetOwnershipHistory.deleteMany'); }) },
       processedBlockchainEvent: { deleteMany: vi.fn(async () => { calls.push('processedBlockchainEvent.deleteMany'); }) },
       planet: {
         findMany: async () => [],
         deleteMany: vi.fn(async () => { calls.push('planet.deleteMany'); }),
       },
+      planetArtifact: { deleteMany: vi.fn(async () => { calls.push('planetArtifact.deleteMany'); }) },
       mintVoucherRecord: { deleteMany: vi.fn(async () => { calls.push('mintVoucherRecord.deleteMany'); }) },
       ticketPurchase: { deleteMany: vi.fn(async () => { calls.push('ticketPurchase.deleteMany'); }) },
       indexerCursor: { updateMany: vi.fn(async () => { calls.push('indexerCursor.updateMany'); }) },
@@ -50,11 +50,10 @@ describe('PrismaEligibilityStore reorg resets', () => {
     await rewind.call(store, MEGAPLANETS_LAUNCH_BLOCK);
 
     expect(calls).toEqual([
-      'mineralLedgerEntry.deleteMany',
-      'planetAccrualState.deleteMany',
       'planetOwnershipHistory.deleteMany',
       'processedBlockchainEvent.deleteMany',
       'planet.deleteMany',
+      'planetArtifact.deleteMany',
       'mintVoucherRecord.deleteMany',
       'ticketPurchase.deleteMany',
       'indexerCursor.updateMany',
@@ -121,5 +120,75 @@ describe('PrismaEligibilityStore Megastera proof lookup', () => {
       skip: 1,
       take: 1,
     });
+  });
+});
+
+describe('PrismaEligibilityStore immutable Planet artifacts', () => {
+  const artifact: PlanetArtifact = {
+    key: `${proofRecord.originTxHash}:4`,
+    ticketId: '456',
+    recipient: proofRecord.recipient as `0x${string}`,
+    seed: `0x${'11'.repeat(32)}`,
+    traitsHash: `0x${'22'.repeat(32)}`,
+    metadataHash: `0x${'33'.repeat(32)}`,
+    metadataURI: 'ipfs://metadata-cid',
+    mediaURI: 'ipfs://media-cid',
+    mediaHash: `0x${'44'.repeat(32)}`,
+  };
+
+  it('reads a persisted artifact by its immutable receipt key', async () => {
+    const findUnique = vi.fn(async () => ({
+      artifactKey: artifact.key,
+      ticketId: { toFixed: () => artifact.ticketId },
+      recipient: artifact.recipient,
+      seed: artifact.seed,
+      traitsHash: artifact.traitsHash,
+      metadataHash: artifact.metadataHash,
+      metadataUri: artifact.metadataURI,
+      mediaUri: artifact.mediaURI,
+      mediaHash: artifact.mediaHash,
+    }));
+    const store = new PrismaEligibilityStore({ planetArtifact: { findUnique } } as unknown as PrismaClient);
+
+    await expect(store.getArtifact(artifact.key)).resolves.toEqual(artifact);
+    expect(findUnique).toHaveBeenCalledWith({ where: { artifactKey: artifact.key } });
+  });
+
+  it('creates an artifact once and rejects immutable content conflicts', async () => {
+    const existing = vi.fn(async (): Promise<unknown> => undefined);
+    const create = vi.fn(async () => undefined);
+    const ticketFind = vi.fn(async () => ({ id: 'ticket-row', ticketId: { toFixed: () => artifact.ticketId }, recipient: proofRecord.recipient }));
+    const transaction = {
+      planetArtifact: { findUnique: existing, create },
+      ticketPurchase: { findUnique: ticketFind },
+    };
+    const store = new PrismaEligibilityStore({
+      $transaction: async (callback: (tx: typeof transaction) => Promise<void>) => callback(transaction),
+    } as unknown as PrismaClient);
+
+    await store.saveArtifact(artifact);
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        artifactKey: artifact.key,
+        ticketPurchaseId: 'ticket-row',
+        ticketId: artifact.ticketId,
+        recipient: artifact.recipient,
+        metadataUri: artifact.metadataURI,
+        mediaUri: artifact.mediaURI,
+      }),
+    });
+
+    existing.mockResolvedValue({
+      artifactKey: artifact.key,
+      ticketId: { toFixed: () => artifact.ticketId },
+      recipient: artifact.recipient,
+      seed: artifact.seed,
+      traitsHash: artifact.traitsHash,
+      metadataHash: artifact.metadataHash,
+      metadataUri: artifact.metadataURI,
+      mediaUri: artifact.mediaURI,
+      mediaHash: `0x${'55'.repeat(32)}`,
+    });
+    await expect(store.saveArtifact(artifact)).rejects.toThrow(/immutable|conflict/i);
   });
 });

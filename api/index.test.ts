@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { BASE_SEPOLIA_CHAIN_ID } from './config';
 import type { Stage5Config } from './config';
-import { assertReceiptFinality, createApp, createVoucherRateLimiter } from './index';
+import {
+  assertReceiptFinality,
+  createApp,
+  createDefaultEligibilityStore,
+  createVoucherRateLimiter,
+  probeStage5Readiness,
+  readMetadataSigner,
+} from './index';
 import type { EligibleTicket } from './eligibility';
 import type { MintVoucher } from './voucher';
 import { MemoryEligibilityStore } from './store';
@@ -42,6 +50,50 @@ const voucher: MintVoucher = {
 };
 
 describe('Stage 5 voucher endpoint', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('rejects the local voucher store when production has no PostgreSQL database', () => {
+    expect(() => createDefaultEligibilityStore({ ...config, databaseUrl: undefined }, { NODE_ENV: 'production' })).toThrow(/PostgreSQL/i);
+  });
+
+  it('reads and validates the V2 metadata signer before readiness succeeds', async () => {
+    const expected = `0x${'11'.repeat(20)}` as `0x${string}`;
+    const actual = await readMetadataSigner(async () => expected.toLowerCase());
+    expect(actual).toBe(expected.toLowerCase());
+    await expect(readMetadataSigner(async () => 'not-an-address')).rejects.toThrow(/metadata signer/i);
+  });
+
+  it('closes default readiness when the on-chain metadata signer differs', async () => {
+    const result = await probeStage5Readiness({ ...config, planetDeploymentBlock: 45_347_860n }, {
+      databaseProbe: async () => undefined,
+      readChain: async () => ({
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+        code: `0x${'aa'.repeat(20)}`,
+        metadataSigner: `0x${'22'.repeat(20)}`,
+      }),
+    });
+    expect(result).toBe(false);
+  });
+
+  it('returns 503 before receipt work when production has no PostgreSQL database', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    let resolved = false;
+    const app = createApp({
+      loadConfig: () => ({ ...config, databaseUrl: undefined }),
+      findTicket: async () => {
+        resolved = true;
+        return ticket;
+      },
+    });
+    const response = await app.request('/api/planets/vouchers', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+    expect(response.status).toBe(503);
+    expect(resolved).toBe(false);
+  });
+
   it('accepts a receipt only after the configured confirmation depth and canonical block hash check', () => {
     expect(() => assertReceiptFinality({
       blockNumber: 100n,
@@ -199,6 +251,38 @@ describe('Stage 5 voucher endpoint', () => {
       voucher: { ticketId: '456', drawingId: '123', expiresAt: '1800000000' },
       signature: '0xdeadbeef',
     });
+  });
+
+  it('creates ordered batch vouchers for up to fifty references and preserves input order', async () => {
+    const seen: number[] = [];
+    const app = createApp({
+      loadConfig: () => config,
+      findTicket: async (_config, request) => {
+        seen.push(request.logIndex);
+        return { ...ticket, ticketId: BigInt(500 + request.logIndex), logIndex: BigInt(request.logIndex) };
+      },
+      prepare: async (_config, proof) => ({
+        voucher: { ...voucher, ticketId: proof.ticketId, originTxHash: proof.originTxHash },
+        signature: '0xdeadbeef', signer: '0x4444444444444444444444444444444444444444', digest: `0x${'cd'.repeat(32)}`,
+      }),
+      getStore: () => new MemoryEligibilityStore(),
+    });
+    const response = await app.request('/api/planets/vouchers/batch', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ proofs: [
+        { transactionHash: ticket.originTxHash, logIndex: 4 },
+        { transactionHash: ticket.originTxHash, logIndex: 7 },
+      ] }),
+    });
+    expect(response.status).toBe(201);
+    expect(seen).toEqual([4, 7]);
+    expect(((await response.json()) as { vouchers: unknown[] }).vouchers).toHaveLength(2);
+  });
+
+  it('rejects an empty or oversized voucher batch', async () => {
+    const app = createApp();
+    expect((await app.request('/api/planets/vouchers/batch', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ proofs: [] }) })).status).toBe(400);
+    expect((await app.request('/api/planets/vouchers/batch', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ proofs: new Array(51).fill(requestBody) }) })).status).toBe(400);
   });
 
   it('does not resolve a receipt when the server is not configured', async () => {

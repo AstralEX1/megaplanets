@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { pinGif, pinJson } from './pinata';
+import { pinGif, pinJson, pinWebM } from './pinata';
 
 const fetchMock = vi.fn();
 const originalFetch = globalThis.fetch;
@@ -31,6 +31,15 @@ describe('Pinata uploads', () => {
     const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect((request.body as FormData).get('network')).toBe('public');
     expect(((request.body as FormData).get('file') as File).type).toBe('image/gif');
+  });
+
+  it('uploads real WebM content with the video MIME and extension', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ data: { cid: 'webm-cid' } }) });
+    globalThis.fetch = fetchMock;
+
+    await expect(pinWebM('token', 'planet.webm', new Uint8Array([0x1a, 0x45, 0xdf, 0xa3]))).resolves.toEqual({ cid: 'webm-cid', uri: 'ipfs://webm-cid' });
+    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(((request.body as FormData).get('file') as File).type).toBe('video/webm');
   });
 
   it('rejects a malformed Pinata response schema', async () => {

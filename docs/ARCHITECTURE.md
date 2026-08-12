@@ -5,16 +5,17 @@
 The imported frontend remains the integration baseline. The MVP now contains three
 implemented boundaries without rewriting the known-good Megapot hooks:
 
-1. `packages/planet-generator` owns deterministic traits, minerals, and GIF
-   rendering.
+1. `packages/planet-generator` owns deterministic traits, minerals, browser previews,
+   and server-side short WebM rendering.
 2. `contracts` owns one-ticket-one-planet enforcement, ERC-721A individual/batch
    minting, ticket-to-Planet provenance, and immutable metadata CIDs.
-3. `api` owns source eligibility, IPFS pinning, signed mint vouchers, event indexing,
-   lazy mineral accounting, same-Type bonuses, and weekly leaderboard calculations.
+3. `api` owns Megastera Proof persistence, IPFS pinning, signed mint vouchers, a minimal
+   Planet ownership projector, lifetime mineral reads, and daily leaderboard snapshots.
 
 Writes and live drawing state continue to use Base RPC. Historical Megapot data uses
-the Megapot Data API. Planet eligibility and leaderboard state are designed to use the
-MegaPlanets indexer backed by PostgreSQL/Supabase. The repository now includes standalone
+the Megapot Data API. Current Planet holdings are read directly from ERC721A, while
+PostgreSQL stores proofs, immutable artifact pointers, mint timestamps, projected owners,
+and daily snapshots. The repository now includes standalone
 API and indexer entry points plus readiness/metrics probes; external hosting and durable
 monitoring are still deployment work.
 
@@ -23,11 +24,15 @@ contract address is configured in checked-in defaults. The active contract, ABI,
 model, and product flow target the deployed seasonless ERC721A V2; runtime activation
 remains environment-only. See [`STATUS.md`](./STATUS.md) for current blockers.
 
+The backend does not maintain a custom wallet nonce/session layer. Public reads are
+address-scoped (with on-chain wallet connection handled by RainbowKit/wagmi), while
+voucher eligibility is authorized by Megastera Proof.
+
 The Planet mint flow is intentionally separate from the Megapot purchase transaction:
 
 ```text
 buy immediate tickets or create an all-random keeper bulk order -> confirm every TicketPurchased -> prepare canonical metadata
--> sign one or more vouchers -> user mints MegaPlanets ERC-721A -> lazy mineral production -> weekly leaderboard
+-> sign one or more vouchers -> user mints MegaPlanets ERC-721A -> lifetime mineral value -> daily leaderboard
 ```
 
 The NFT contract is non-upgradeable and its normal mint functions are nonpayable: users
@@ -48,11 +53,11 @@ and `bytes32 originTxHash`. All Type, terrain, satellite, background, name, mine
 and rarity streams are derived by name from that seed. The technical generator version
 does not appear as a public NFT metadata attribute.
 
-The package renders a 128×128 logical pixel scene directly into a 128×128 animated GIF.
-Clients scale the asset with nearest-neighbor rendering when a larger display is needed.
-The frontend lazy-loads the Planets tab and performs GIF encoding in a module worker.
+The browser renders the 128×128 logical pixel scene and retains legacy GIF fixtures.
+New NFT artifacts are bounded three-second VP8 WebM files encoded only by the server
+subpath. Clients scale the asset with nearest-neighbor rendering.
 Eligible unrevealed tickets are discovered from indexed wallet history and a bounded recent
-chain window, then revalidated from canonical receipts. Browser-persisted purchase receipts
+chain window, then revalidated as Megastera Proofs. Browser-persisted purchase receipts
 are merged in for immediate post-purchase continuity.
 
 For an immediate `Jackpot.buyTickets` transaction, the ticket's origin transaction hash is
@@ -63,18 +68,12 @@ seed provenance value to tickets minted later in separate keeper transactions.
 
 ## Mineral and leaderboard boundary
 
-Minerals are calculated lazily in fixed-point integer units. The API settles a Planet's
-previous production segment before mint, transfer, bonus change, or weekly-period
-finalization; it never uses a per-second or daily accrual job. A transfer attributes
-production up to the transfer block timestamp to the previous owner and starts a new
-segment for the recipient.
-
-Same-Type Planet holdings activate configured production bonuses. The indexer updates
-active combinations after ERC-721A `Transfer` events, and the mining service opens a new
-rate segment only when a holder's bonus changes. The weekly leaderboard combines settled
-ledger entries with pending production through `min(now, periodEnd)`. Weeks run Monday
-00:00 UTC to Monday 00:00 UTC and are finalized
-from immutable ledger and rate-segment data.
+Minerals are calculated lazily in fixed-point integer units as the immutable Planet rate
+multiplied by elapsed time since mint. There are no accrual segments, same-Type repricing,
+or ledger writes. Current ownership is authoritative: transfer moves the Planet's entire
+lifetime value to the recipient and burn removes it from scoring. A small finalized
+`PlanetMinted`/`Transfer` projector persists only mint time and current owner for backend
+mining reads and the leaderboard. One completed UTC-day snapshot is materialized daily.
 
 ## Imported starter-kit architecture
 

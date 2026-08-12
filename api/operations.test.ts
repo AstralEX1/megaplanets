@@ -28,9 +28,7 @@ describe('operational state', () => {
     now += 1_234;
     state.recordIndexerCycle(
       {
-        tickets: { ticketsIndexed: 2, reorgDetected: false },
         planets: { eventsProcessed: 1, reorgDetected: true },
-        miningStatesInitialized: 1,
       },
       987,
     );
@@ -42,10 +40,7 @@ describe('operational state', () => {
       indexerFailuresTotal: 0,
       lastIndexerDurationMs: 987,
       lastIndexerResult: {
-        ticketsIndexed: 2,
         planetEventsProcessed: 1,
-        miningStatesInitialized: 1,
-        ticketReorgDetected: false,
         planetReorgDetected: true,
       },
     });

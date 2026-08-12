@@ -49,7 +49,7 @@ used during setup is capped at 50 blocks and is unsuitable for the default runne
 
 The API defaults to `127.0.0.1:8787`; override with `MEGAPLANETS_API_HOST` and
 `MEGAPLANETS_API_PORT`. It may start with incomplete secrets so liveness remains visible,
-but readiness, auth, mining, and voucher routes fail closed until configuration is valid.
+but readiness, mining, and voucher routes fail closed until configuration is valid.
 
 ## Operations checklist
 

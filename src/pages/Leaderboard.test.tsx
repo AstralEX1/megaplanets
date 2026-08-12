@@ -37,16 +37,16 @@ describe('Leaderboard', () => {
   });
   afterEach(cleanup);
 
-  it('shows public standings, week progress, and the connected wallet position', () => {
+  it('shows public standings, daily snapshot status, and the connected wallet position', () => {
     const { container } = render(<Leaderboard />);
 
     expect(screen.getByRole('heading', { name: 'Leaderboard' })).toBeInTheDocument();
-    expect(screen.getByRole('progressbar', { name: 'Current week progress' })).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Daily snapshot progress' })).toBeInTheDocument();
     expect(screen.getAllByText('25').length).toBeGreaterThan(0);
     expect(screen.getAllByText('19').length).toBeGreaterThan(0);
     expect(screen.getByText('Your rank')).toBeInTheDocument();
     expect(screen.getByText('6 to next rank')).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /Current week/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Latest snapshot/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Aug 3/ })).toBeInTheDocument();
     expect(container.querySelector('[data-wallet-row="true"]')).toBeInTheDocument();
     expect(container.querySelector('[data-mobile-standings]')).toHaveClass('md:hidden');

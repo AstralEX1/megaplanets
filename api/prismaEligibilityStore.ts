@@ -1,4 +1,4 @@
-import { getAddress, stringToHex, type Address, type Hex } from 'viem';
+import { getAddress, isHash, stringToHex, type Address, type Hex } from 'viem';
 import type { PrismaClient } from './generated/prisma/client';
 import { BASE_SEPOLIA_CHAIN_ID, MEGAPLANETS_SOURCE } from './config';
 import { BASE_SEPOLIA_JACKPOT, normalizeMegasteraProof, type MegasteraProof, type MegasteraProofReference } from './eligibility';
@@ -10,6 +10,7 @@ import {
   type IndexedTicket,
   type PersistedSnapshot,
   type PersistedVoucher,
+  type PlanetArtifact,
   type PreparedVoucher,
   serializeDailySnapshot,
   serializePreparedVoucher,
@@ -21,6 +22,52 @@ const LEGACY_TICKET_INDEX_STREAM = 'megapot-tickets';
 
 function jsonValue(value: unknown): object {
   return JSON.parse(JSON.stringify(value)) as object;
+}
+
+function serializeArtifact(record: {
+  artifactKey: string;
+  ticketId: { toFixed: (digits?: number) => string };
+  recipient: string;
+  seed: string;
+  traitsHash: string;
+  metadataHash: string;
+  metadataUri: string;
+  mediaUri: string;
+  mediaHash: string;
+}): PlanetArtifact {
+  return {
+    key: record.artifactKey,
+    ticketId: record.ticketId.toFixed(0),
+    recipient: getAddress(record.recipient),
+    seed: record.seed as Hex,
+    traitsHash: record.traitsHash as Hex,
+    metadataHash: record.metadataHash as Hex,
+    metadataURI: record.metadataUri,
+    mediaURI: record.mediaUri,
+    mediaHash: record.mediaHash as Hex,
+  };
+}
+
+function sameArtifact(left: PlanetArtifact, right: PlanetArtifact): boolean {
+  return left.key === right.key
+    && left.ticketId === right.ticketId
+    && left.recipient.toLowerCase() === right.recipient.toLowerCase()
+    && left.seed.toLowerCase() === right.seed.toLowerCase()
+    && left.traitsHash.toLowerCase() === right.traitsHash.toLowerCase()
+    && left.metadataHash.toLowerCase() === right.metadataHash.toLowerCase()
+    && left.metadataURI === right.metadataURI
+    && left.mediaURI === right.mediaURI
+    && left.mediaHash.toLowerCase() === right.mediaHash.toLowerCase();
+}
+
+function parseArtifactKey(key: string): { originTxHash: Hex; logIndex: number } {
+  const separator = key.lastIndexOf(':');
+  const originTxHash = key.slice(0, separator);
+  const logIndex = Number(key.slice(separator + 1));
+  if (separator <= 0 || !isHash(originTxHash) || !Number.isSafeInteger(logIndex) || logIndex < 0) {
+    throw new Error('Planet artifact key is invalid.');
+  }
+  return { originTxHash: originTxHash as Hex, logIndex };
 }
 
 /** PostgreSQL-backed eligibility, voucher, cursor, and legacy snapshot boundary. */
@@ -149,6 +196,50 @@ export class PrismaEligibilityStore implements EligibilityStore {
     return { total, offset: pagination.offset, limit: pagination.limit, proofs };
   }
 
+  async getArtifact(key: string): Promise<PlanetArtifact | undefined> {
+    const record = await this.prisma.planetArtifact.findUnique({ where: { artifactKey: key } });
+    return record ? serializeArtifact(record) : undefined;
+  }
+
+  async saveArtifact(artifact: PlanetArtifact): Promise<void> {
+    const { originTxHash, logIndex } = parseArtifactKey(artifact.key);
+    await this.prisma.$transaction(async (transaction) => {
+      const existing = await transaction.planetArtifact.findUnique({ where: { artifactKey: artifact.key } });
+      if (existing) {
+        const persisted = serializeArtifact(existing);
+        if (!sameArtifact(persisted, artifact)) throw new Error(`Planet artifact ${artifact.key} conflicts with immutable content.`);
+        return;
+      }
+      const ticket = await transaction.ticketPurchase.findUnique({
+        where: {
+          chainId_originTxHash_logIndex: {
+            chainId: BASE_SEPOLIA_CHAIN_ID,
+            originTxHash: originTxHash.toLowerCase(),
+            logIndex,
+          },
+        },
+      });
+      if (!ticket) throw new Error('Planet artifact ticket proof is not persisted.');
+      if (ticket.ticketId.toFixed(0) !== artifact.ticketId || ticket.recipient !== getAddress(artifact.recipient).toLowerCase()) {
+        throw new Error('Planet artifact does not match the persisted ticket proof.');
+      }
+      await transaction.planetArtifact.create({
+        data: {
+          ticketPurchaseId: ticket.id,
+          artifactKey: artifact.key,
+          ticketId: artifact.ticketId,
+          recipient: getAddress(artifact.recipient).toLowerCase(),
+          seed: artifact.seed.toLowerCase(),
+          traitsHash: artifact.traitsHash.toLowerCase(),
+          metadataHash: artifact.metadataHash.toLowerCase(),
+          metadataUri: artifact.metadataURI,
+          mediaUri: artifact.mediaURI,
+          mediaHash: artifact.mediaHash.toLowerCase(),
+        },
+      });
+    });
+  }
+
   async getVoucher(ticketId: bigint, recipient: Address, now: bigint) {
     const record = await this.prisma.mintVoucherRecord.findFirst({
       where: {
@@ -243,28 +334,10 @@ export class PrismaEligibilityStore implements EligibilityStore {
     await this.prisma.$transaction(async (transaction) => {
       // Daily snapshots are legacy, deployment-agnostic records. Leave them
       // untouched here; the snapshot job owns their canonicality policy.
-      const historicalMiningPlanets = await transaction.planet.findMany({
-        where: {
-          chainId: BASE_SEPOLIA_CHAIN_ID,
-          contractAddress: planetContractAddress,
-          mintBlockNumber: { lt: fromBlock },
-          ownershipHistory: { some: { blockNumber: { gte: fromBlock } } },
-        },
-        select: { id: true },
-      });
-      if (historicalMiningPlanets.length > 0) {
-        throw new Error('Reorg intersects historical Planet mining state; a full derived-state rebuild is required.');
-      }
-      const scopedPlanet = {
-        chainId: BASE_SEPOLIA_CHAIN_ID,
-        contractAddress: planetContractAddress,
-        mintBlockNumber: { gte: fromBlock },
-      };
-      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: scopedPlanet } });
-      await transaction.planetAccrualState.deleteMany({ where: { planet: scopedPlanet } });
       await transaction.planetOwnershipHistory.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, blockNumber: { gte: fromBlock } } });
       await transaction.processedBlockchainEvent.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, blockNumber: { gte: fromBlock } } });
       await transaction.planet.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, mintBlockNumber: { gte: fromBlock } } });
+      await transaction.planetArtifact.deleteMany({ where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: fromBlock } } } });
       await transaction.mintVoucherRecord.deleteMany({ where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: fromBlock } } } });
       await transaction.ticketPurchase.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: fromBlock } } });
       await transaction.indexerCursor.updateMany({

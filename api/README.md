@@ -4,13 +4,13 @@ This directory contains the current server-side boundary:
 
 - strict server-only environment validation;
 - decoding of canonical `MEGAPLANETS_V1` purchase logs;
-- deterministic metadata/GIF preparation and Pinata upload helpers;
+- deterministic metadata/WebM preparation and Pinata upload helpers;
 - EIP-712 mint-voucher signing helpers; and
 - a rate-limited voucher endpoint with in-flight request coalescing;
 - local JSON and PostgreSQL eligibility/voucher stores;
-- wallet-session authentication and indexed Planet read APIs;
-- lazy mineral accrual, same-Type bonuses, and weekly leaderboard APIs; and
-- a bounded, confirmation-aware ticket/Planet indexer runner that is started separately.
+- direct frontend Planet ownership plus compatibility Planet read APIs;
+- lifetime mineral reads and daily leaderboard snapshot APIs; and
+- a bounded, confirmation-aware Planet-only projector started separately.
 
 ## HTTP surface
 
@@ -18,12 +18,12 @@ This directory contains the current server-side boundary:
 - `GET /api/planets/readiness`
 - `GET /api/planets/metrics`
 - `POST /api/planets/vouchers`
-- `POST /api/auth/nonce`, `POST /api/auth/verify`, `POST /api/auth/logout`
-- `GET /api/me`, `GET /api/me/planets`, `GET /api/me/mining`
+- `POST /api/planets/vouchers/batch`
+- `GET /api/planets/megastera-proofs?recipient=...`
 - `GET /api/planets?owner=...`, `GET /api/planets/:tokenId`
 - `GET /api/planets/:tokenId/mining`, `GET /api/wallets/:address/mining`
 - `GET /api/leaderboard/current`, `/current/:address`, `/history`, and
-  `/weeks/:periodId`; `POST /api/leaderboard/finalize` is worker-only
+  `/days/:periodId` (`/weeks` remains an alias); `POST /api/leaderboard/finalize` is worker-only
 
 `api/serverMain.ts` is the standalone Node HTTP entry point. The Vite server remains
 useful for frontend development, but a deployed API should run separately. Start it with:
@@ -35,7 +35,7 @@ pnpm api:server
 
 The default listener is `127.0.0.1:8787`; override it with
 `MEGAPLANETS_API_HOST` and `MEGAPLANETS_API_PORT`. The process can start with missing
-secrets so liveness stays observable, while readiness and voucher/auth routes fail closed
+secrets so liveness stays observable, while readiness and voucher routes fail closed
 with `503` until server configuration is complete.
 
 `api/planetIndexerMain.ts` is the separate long-running indexer entry point. The HTTP
@@ -54,8 +54,9 @@ pnpm api:indexer
 The indexer uses finalized blocks, stores both cursor position and block hash, adapts
 `eth_getLogs` ranges/backoff to provider limits, and logs cycle results. `GET
 /api/planets/health` is a liveness probe and `GET /api/planets/readiness` validates the
-required database, Base Sepolia RPC chain/code, signer, V2 address, and deployment-block
-configuration without exposing secrets. `GET /api/planets/metrics` exposes only
+required database, Base Sepolia RPC chain/code, configured signer, on-chain V2
+`metadataSigner()`, contract address, and deployment-block configuration without exposing
+secrets. `GET /api/planets/metrics` exposes only
 safe process counters and the latest indexer summary; it never includes exception text,
 RPC URLs, database URLs, Pinata credentials, or signer material. The metrics snapshot is
 process-local, so production should export it to the chosen monitoring system rather than
@@ -88,25 +89,27 @@ and the backend envs
 
 ## Production limitations
 
-The file store is appropriate only for one local process. Production requires PostgreSQL,
+The file store is appropriate only for one local process and is rejected by the production
+voucher service when `NODE_ENV=production`. Production requires PostgreSQL,
 durable edge rate limiting, secret storage, operational scheduling, monitoring, backups,
 and restore/rollback procedures. Ticket vouchers remain bound to the original
 `TicketPurchased` recipient, while the contract independently checks current live ticket
 ownership.
 
-The Planet and ticket indexers now use block-hash cursors and FK-safe deployment-scoped
-rewinds. A Planet reorg rewinds only a bounded recent window (12 blocks by default),
+The continuous Ticket indexer is retired; proofs are persisted only after receipt-time
+RPC verification. The minimal Planet projector uses a block-hash cursor and FK-safe
+deployment-scoped rewinds. A Planet reorg rewinds only a bounded recent window (12 blocks by default),
 preserving unrelated deployments and legacy daily snapshots; a separate snapshot job owns
 snapshot canonicality. Configure a larger window in the indexer caller when the provider's
-finality/reorg assumptions require it.
-focused cursor/reset and idempotency tests cover replay behavior. A production rollout
+finality/reorg assumptions require it. Focused cursor/reset and idempotency tests cover
+replay behavior. A production rollout
 still needs durable scheduling, monitoring, backups, and restore testing. Never expose the
 metadata signer private key to browser code.
 
-Ticket indexing starts at the canonical MegaPlanets activation boundary `44,996,796`, not
-at the later Planet launch gate `44,997,183`. This preserves the first activation purchases
+Megastera Proof eligibility starts at the activation boundary `44,996,796`, not at the
+later Planet launch gate `44,997,183`. This preserves the first activation purchases
 while keeping `TICKET_SOURCE=MEGAPLANETS_V1` and the launch gate immutable. Configure
 `BASE_SEPOLIA_RPC_FALLBACK_URLS` with comma-separated archive-capable endpoints when the
 primary RPC does not serve historical receipts.
-The ticket cursor stream is versioned for this boundary, so an existing launch-only cursor
-is replayed automatically from the activation block on the next indexer cycle.
+The runtime worker does not scan or advance a Ticket cursor; it projects only finalized
+Planet mint and ownership events.

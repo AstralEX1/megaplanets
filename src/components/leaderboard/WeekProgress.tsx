@@ -1,35 +1,20 @@
-import { useEffect, useState } from 'react';
 import type { LeaderboardPeriod } from '@/hooks/useLeaderboard';
 
-function formatCountdown(milliseconds: number) {
-  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1_000));
-  const days = Math.floor(totalSeconds / 86_400);
-  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
-  const minutes = Math.floor((totalSeconds % 3_600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${days}d ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
 export function WeekProgress({ period, asOf }: { period: LeaderboardPeriod; asOf: string }) {
-  const [now, setNow] = useState(() => new Date(asOf));
-  useEffect(() => {
-    setNow(new Date(asOf));
-    const interval = window.setInterval(() => setNow(new Date()), 1_000);
-    return () => window.clearInterval(interval);
-  }, [asOf]);
   const startsAt = new Date(period.startsAt).getTime();
   const endsAt = new Date(period.endsAt).getTime();
-  const progress = Math.max(0, Math.min(100, (now.getTime() - startsAt) / (endsAt - startsAt) * 100));
+  const snapshotAt = new Date(asOf).getTime();
+  const progress = Math.max(0, Math.min(100, (snapshotAt - startsAt) / (endsAt - startsAt) * 100));
 
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
       <div className="flex items-center justify-between gap-3 text-xs">
-        <span className="telemetry text-[var(--text-secondary)]">UTC mining week</span>
-        <span className="font-mono font-semibold text-[var(--text-primary)]">{formatCountdown(endsAt - now.getTime())}</span>
+        <span className="telemetry text-[var(--text-secondary)]">UTC daily snapshot</span>
+        <span className="font-mono font-semibold text-[var(--text-primary)]">As of {new Date(asOf).toLocaleTimeString('en-US', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' })} UTC</span>
       </div>
       <div
         role="progressbar"
-        aria-label="Current week progress"
+        aria-label="Daily snapshot progress"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(progress)}

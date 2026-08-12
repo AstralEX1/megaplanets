@@ -1,57 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PrismaClient } from './generated/prisma/client';
-import {
-  getPlanetMiningSnapshot,
-  getWalletMiningSnapshot,
-  settleWalletMiningRates,
-} from './miningStore';
-
-describe('settleWalletMiningRates', () => {
-  it('persists the fractional remainder in each settlement ledger entry', async () => {
-    const scope = {
-      chainId: 84_532,
-      contractAddress: '0x0000000000000000000000000000000000000003' as const,
-    };
-    const state = {
-      id: 'state-1',
-      planetId: 'planet-1',
-      ownerAddress: '0x0000000000000000000000000000000000000001',
-      startedAt: new Date('2026-08-10T00:00:00.000Z'),
-      multiplierBps: 10_000,
-      remainder: 0n,
-    };
-    const entries: Array<{ fractionalRemainder: bigint }> = [];
-    const transaction = {
-      planet: {
-        findMany: async ({ where }: { where: Record<string, unknown> }) => {
-          expect(where).toMatchObject({
-            ownerAddress: state.ownerAddress,
-            chainId: scope.chainId,
-            contractAddress: scope.contractAddress,
-          });
-          return [{ id: 'planet-1', baseMineralsPerDay: 1n, planetType: 'GAIA' }];
-        },
-      },
-      planetAccrualState: {
-        findMany: async () => [state],
-        update: async ({ data }: { data: Partial<typeof state> }) => Object.assign(state, data),
-      },
-      mineralLedgerEntry: {
-        create: async ({ data }: { data: { fractionalRemainder: bigint } }) => entries.push(data),
-      },
-    } as never;
-
-    await settleWalletMiningRates(
-      transaction,
-      state.ownerAddress,
-      new Date('2026-08-10T00:00:00.001Z'),
-      scope,
-    );
-
-    expect(entries).toEqual([expect.objectContaining({ fractionalRemainder: 10_000_000_000n })]);
-    expect(state.remainder).toBe(10_000_000_000n);
-  });
-});
+import { getPlanetMiningSnapshot, getWalletMiningSnapshot } from './miningStore';
 
 describe('getWalletMiningSnapshot', () => {
   it('assigns the full lifetime value to the current owner without reading ledger or accrual state', async () => {

@@ -1,36 +1,36 @@
-import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { derivePlanetPreview, type PlanetPreview } from '@megaplanets/planet-generator';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount } from 'wagmi';
 import mineralIcon from '@/assets/mineral-icon.png';
 import { Button } from '@/components/common/Button';
 import { TxStatus } from '@/components/common/TxStatus';
 import type { NavKey } from '@/components/layout/Nav';
-import { PlanetInventoryCard } from '@/components/planets/PlanetInventoryCard';
-import { PlanetInventoryDetail } from '@/components/planets/PlanetInventoryDetail';
 import { LiveMineralAmount } from '@/components/planets/LiveMineralAmount';
 import { MintPlanetBatchButton } from '@/components/planets/MintPlanetBatchButton';
 import { MintPlanetButton } from '@/components/planets/MintPlanetButton';
+import { PlanetInventoryCard } from '@/components/planets/PlanetInventoryCard';
+import { PlanetInventoryDetail } from '@/components/planets/PlanetInventoryDetail';
 import { PLANET_CONFIG } from '@/config/planetConfig';
-import { useEligiblePlanetTickets } from '@/hooks/useEligiblePlanetTickets';
 import { useClaimWinnings } from '@/hooks/useClaimWinnings';
+import { useEligiblePlanetTickets } from '@/hooks/useEligiblePlanetTickets';
 import { useIndexedPlanets } from '@/hooks/useIndexedPlanets';
 import { useJackpotState } from '@/hooks/useJackpotState';
-import { usePlanetTicketStatuses, type PlanetTicketStatus } from '@/hooks/usePlanetTicketStatuses';
+import { type PlanetTicketStatus, usePlanetTicketStatuses } from '@/hooks/usePlanetTicketStatuses';
 import { useWalletMining } from '@/hooks/useWalletMining';
 import { formatMinerals } from '@/lib/minerals';
 import {
-  sortPlanetInventory,
-  sumMineralsPerDay,
   type PlanetInventoryItem,
   type PlanetSort,
+  sortPlanetInventory,
+  sumMineralsPerDay,
 } from '@/lib/planetInventory';
+import type { RevealUnavailable } from '@/lib/planetReveal';
 import { mergePlanetTickets } from '@/lib/planetTickets';
 import {
   PURCHASED_TICKETS_UPDATED_EVENT,
   readPersistedPurchasedTickets,
 } from '@/lib/purchaseReceipt';
-import type { RevealUnavailable } from '@/lib/planetReveal';
 
 type PlanetsProps = {
   onNavigate: (key: NavKey) => void;
@@ -73,7 +73,9 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [mobileDetailTicketId, setMobileDetailTicketId] = useState<string | null>(null);
   const [revealedTicketIds, setRevealedTicketIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [unavailableRevealTickets, setUnavailableRevealTickets] = useState<readonly RevealUnavailable[]>([]);
+  const [unavailableRevealTickets, setUnavailableRevealTickets] = useState<
+    readonly RevealUnavailable[]
+  >([]);
 
   useEffect(() => {
     if (!address) {
@@ -94,6 +96,7 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
 
   const onChain = useEligiblePlanetTickets(address);
   const indexed = useIndexedPlanets(address);
+  const ownershipLabel = indexed.isDirect ? 'on-chain' : 'indexed';
   const mining = useWalletMining(address);
   const jackpot = useJackpotState();
   const eligibleTickets = useMemo(
@@ -221,7 +224,14 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   );
 
   const liveRevealablePlanets = useMemo(
-    () => revealablePlanets.filter(({ preview }) => !unavailableRevealTickets.some(({ planet, reason }) => reason !== 'unreadable' && planet.ticketId === preview.descriptor.input.ticketId)),
+    () =>
+      revealablePlanets.filter(
+        ({ preview }) =>
+          !unavailableRevealTickets.some(
+            ({ planet, reason }) =>
+              reason !== 'unreadable' && planet.ticketId === preview.descriptor.input.ticketId,
+          ),
+      ),
     [revealablePlanets, unavailableRevealTickets],
   );
 
@@ -259,12 +269,16 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   const rememberUnavailableRevealTickets = (ticketsToAdd: readonly RevealUnavailable[]) => {
     if (ticketsToAdd.length === 0) return;
     setUnavailableRevealTickets((current) => {
-      const merged = new Map(current.map((ticket) => [ticket.planet.ticketId.toString(), ticket] as const));
+      const merged = new Map(
+        current.map((ticket) => [ticket.planet.ticketId.toString(), ticket] as const),
+      );
       for (const ticket of ticketsToAdd) merged.set(ticket.planet.ticketId.toString(), ticket);
       return [...merged.values()];
     });
   };
-  const blockedRevealTickets = unavailableRevealTickets.filter(({ reason }) => reason !== 'unreadable');
+  const blockedRevealTickets = unavailableRevealTickets.filter(
+    ({ reason }) => reason !== 'unreadable',
+  );
   const mintAction = (preview: PlanetPreview) => {
     const unavailable = unavailableRevealTickets.find(
       ({ planet }) => planet.ticketId === preview.descriptor.input.ticketId,
@@ -309,7 +323,7 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       <section className="card-pad mx-auto max-w-xl space-y-3 text-center">
         <h1 className="text-2xl font-semibold">Loading planet details</h1>
         <p className="text-sm text-zinc-400">
-          Resolving Planet #{routePlanetId} from the indexed collection.
+          Resolving Planet #{routePlanetId} from the {ownershipLabel} collection.
         </p>
       </section>
     );
@@ -319,7 +333,8 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       <section className="card-pad mx-auto max-w-xl space-y-4 text-center">
         <h1 className="text-2xl font-semibold">Planet details unavailable</h1>
         <p className="text-sm text-zinc-400">
-          The indexed collection could not be reached. Try again when the service is available.
+          The {ownershipLabel} collection could not be reached. Try again when the reader is
+          available.
         </p>
         <Button variant="secondary" onClick={() => onNavigate('planets')}>
           Back to My Planets
@@ -332,7 +347,7 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       <section className="card-pad mx-auto max-w-2xl space-y-3 text-center">
         <h1 className="text-balance text-2xl font-semibold">Discovering your planets</h1>
         <p className="text-pretty text-sm text-zinc-400">
-          Reading confirmed MegaPlanets ticket events from Base Sepolia.
+          Reading confirmed MegaPlanets ownership and ticket events from Base Sepolia.
         </p>
       </section>
     );
@@ -342,7 +357,8 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       <section className="card-pad mx-auto max-w-2xl space-y-3 text-center">
         <h1 className="text-balance text-2xl font-semibold">Planet collection unavailable</h1>
         <p className="text-pretty text-sm text-zinc-400">
-          The indexed collection could not be reached, so an empty wallet cannot be confirmed.
+          The {ownershipLabel} collection could not be reached, so an empty wallet cannot be
+          confirmed.
         </p>
       </section>
     );
@@ -455,7 +471,8 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
               />
               {blockedRevealTickets.length > 0 ? (
                 <p className="mt-1 max-w-xs text-right text-[10px] text-[var(--text-muted)]">
-                  {blockedRevealTickets.length} ticket{blockedRevealTickets.length === 1 ? '' : 's'} can’t reveal because the NFT is no longer held by this wallet.
+                  {blockedRevealTickets.length} ticket{blockedRevealTickets.length === 1 ? '' : 's'}{' '}
+                  can’t reveal because the NFT is no longer held by this wallet.
                 </p>
               ) : null}
               {liveRevealablePlanets.length > 50 ? (
@@ -490,8 +507,8 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       ) : null}
       {indexed.error ? (
         <div className="rounded-lg border border-rose-900 bg-rose-950/50 px-4 py-3 text-sm text-rose-200">
-          The indexed collection is temporarily unavailable. Eligible ticket previews remain
-          visible, but minted ownership cannot be confirmed.
+          The {ownershipLabel} collection is temporarily unavailable. Eligible ticket previews
+          remain visible, but minted ownership cannot be confirmed.
         </div>
       ) : null}
       {ticketStatuses.error ? (

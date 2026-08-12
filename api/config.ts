@@ -14,7 +14,7 @@ export type Stage5Config = {
   pinataJwt: string;
   signerPrivateKey: `0x${string}`;
   launchBlock: bigint;
-  /** Number of newer canonical blocks required before accepting a receipt proof. */
+  /** Number of newer canonical blocks required before accepting Megastera Proof. */
   confirmations?: bigint;
   storePath?: string;
   planetContractAddress?: `0x${string}`;

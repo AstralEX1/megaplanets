@@ -19,17 +19,9 @@ function blockHash(blockNumber: bigint): Hex {
   return `0x${blockNumber.toString(16).padStart(64, '0')}`;
 }
 
-describe('PrismaPlanetIndexStore mining settlements', () => {
-  it('settles a transferred Planet for the previous owner before changing ownership', async () => {
+describe('PrismaPlanetIndexStore ownership projection', () => {
+  it('changes current ownership without writing the retired mining ledger', async () => {
     let currentOwner = previousOwner;
-    const accrualState = {
-      planetId: 'planet-1',
-      ownerAddress: previousOwner,
-      startedAt: new Date('2026-08-10T00:00:00.000Z'),
-      multiplierBps: 10_000,
-      remainder: 0n,
-    };
-    const ledger: Array<{ ownerAddress: string; amountMicros: bigint }> = [];
     const planet = { id: 'planet-1', ownerAddress: previousOwner, baseMineralsPerDay: 86_400n, planetType: 'volcanic' };
     const transaction = {
       $queryRaw(this: unknown, strings: TemplateStringsArray, ..._values: unknown[]) {
@@ -39,22 +31,11 @@ describe('PrismaPlanetIndexStore mining settlements', () => {
       },
       planet: {
         findUnique: async () => ({ ...planet, ownerAddress: currentOwner }),
-        findMany: async ({ where }: { where: { ownerAddress: string } }) =>
-          where.ownerAddress === currentOwner ? [planet] : [],
         update: async ({ data }: { data: { ownerAddress: typeof previousOwner } }) => {
           currentOwner = data.ownerAddress;
         },
       },
       planetOwnershipHistory: { create: async () => undefined },
-      planetAccrualState: {
-        findMany: async () => [accrualState],
-        create: async () => undefined,
-        update: async ({ data }: { data: Partial<typeof accrualState> }) => Object.assign(accrualState, data),
-        updateMany: async ({ data }: { data: Partial<typeof accrualState> }) => Object.assign(accrualState, data),
-      },
-      mineralLedgerEntry: {
-        create: async ({ data }: { data: { ownerAddress: string; amountMicros: bigint } }) => ledger.push(data),
-      },
       processedBlockchainEvent: { create: async () => undefined },
     };
     const prisma = {
@@ -76,8 +57,6 @@ describe('PrismaPlanetIndexStore mining settlements', () => {
 
     await new PrismaPlanetIndexStore(prisma).recordTransfer(event);
 
-    expect(ledger).toHaveLength(1);
-    expect(ledger[0]).toMatchObject({ ownerAddress: previousOwner, amountMicros: 1_000_000n });
     expect(currentOwner).toBe(nextOwner);
   });
 });
@@ -85,10 +64,7 @@ describe('PrismaPlanetIndexStore mining settlements', () => {
 describe('PrismaPlanetIndexStore reorg resets', () => {
   it('rewinds deployment-scoped derived state in FK-safe order before resetting the cursor', async () => {
     const calls: string[] = [];
-    const miningDeletes: unknown[] = [];
     const transaction = {
-      mineralLedgerEntry: { deleteMany: async ({ where }: { where: unknown }) => { miningDeletes.push(['ledger', where]); calls.push('mineralLedgerEntry.deleteMany'); } },
-      planetAccrualState: { deleteMany: async ({ where }: { where: unknown }) => { miningDeletes.push(['accrual', where]); calls.push('planetAccrualState.deleteMany'); } },
       planetOwnershipHistory: {
         findMany: async () => [],
         deleteMany: async () => { calls.push('planetOwnershipHistory.deleteMany'); },
@@ -109,33 +85,11 @@ describe('PrismaPlanetIndexStore reorg resets', () => {
     await new PrismaPlanetIndexStore(prisma).rewind(planetContract, deploymentBlock);
 
     expect(calls).toEqual([
-      'mineralLedgerEntry.deleteMany',
-      'planetAccrualState.deleteMany',
       'planetOwnershipHistory.deleteMany',
       'processedBlockchainEvent.deleteMany',
       'planet.deleteMany',
       'indexerCursor.updateMany',
     ]);
-    expect(miningDeletes).toEqual([
-      ['ledger', { planet: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContract, mintBlockNumber: { gte: deploymentBlock } } }],
-      ['accrual', { planet: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContract, mintBlockNumber: { gte: deploymentBlock } } }],
-    ]);
-  });
-
-  it('fails closed instead of deleting mining history for a pre-fork Planet', async () => {
-    const transaction = {
-      planet: {
-        findMany: async () => [{ id: 'old-planet' }],
-        deleteMany: async () => { throw new Error('must not delete'); },
-      },
-      mineralLedgerEntry: { deleteMany: async () => { throw new Error('must not delete'); } },
-      planetAccrualState: { deleteMany: async () => { throw new Error('must not delete'); } },
-    };
-    const prisma = {
-      $transaction: async (callback: (tx: typeof transaction) => Promise<void>) => callback(transaction),
-    } as unknown as PrismaClient;
-
-    await expect(new PrismaPlanetIndexStore(prisma).rewind(planetContract, deploymentBlock)).rejects.toThrow(/historical Planet mining state/i);
   });
 });
 
@@ -144,8 +98,6 @@ describe('planet indexer cursor hashing', () => {
     databaseUrl: 'postgresql://not-used-in-tests',
     rpcUrl: 'https://rpc.example.test',
     rpcFallbackUrls: [],
-    appOrigin: 'http://127.0.0.1:5173',
-    sessionTtlSeconds: 86_400,
     chainId: BASE_SEPOLIA_CHAIN_ID,
     planetContractAddress: planetContract,
     planetDeploymentBlock: deploymentBlock,

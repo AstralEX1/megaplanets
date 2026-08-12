@@ -11,6 +11,20 @@ export type PreparedVoucher = {
   signature: Hex;
   signer: Address;
   digest: Hex;
+  /** Internal handoff used to persist immutable media separately from signatures. */
+  artifact?: PlanetArtifact;
+};
+
+export type PlanetArtifact = {
+  key: string;
+  ticketId: string;
+  recipient: Address;
+  seed: Hex;
+  traitsHash: Hex;
+  metadataHash: Hex;
+  metadataURI: string;
+  mediaURI: string;
+  mediaHash: Hex;
 };
 
 export type IndexedTicket = EligibleTicket;
@@ -35,6 +49,8 @@ export type EligibilityStore = {
   listProofs(recipient: Address, pagination: ProofPagination): Promise<ProofListResult>;
   getVoucher(ticketId: bigint, recipient: Address, now: bigint): Promise<PreparedVoucher | undefined>;
   saveVoucher(prepared: PreparedVoucher): Promise<void>;
+  getArtifact?(key: string): Promise<PlanetArtifact | undefined>;
+  saveArtifact?(artifact: PlanetArtifact): Promise<void>;
   getCursor(): Promise<IndexerCursor | undefined>;
   setCursor(nextBlock: bigint, lastBlockHash: Hex): Promise<void>;
   rewind(fromBlock: bigint): Promise<void>;
@@ -49,6 +65,7 @@ type PersistedStore = {
   tickets: Record<string, PersistedTicket>;
   vouchers: Record<string, PersistedVoucher>;
   snapshots: Record<string, PersistedSnapshot>;
+  artifacts?: Record<string, PlanetArtifact>;
 };
 type PersistedTicket = Omit<IndexedTicket, 'ticketId' | 'drawingId' | 'blockNumber' | 'logIndex'> & {
   ticketId: string;
@@ -71,7 +88,7 @@ export type PersistedSnapshot = Omit<DailySnapshot, 'blockNumber' | 'holdings' |
   }>;
 };
 
-const emptyStore = (): PersistedStore => ({ version: 2, cursorEpoch: MEGAPLANETS_TICKET_START_BLOCK.toString(), tickets: {}, vouchers: {}, snapshots: {} });
+const emptyStore = (): PersistedStore => ({ version: 2, cursorEpoch: MEGAPLANETS_TICKET_START_BLOCK.toString(), tickets: {}, vouchers: {}, snapshots: {}, artifacts: {} });
 const voucherKey = (ticketId: bigint, recipient: Address) => `${ticketId}:${getAddress(recipient).toLowerCase()}`;
 const snapshotKey = (blockNumber: bigint) => blockNumber.toString();
 
@@ -101,7 +118,8 @@ function proofFromTicket(ticket: IndexedTicket): MegasteraProof {
 
 export function serializePreparedVoucher(prepared: PreparedVoucher): PersistedVoucher {
   const { voucher } = prepared;
-  return { ...prepared, voucher: { ...voucher, ticketId: voucher.ticketId.toString(), drawingId: voucher.drawingId.toString(), expiresAt: voucher.expiresAt.toString() } };
+  const { artifact: _artifact, ...persisted } = prepared;
+  return { ...persisted, voucher: { ...voucher, ticketId: voucher.ticketId.toString(), drawingId: voucher.drawingId.toString(), expiresAt: voucher.expiresAt.toString() } };
 }
 
 export function deserializePreparedVoucher(prepared: PersistedVoucher): PreparedVoucher {
@@ -257,6 +275,21 @@ export class FileEligibilityStore implements EligibilityStore {
     });
   }
 
+  async getArtifact(key: string): Promise<PlanetArtifact | undefined> {
+    const value = (await this.read() as PersistedStore & { artifacts?: Record<string, PlanetArtifact> }).artifacts?.[key];
+    return value ? { ...value, recipient: getAddress(value.recipient) } : undefined;
+  }
+
+  async saveArtifact(artifact: PlanetArtifact): Promise<void> {
+    await this.update((store) => {
+      const persisted = store as PersistedStore & { artifacts?: Record<string, PlanetArtifact> };
+      persisted.artifacts ??= {};
+      const existing = persisted.artifacts[artifact.key];
+      if (existing && JSON.stringify(existing) !== JSON.stringify(artifact)) throw new Error(`Planet artifact ${artifact.key} conflicts with immutable content.`);
+      persisted.artifacts[artifact.key] = artifact;
+    });
+  }
+
   async getCursor(): Promise<IndexerCursor | undefined> {
     const store = await this.read();
     if (store.cursorEpoch !== MEGAPLANETS_TICKET_START_BLOCK.toString()) return undefined;
@@ -308,6 +341,7 @@ export class MemoryEligibilityStore implements EligibilityStore {
   private readonly vouchers = new Map<string, PreparedVoucher>();
   private cursor: IndexerCursor | undefined;
   private readonly snapshots = new Map<string, DailySnapshot>();
+  private readonly artifacts = new Map<string, PlanetArtifact>();
 
   async saveTicket(ticket: IndexedTicket) {
     const key = ticket.ticketId.toString();
@@ -353,6 +387,12 @@ export class MemoryEligibilityStore implements EligibilityStore {
     return voucher && voucher.voucher.expiresAt > now ? voucher : undefined;
   }
   async saveVoucher(prepared: PreparedVoucher) { this.vouchers.set(voucherKey(prepared.voucher.ticketId, prepared.voucher.recipient), prepared); }
+  async getArtifact(key: string) { return this.artifacts.get(key); }
+  async saveArtifact(artifact: PlanetArtifact) {
+    const existing = this.artifacts.get(artifact.key);
+    if (existing && JSON.stringify(existing) !== JSON.stringify(artifact)) throw new Error(`Planet artifact ${artifact.key} conflicts with immutable content.`);
+    this.artifacts.set(artifact.key, artifact);
+  }
   async getCursor() { return this.cursor; }
   async setCursor(nextBlock: bigint, lastBlockHash: Hex) { this.cursor = { nextBlock, lastBlockHash }; }
   async rewind(fromBlock: bigint) {

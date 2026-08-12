@@ -52,3 +52,9 @@ export async function pinJson(pinataJwt: string, name: string, value: unknown): 
 export async function pinGif(pinataJwt: string, name: string, bytes: Uint8Array): Promise<PinataUpload> {
   return uploadPublicFile(pinataJwt, name, new Blob([bytes], { type: 'image/gif' }));
 }
+
+/** Pin canonical animation bytes without changing the container/MIME contract. */
+export async function pinWebM(pinataJwt: string, name: string, bytes: Uint8Array): Promise<PinataUpload> {
+  if (!name.toLowerCase().endsWith('.webm')) throw new TypeError('WebM uploads must use a .webm filename.');
+  return uploadPublicFile(pinataJwt, name, new Blob([bytes], { type: 'video/webm' }));
+}
