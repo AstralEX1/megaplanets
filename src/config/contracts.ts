@@ -151,12 +151,18 @@ const ADDRESSES = {
 
 export const USDC_ADDRESS = ADDRESSES.USDC[CHAIN] as Address;
 export const JACKPOT_ADDRESS = ADDRESSES.Jackpot[CHAIN] as Address;
-const configuredMegaPlanets = import.meta.env.VITE_MEGAPLANETS_CONTRACT_ADDRESS?.trim();
+export function parseMegaPlanetsContractAddress(value: string | undefined): Address | undefined {
+  const configured = value?.trim();
+  if (!configured) return undefined;
+  if (!isAddress(configured)) {
+    throw new Error('VITE_MEGAPLANETS_CONTRACT_ADDRESS must be an EVM address.');
+  }
+  return getAddress(configured);
+}
+
 /** Active MegaPlanets ERC721A V2. Undefined until the V2 deployment gate is complete. */
 export const MEGAPLANETS_CONTRACT_ADDRESS: Address | undefined =
-  configuredMegaPlanets && isAddress(configuredMegaPlanets)
-    ? getAddress(configuredMegaPlanets)
-    : undefined;
+  parseMegaPlanetsContractAddress(import.meta.env.VITE_MEGAPLANETS_CONTRACT_ADDRESS);
 export const BATCH_PURCHASE_FACILITATOR_ADDRESS = ADDRESSES.BatchPurchaseFacilitator[
   CHAIN
 ] as Address;

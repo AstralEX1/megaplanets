@@ -7,6 +7,7 @@ import {
   LP_ENABLED,
   MEGAPLANETS_CONTRACT_ADDRESS,
   parseChainName,
+  parseMegaPlanetsContractAddress,
   REFERRAL_SPLIT_FULL,
   REFERRER_ADDRESS,
   TICKET_SOURCE,
@@ -23,6 +24,13 @@ describe('MegaPlanets protocol invariants', () => {
 
   it('fails closed for an invalid chain setting', () => {
     expect(() => parseChainName('base-sepolia')).toThrow('VITE_CHAIN');
+  });
+
+  it('makes an invalid Planet contract override visible instead of falling back', () => {
+    expect(() => parseMegaPlanetsContractAddress('not-an-address')).toThrow(
+      'VITE_MEGAPLANETS_CONTRACT_ADDRESS',
+    );
+    expect(parseMegaPlanetsContractAddress(undefined)).toBeUndefined();
   });
 
   it('uses the immutable MegaPlanets ticket source', () => {

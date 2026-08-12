@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAccount, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
+import { useAccount, useChainId, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import type { PlanetPreview } from '@megaplanets/planet-generator';
 import { Button } from '@/components/common/Button';
 import { TxStatus } from '@/components/common/TxStatus';
@@ -7,6 +7,8 @@ import { CHAIN, MEGAPLANETS_CONTRACT_ADDRESS } from '@/config/contracts';
 import { megaPlanetsAbi } from '@/lib/megaPlanets';
 import { isPlanetVoucherServiceConfigured, requestPlanetVoucher } from '@/lib/planetVoucher';
 import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
+import { getPlanetAvailability } from '@/lib/planetAvailability';
+import { baseSepolia } from 'viem/chains';
 
 type MintablePlanet = { preview: PlanetPreview; logIndex: bigint | undefined };
 
@@ -24,6 +26,7 @@ export function MintPlanetBatchButton({
   ) => void;
 }) {
   const { address } = useAccount();
+  const walletChainId = useChainId();
   const publicClient = usePublicClient();
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: write.data });
@@ -36,8 +39,15 @@ export function MintPlanetBatchButton({
     () => planets.filter((planet) => planet.logIndex !== undefined).slice(0, 50),
     [planets],
   );
+  const availability = getPlanetAvailability({
+    appChain: CHAIN,
+    walletConnected: !!address,
+    walletChainId,
+    contractConfigured: !!MEGAPLANETS_CONTRACT_ADDRESS,
+    baseSepoliaChainId: baseSepolia.id,
+  });
   const canMint =
-    CHAIN === 'testnet' &&
+    availability === 'ready' &&
     !!address &&
     !!publicClient &&
     !!MEGAPLANETS_CONTRACT_ADDRESS &&
@@ -106,6 +116,12 @@ export function MintPlanetBatchButton({
   };
 
   if (planets.length < 2) return null;
+  if (availability === 'unsupported-mainnet')
+    return <p className="text-xs text-zinc-500">Planet reveals are not supported on Base mainnet.</p>;
+  if (availability === 'missing-contract')
+    return <p className="text-xs text-rose-400">Planet reveal is unavailable: contract configuration is missing.</p>;
+  if (availability === 'wrong-chain')
+    return <p className="text-xs text-amber-200">Switch your wallet to Base Sepolia to reveal these planets.</p>;
   if (!isPlanetVoucherServiceConfigured)
     return (
       <p className="text-xs text-zinc-500">
