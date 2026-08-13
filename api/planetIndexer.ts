@@ -13,10 +13,11 @@ import {
   createPlanetConfig,
   derivePlanet,
   GENERATOR_VERSION,
-  type PlanetInput,
 } from '@megaplanets/planet-generator';
-import { BASE_SEPOLIA_CHAIN_ID } from './config';
+import { BASE_SEPOLIA_CHAIN_ID, MEGAPLANETS_SOURCE } from './config';
+import { BASE_SEPOLIA_JACKPOT, normalizeMegasteraProof, type MegasteraProof } from './eligibility';
 import type { PrismaClient } from './generated/prisma/client';
+import { PlanetMintProvenanceResolver, type PlanetMintedIdentity } from './planetMintProvenance';
 import type { Stage2Config } from './stage2Config';
 import { getLogsAdaptive } from './rpc';
 
@@ -96,15 +97,111 @@ export type PlanetIndexStore = {
   getCursor(contractAddress: Address): Promise<{ nextBlock: bigint; lastBlockHash?: Hex } | undefined>;
   setCursor(contractAddress: Address, nextBlock: bigint, lastBlockHash: Hex): Promise<void>;
   rewind(contractAddress: Address, fromBlock: bigint): Promise<void>;
-  getTicketInput(ticketId: bigint): Promise<PlanetInput | undefined>;
-  recordMinted(event: MintedPlanetEvent): Promise<boolean>;
+  recordMinted(event: MintedPlanetEvent, proof: MegasteraProof): Promise<boolean>;
   recordTransfer(event: PlanetTransferEvent): Promise<boolean>;
 };
+
+export type PlanetProvenanceResolver = Pick<PlanetMintProvenanceResolver, 'clearCache' | 'resolveMint'>;
+
+type PrismaTransaction = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
+
+const CANONICAL_TICKET_SOURCE = stringToHex(MEGAPLANETS_SOURCE, { size: 32 }).toLowerCase();
 
 function eventJson(value: Record<string, unknown>): object {
   return JSON.parse(
     JSON.stringify(value, (_key, entry) => (typeof entry === 'bigint' ? entry.toString() : entry)),
   ) as object;
+}
+
+function stableJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((entry) => stableJson(entry)).join(',')}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')}}`;
+}
+
+function decimalString(value: unknown, label: string): string {
+  if (typeof value === 'bigint') return value.toString();
+  if (typeof value === 'number' && Number.isSafeInteger(value)) return value.toString();
+  if (value && typeof value === 'object' && 'toFixed' in value && typeof value.toFixed === 'function') {
+    return value.toFixed(0);
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value)) return value;
+  throw new Error(`Persisted ${label} is invalid.`);
+}
+
+function validDate(value: unknown, label: string): Date {
+  const date = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(date.getTime())) throw new Error(`Persisted ${label} is invalid.`);
+  return date;
+}
+
+function safeLogIndex(value: bigint | number): number {
+  const numeric = typeof value === 'bigint' ? Number(value) : value;
+  if (!Number.isSafeInteger(numeric) || numeric < 0) throw new Error('Megastera proof log index is invalid.');
+  return numeric;
+}
+
+function addressEqual(left: unknown, right: Address): boolean {
+  return typeof left === 'string' && left.toLowerCase() === right.toLowerCase();
+}
+
+function hashEqual(left: unknown, right: Hex): boolean {
+  return typeof left === 'string' && left.toLowerCase() === right.toLowerCase();
+}
+
+function assertTicketMatchesProof(ticket: Record<string, unknown>, proof: MegasteraProof): void {
+  const blockHash = proof.blockHash;
+  const purchasedAt = proof.purchasedAt;
+  if (!blockHash || !purchasedAt) throw new Error('Megastera proof lacks finalized TicketPurchased provenance.');
+  const expectedLogIndex = safeLogIndex(proof.logIndex);
+  const actualNormals = ticket.normals;
+  const normalsMatch = Array.isArray(actualNormals)
+    && actualNormals.length === proof.normals.length
+    && actualNormals.every((value, index) => value === proof.normals[index]);
+  const actualPurchasedAt = validDate(ticket.purchasedAt, 'TicketPurchased timestamp');
+  const immutableMatches = ticket.chainId === BASE_SEPOLIA_CHAIN_ID
+    && addressEqual(ticket.jackpotAddress, BASE_SEPOLIA_JACKPOT)
+    && decimalString(ticket.ticketId, 'ticket ID') === proof.ticketId.toString()
+    && decimalString(ticket.drawingId, 'drawing ID') === proof.drawingId.toString()
+    && addressEqual(ticket.recipient, proof.recipient)
+    && normalsMatch
+    && ticket.bonusBall === proof.bonusBall
+    && typeof ticket.source === 'string'
+    && ticket.source.toLowerCase() === CANONICAL_TICKET_SOURCE
+    && hashEqual(ticket.originTxHash, proof.originTxHash)
+    && decimalString(ticket.blockNumber, 'block number') === proof.blockNumber.toString()
+    && hashEqual(ticket.blockHash, blockHash)
+    && ticket.logIndex === expectedLogIndex
+    && actualPurchasedAt.getTime() === purchasedAt.getTime();
+  if (!immutableMatches) {
+    throw new Error(`Ticket ${proof.ticketId} conflicts with immutable Megastera proof fields.`);
+  }
+}
+
+function assertPlanetMatchesMint(planet: Record<string, unknown>, event: MintedPlanetEvent): void {
+  const persistedMintedAt = validDate(planet.mintedAt, 'Planet mintedAt');
+  const immutableMatches = planet.chainId === event.chainId
+    && addressEqual(planet.contractAddress, event.contractAddress)
+    && decimalString(planet.tokenId, 'Planet token ID') === event.tokenId.toString()
+    && decimalString(planet.ticketId, 'Planet ticket ID') === event.ticketId.toString()
+    && hashEqual(planet.seed, event.traits.seed)
+    && hashEqual(planet.traitsHash, event.traits.traitsHash)
+    && hashEqual(planet.metadataHash, event.metadataHash)
+    && planet.metadataUri === event.metadataUri
+    && decimalString(planet.baseMineralsPerDay, 'Planet mineral rate') === event.traits.baseMineralsPerDay.toString()
+    && planet.generatorVersion === event.traits.generatorVersion
+    && planet.planetType === event.traits.planetType
+    && planet.terrain === event.traits.terrain
+    && planet.rarity === event.traits.rarity
+    && planet.satelliteCount === event.traits.satelliteCount
+    && planet.hasRing === event.traits.hasRing
+    && hashEqual(planet.mintTxHash, event.transactionHash)
+    && decimalString(planet.mintBlockNumber, 'Planet mint block number') === event.blockNumber.toString()
+    && hashEqual(planet.mintBlockHash, event.blockHash)
+    && planet.mintLogIndex === event.logIndex
+    && persistedMintedAt.getTime() === event.blockTimestamp.getTime();
+  if (!immutableMatches) throw new Error(`Planet ${event.tokenId} conflicts with an existing mint.`);
 }
 
 export class PrismaPlanetIndexStore implements PlanetIndexStore {
@@ -157,6 +254,28 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
       await transaction.planet.deleteMany({
         where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress, mintBlockNumber: { gte: fromBlock } },
       });
+      const survivors = await transaction.planet.findMany({
+        where: {
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          contractAddress: normalizedAddress,
+          mintBlockNumber: { lt: fromBlock },
+        },
+        select: {
+          id: true,
+          ownershipHistory: {
+            where: { blockNumber: { lt: fromBlock } },
+            orderBy: [{ blockNumber: 'desc' }, { logIndex: 'desc' }],
+            take: 1,
+            select: { toAddress: true },
+          },
+        },
+      });
+      for (const planet of survivors) {
+        await transaction.planet.update({
+          where: { id: planet.id },
+          data: { ownerAddress: planet.ownershipHistory[0]?.toAddress ?? ZERO_ADDRESS },
+        });
+      }
       await transaction.indexerCursor.updateMany({
         where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: normalizedAddress, stream: STREAM },
         data: { nextBlock: fromBlock, lastBlockHash: null },
@@ -164,39 +283,19 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
     });
   }
 
-  async getTicketInput(ticketId: bigint): Promise<PlanetInput | undefined> {
-    const ticket = await this.prisma.ticketPurchase.findUnique({
-      where: {
-        chainId_jackpotAddress_ticketId: {
-          chainId: BASE_SEPOLIA_CHAIN_ID,
-          jackpotAddress: '0x465da3c859f193a3807386387bee941b2a4c3279',
-          ticketId: ticketId.toString(),
-        },
-      },
-    });
-    return ticket
-      ? {
-          ticketId,
-          drawingId: BigInt(ticket.drawingId.toFixed(0)),
-          normals: ticket.normals,
-          bonusBall: ticket.bonusBall,
-          originTxHash: ticket.originTxHash as Hex,
-        }
-      : undefined;
-  }
-
-  async recordMinted(event: MintedPlanetEvent): Promise<boolean> {
+  async recordMinted(event: MintedPlanetEvent, proof: MegasteraProof): Promise<boolean> {
+    const normalizedProof = normalizeMegasteraProof(proof);
+    if (!normalizedProof.blockHash || !normalizedProof.purchasedAt) {
+      throw new Error('Megastera proof lacks finalized TicketPurchased provenance.');
+    }
+    if (event.ticketId !== normalizedProof.ticketId) {
+      throw new Error(`Planet ${event.tokenId} ticket does not match its Megastera proof.`);
+    }
+    if (getAddress(event.recipient) !== getAddress(normalizedProof.recipient)) {
+      throw new Error(`Planet ${event.tokenId} recipient does not match its Megastera proof.`);
+    }
     return this.record(event, 'PlanetMinted', async (transaction) => {
-      const ticketPurchase = await transaction.ticketPurchase.findUnique({
-        where: {
-          chainId_jackpotAddress_ticketId: {
-            chainId: event.chainId,
-            jackpotAddress: '0x465da3c859f193a3807386387bee941b2a4c3279',
-            ticketId: event.ticketId.toString(),
-          },
-        },
-      });
-      if (!ticketPurchase) throw new Error(`Ticket ${event.ticketId} is not indexed.`);
+      const ticketPurchase = await this.persistProof(transaction, normalizedProof);
       const existing = await transaction.planet.findUnique({
         where: {
           chainId_contractAddress_tokenId: {
@@ -207,14 +306,12 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
         },
       });
       if (existing) {
-        if (existing.mintTxHash !== event.transactionHash.toLowerCase() || existing.mintLogIndex !== event.logIndex) {
-          throw new Error(`Planet ${event.tokenId} conflicts with an existing mint.`);
-        }
+        assertPlanetMatchesMint(existing, event);
         return;
       }
       await transaction.planet.create({
         data: {
-          ticketPurchaseId: ticketPurchase.id,
+          ticketPurchaseId: ticketPurchase.id as string,
           chainId: event.chainId,
           contractAddress: event.contractAddress.toLowerCase(),
           tokenId: event.tokenId.toString(),
@@ -239,7 +336,7 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
           mintedAt: event.blockTimestamp,
         },
       });
-    });
+    }, { ...event, proof: normalizedProof });
   }
 
   async recordTransfer(event: PlanetTransferEvent): Promise<boolean> {
@@ -259,6 +356,18 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
       if (from !== ZERO_ADDRESS && planet.ownerAddress !== from) {
         throw new Error(`Planet ${event.tokenId} transfer owner is inconsistent.`);
       }
+      if (from === ZERO_ADDRESS) {
+        if (planet.ownerAddress !== ZERO_ADDRESS) {
+          throw new Error(`Planet ${event.tokenId} initial Transfer is not a mint.`);
+        }
+        if (!planet.ticketPurchaseId || !transaction.ticketPurchase?.findUnique) {
+          throw new Error(`Planet ${event.tokenId} initial Transfer has no mint recipient provenance.`);
+        }
+        const ticketPurchase = await transaction.ticketPurchase.findUnique({ where: { id: planet.ticketPurchaseId } });
+        if (!ticketPurchase || !addressEqual(ticketPurchase.recipient, to as Address)) {
+          throw new Error(`Planet ${event.tokenId} initial Transfer recipient is inconsistent with its mint.`);
+        }
+      }
       await transaction.planetOwnershipHistory.create({
         data: {
           planetId: planet.id,
@@ -277,15 +386,78 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
         where: { id: planet.id },
         data: { ownerAddress: to },
       });
+    }, event as unknown as Record<string, unknown>);
+  }
+
+  private async persistProof(transaction: PrismaTransaction, proof: MegasteraProof): Promise<Record<string, unknown>> {
+    const blockHash = proof.blockHash;
+    const purchasedAt = proof.purchasedAt;
+    if (!blockHash || !purchasedAt) throw new Error('Megastera proof lacks finalized TicketPurchased provenance.');
+    const logIndex = safeLogIndex(proof.logIndex);
+    const key = {
+      chainId_jackpotAddress_ticketId: {
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+        jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
+        ticketId: proof.ticketId.toString(),
+      },
+    };
+    const existing = await transaction.ticketPurchase.findUnique({ where: key });
+    if (existing) {
+      assertTicketMatchesProof(existing, proof);
+      return existing as Record<string, unknown>;
+    }
+
+    // The origin transaction/log identity is also immutable and independently unique.
+    // Check it before create so a conflicting ticket cannot be hidden behind P2002.
+    const byOrigin = await transaction.ticketPurchase.findUnique({
+      where: {
+        chainId_originTxHash_logIndex: {
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          originTxHash: proof.originTxHash.toLowerCase(),
+          logIndex,
+        },
+      },
     });
+    if (byOrigin) {
+      assertTicketMatchesProof(byOrigin, proof);
+      return byOrigin as Record<string, unknown>;
+    }
+
+    return transaction.ticketPurchase.create({
+      data: {
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+        jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
+        ticketId: proof.ticketId.toString(),
+        drawingId: proof.drawingId.toString(),
+        recipient: proof.recipient.toLowerCase(),
+        normals: [...proof.normals],
+        bonusBall: proof.bonusBall,
+        source: CANONICAL_TICKET_SOURCE,
+        originTxHash: proof.originTxHash.toLowerCase(),
+        blockNumber: proof.blockNumber,
+        blockHash: blockHash.toLowerCase(),
+        logIndex,
+        purchasedAt,
+      },
+    }) as Promise<Record<string, unknown>>;
   }
 
   private async record(
     identity: EventIdentity,
     eventName: string,
-    apply: (transaction: Parameters<Parameters<PrismaClient['$transaction']>[0]>[0]) => Promise<void>,
+    apply: (transaction: PrismaTransaction) => Promise<void>,
+    payload: Record<string, unknown> = identity as unknown as Record<string, unknown>,
   ): Promise<boolean> {
     let applied = false;
+    const immutablePayload = eventJson(payload);
+    const identityWhere = {
+      chainId_contractAddress_transactionHash_logIndex: {
+        chainId: identity.chainId,
+        contractAddress: identity.contractAddress.toLowerCase(),
+        transactionHash: identity.transactionHash.toLowerCase(),
+        logIndex: identity.logIndex,
+      },
+    };
     try {
       await this.prisma.$transaction(async (transaction) => {
         // Serialize replicas on the deployment/event identity before checking
@@ -299,21 +471,16 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
               SELECT pg_advisory_xact_lock(hashtextextended(${`${identity.chainId}:${identity.contractAddress.toLowerCase()}:${identity.transactionHash.toLowerCase()}:${identity.logIndex}`}, 0)) AS acquired
             ) AS lock_result`;
         }
-        const identityWhere = {
-          chainId_contractAddress_transactionHash_logIndex: {
-            chainId: identity.chainId,
-            contractAddress: identity.contractAddress.toLowerCase(),
-            transactionHash: identity.transactionHash.toLowerCase(),
-            logIndex: identity.logIndex,
-          },
-        };
         const transactionEvents = transaction.processedBlockchainEvent as typeof transaction.processedBlockchainEvent & {
           findUnique?: (args: typeof identityWhere) => Promise<unknown>;
         };
         const existing = transactionEvents.findUnique
           ? await transactionEvents.findUnique({ where: identityWhere })
           : await this.prisma.processedBlockchainEvent.findUnique({ where: identityWhere });
-        if (existing) return;
+        if (existing) {
+          this.assertProcessedEventMatches(existing as Record<string, unknown>, identity, eventName, immutablePayload);
+          return;
+        }
         await apply(transaction);
         applied = true;
         await transaction.processedBlockchainEvent.create({
@@ -325,14 +492,39 @@ export class PrismaPlanetIndexStore implements PlanetIndexStore {
             blockNumber: identity.blockNumber,
             blockHash: identity.blockHash,
             eventName,
-            payload: eventJson(identity as unknown as Record<string, unknown>),
+            payload: immutablePayload,
           },
         });
       });
       return applied;
     } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') return false;
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+        const existing = await this.prisma.processedBlockchainEvent.findUnique({ where: identityWhere });
+        if (existing) {
+          this.assertProcessedEventMatches(existing as Record<string, unknown>, identity, eventName, immutablePayload);
+          return false;
+        }
+      }
       throw error;
+    }
+  }
+
+  private assertProcessedEventMatches(
+    existing: Record<string, unknown>,
+    identity: EventIdentity,
+    eventName: string,
+    payload: object,
+  ): void {
+    const sameIdentity = existing.eventName === eventName
+      && existing.chainId === identity.chainId
+      && addressEqual(existing.contractAddress, identity.contractAddress)
+      && hashEqual(existing.transactionHash, identity.transactionHash)
+      && existing.logIndex === identity.logIndex
+      && decimalString(existing.blockNumber, 'processed event block number') === identity.blockNumber.toString()
+      && hashEqual(existing.blockHash, identity.blockHash)
+      && stableJson(existing.payload) === stableJson(payload);
+    if (!sameIdentity) {
+      throw new Error(`Processed ${eventName} event ${identity.transactionHash}:${identity.logIndex} conflicts with immutable payload.`);
     }
   }
 }
@@ -349,7 +541,13 @@ type IndexedLog = {
 export async function indexPlanetEvents(
   config: Stage2Config,
   store: PlanetIndexStore,
-  options: { confirmations?: bigint; blockRange?: bigint; reorgWindow?: bigint } = {},
+  options: {
+    confirmations?: bigint;
+    blockRange?: bigint;
+    reorgWindow?: bigint;
+    provenanceResolver?: PlanetProvenanceResolver;
+    resolver?: PlanetProvenanceResolver;
+  } = {},
 ) {
   if (!config.planetContractAddress || config.planetDeploymentBlock === undefined) {
     throw new Error('MegaPlanets address and deployment block are required for indexing.');
@@ -358,13 +556,20 @@ export async function indexPlanetEvents(
   const confirmations = options.confirmations ?? 6n;
   const blockRange = options.blockRange ?? 2_000n;
   const reorgWindow = options.reorgWindow ?? 12n;
-  if (confirmations < 0n || blockRange < 1n || blockRange > 2_000n || reorgWindow < 0n) {
+  if (confirmations < 0n || blockRange < 1n || blockRange > 2_000n || reorgWindow < 1n) {
     throw new Error('Invalid Planet indexer bounds.');
   }
   const client = createPublicClient({
     chain: baseSepolia,
     transport: fallback([http(config.rpcUrl), ...(config.rpcFallbackUrls ?? []).map((url) => http(url))]),
   });
+  const provenanceResolver = options.provenanceResolver ?? options.resolver ?? new PlanetMintProvenanceResolver({
+    getTransaction: ({ hash }) => client.getTransaction({ hash }),
+    getTransactionReceipt: ({ hash }) => client.getTransactionReceipt({ hash }),
+    getBlockNumber: () => client.getBlockNumber(),
+    getBlock: ({ blockNumber }) => client.getBlock({ blockNumber }),
+  }, { confirmations });
+  provenanceResolver.clearCache();
   const latest = await client.getBlockNumber();
   const throughBlock = latest > confirmations ? latest - confirmations : 0n;
   let cursor = await store.getCursor(address);
@@ -429,11 +634,41 @@ export async function indexPlanetEvents(
           tokenId: bigint; ticketId: bigint; recipient: Address; seed: Hex;
           metadataHash: Hex;
         };
-        const ticketInput = await store.getTicketInput(args.ticketId);
-        if (!ticketInput) throw new Error(`Planet ${args.tokenId} has no indexed Megapot ticket provenance.`);
-        const descriptor = derivePlanet(ticketInput, planetConfig);
+        const mintIdentity: PlanetMintedIdentity = {
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          contractAddress: address,
+          transactionHash: log.transactionHash,
+          logIndex: log.logIndex,
+          blockNumber: log.blockNumber,
+          blockHash: log.blockHash,
+          tokenId: args.tokenId,
+          ticketId: args.ticketId,
+          recipient: args.recipient,
+          seed: args.seed,
+          metadataHash: args.metadataHash,
+        };
+        const { proof, voucher } = await provenanceResolver.resolveMint(address, mintIdentity);
+        if (voucher.ticketId !== args.ticketId || voucher.drawingId !== proof.drawingId) {
+          throw new Error(`Planet ${args.tokenId} voucher ticket or drawing does not match its Megastera proof.`);
+        }
+        if (getAddress(voucher.recipient) !== getAddress(args.recipient)
+          || voucher.originTxHash.toLowerCase() !== proof.originTxHash.toLowerCase()
+          || voucher.seed.toLowerCase() !== args.seed.toLowerCase()
+          || voucher.metadataHash.toLowerCase() !== args.metadataHash.toLowerCase()) {
+          throw new Error(`Planet ${args.tokenId} mint voucher conflicts with its event or Megastera proof.`);
+        }
+        const descriptor = derivePlanet({
+          ticketId: proof.ticketId,
+          drawingId: proof.drawingId,
+          normals: proof.normals,
+          bonusBall: proof.bonusBall,
+          originTxHash: proof.originTxHash,
+        }, planetConfig);
         if (descriptor.seed.toLowerCase() !== args.seed.toLowerCase()) {
           throw new Error(`Planet ${args.tokenId} seed does not match the canonical generator.`);
+        }
+        if (descriptor.traitsHash.toLowerCase() !== voucher.traitsHash.toLowerCase()) {
+          throw new Error(`Planet ${args.tokenId} traits hash does not match the mint voucher.`);
         }
         const traits: IndexedPlanetTraits = {
           seed: descriptor.seed,
@@ -448,10 +683,14 @@ export async function indexPlanetEvents(
         };
         // tokenURI is immutable after mint, so latest state avoids requiring an archive RPC.
         const metadataUri = await client.readContract({ address, abi: TOKEN_URI_ABI, functionName: 'tokenURI', args: [args.tokenId] });
+        if (metadataUri !== voucher.metadataURI) {
+          throw new Error(`Planet ${args.tokenId} metadata URI does not match the mint voucher.`);
+        }
         if (keccak256(stringToHex(metadataUri)) !== args.metadataHash) {
           throw new Error(`Planet ${args.tokenId} metadata URI hash is invalid.`);
         }
-        if (await store.recordMinted({ ...identity, ...args, traits, metadataUri })) eventsProcessed += 1;
+        const mintedEvent: MintedPlanetEvent = { ...identity, ...args, traits, metadataUri };
+        if (await store.recordMinted(mintedEvent, proof)) eventsProcessed += 1;
       } else {
         const args = log.args as { tokenId: bigint; from: Address; to: Address };
         if (await store.recordTransfer({ ...identity, ...args })) eventsProcessed += 1;
