@@ -82,7 +82,7 @@ export function randomTicket(args: { ballMax: number; bonusballMax: number }): C
 /**
  * Produces the complete explicit ticket list required by `Jackpot.buyTickets`.
  * Users may configure up to `count` tickets; the remaining places are client-side
- * quick-picks, matching the Megapot Starter Kit flow. Random picks are deliberately
+ * quick-picks, matching the MegaPlanets direct-purchase flow. Random picks are deliberately
  * made only at submission time, so preview rows never claim to be the final draw.
  */
 export function buildDirectTickets(args: {

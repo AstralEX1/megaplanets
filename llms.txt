@@ -1,127 +1,92 @@
-# megapot-starter-kit — file manifest for AI agents
+# MegaPlanets — Codex agent manifest
 
-A Vite + React 19 + wagmi v2 reference frontend for the Megapot on-chain
-lottery (USDC on Base). Forkable; white-label-ready. Source of truth for
-the integration patterns documented at https://llms.megapot.io.
+MegaPlanets is a seasonless deterministic Planet collection game powered by
+Megapot tickets on Base Sepolia. This file is an agent navigation aid. The
+authoritative product and architecture decisions are in README.md,
+AGENTS.md, and docs/ARCHITECTURE.md; do not treat this manifest as a second
+specification.
 
-## Entry points
+## Read first
 
-- README.md — fork-in-5-minutes, env vars, customize index, deploy
-- AGENTS.md — JSDoc convention guide for navigating the kit
-- docs/ARCHITECTURE.md — API/RPC division, polling cadence, decisions
-- docs/CUSTOMIZE.md — every rebrand seam in one checklist
-- docs/DISCLAIMER.md — Infrastructure Participant interface notice
-- .env.example — environment variables with rationale for each
-- LICENSE — MIT
+1. AGENTS.md — working rules, invariants, source orientation, and verification gates.
+2. README.md — product loop, game rules, contract identity, and local setup.
+3. docs/ARCHITECTURE.md — authoritative boundaries and data flow.
+4. docs/STATUS.md — current readiness and external release blockers.
+5. docs/OPERATIONS.md — environment, workers, recovery, and release runbook.
+6. docs/ROADMAP.md and docs/DECISIONS.md — current scope and active decisions.
 
-## Source
+Historical plans and superseded specifications are not current requirements.
+docs/archive/README.md explains the policy.
 
-### src/pages/ — one component per top-level tab
-- src/pages/Home.tsx — live drawing state, countdown, prize-tier projection
-- src/pages/Play.tsx — ticket purchase orchestration (jackpot / bulk / subscribe)
-- src/pages/Tickets.tsx — wallet stats, current draw, unclaimed wins, past rounds
-- src/pages/LP.tsx — deposit + withdraw against the LP manager (gated by LP_ENABLED in src/config/contracts.ts; default off)
-- src/pages/History.tsx — paginated round list (Data API backed)
+## Non-negotiable runtime invariants
 
-### src/hooks/ — TanStack Query wrappers
-#### RPC reads
-- src/hooks/useJackpotState.ts — hybrid lifecycle reader (poll + 4 event subs)
-- src/hooks/usePrizeTiers.ts — pre-settlement tier projections
-- src/hooks/useUsdcBalance.ts — ERC-20 balanceOf
-- src/hooks/useUsdcAllowance.ts — ERC-20 allowance (driver for ApprovalButton)
-- src/hooks/useLpInfo.ts — LP pool state, cap, drawing-state
+- Target Base Sepolia (84532) until a later stage explicitly approves mainnet.
+- TICKET_SOURCE remains MEGAPLANETS_V1.
+- Eligibility is a receipt-verified, server-side Megastera Proof.
+- Current Planet holdings are direct ERC721A reads by default; the finalized
+  PlanetMinted/Transfer projector is an operational read model and compatibility fallback.
+- Mining is baseMineralsPerDay × elapsed since mintedAt; current ownership receives
+  the lifetime value. There are no active accrual rows, transfer settlements, or same-type bonuses.
+- Leaderboards are immutable daily UTC snapshots finalized by an explicit worker.
+- New artifacts are immutable metadata plus bounded VP8 WebM; checked-in GIFs are
+  regression fixtures only.
+- Read live ticket price, drawing ID, ball limits, fees, and lifecycle state dynamically.
+- Never commit secrets or activate the deployed address in checked-in defaults.
 
-#### RPC writes
-- src/hooks/useBuyTickets.ts — Jackpot.buyTickets (≤10 tickets path)
-- src/hooks/useBulkPurchase.ts — BatchPurchaseFacilitator + BatchOrderExecuted polling
-- src/hooks/useSubscribe.ts — JackpotAutoSubscription create / cancel / status
-- src/hooks/useClaimWinnings.ts — Jackpot.claimWinnings batched per round
-- src/hooks/useClaimReferralFees.ts — operator's accumulated fees
-- src/hooks/useLpDeposit.ts — USDC approve + lpDeposit
-- src/hooks/useLpWithdraw.ts — initiateWithdraw → finalizeWithdraw two-step
+## Repository map
 
-#### Data API reads (api.megapot.io)
-- src/hooks/useActiveRound.ts — live-round aggregate (tickets, players, lp_earnings) on a 30s refetch
-- src/hooks/useRound.ts — single-round detail (settled rounds are immutable)
-- src/hooks/useRoundsList.ts — paginated rounds list, invalidates on JackpotSettled
-- src/hooks/useUserTickets.ts — wallet tickets for one round (current OR past)
-- src/hooks/useWalletStats.ts — lifetime aggregate (tickets, wins, spend, referral)
-- src/hooks/useWalletTickets.ts — wallet ticket history (cross-round)
-- src/hooks/useWalletWins.ts — wallet wins with claimed filter
+### Frontend
 
-### src/components/ — UI primitives + composite sections
-- src/components/common/ — primitives reused across pages
-  - Button.tsx — primary/secondary/danger variants (white-label seam)
-  - ApprovalButton.tsx — generic USDC approve (any spender, exact-allowance)
-  - CopyButton.tsx — click-to-copy + 1s flash
-  - DataApiCredit.tsx — "via Megapot Data API" link (rebrand seam)
-  - UsdcAmount.tsx — 6-decimal raw bigint → human readable
-  - TxStatus.tsx — pending / confirmed / failed pill
-- src/components/layout/ — app shell
-  - Layout.tsx — Nav + Footer container
-  - Nav.tsx — top tabs (desktop) + bottom tab bar (mobile)
-  - ProfileCard.tsx — connect button + balance pill + referral fee claim (md+ only)
-  - MobileWalletBar.tsx — sub-md header sub-row: connect CTA or address + ETH/USDC + Disconnect
-  - Footer.tsx — disclaimer link + chain badge
-  - BrandMark.tsx — logo SVG seam
-  - DisclaimerLink.tsx — disclaimer link seam
-- src/components/icons/ — inline SVG icons (one file per icon)
-  - HomeIcon.tsx, PlayIcon.tsx, TicketsIcon.tsx, LpIcon.tsx, HistoryIcon.tsx
-  - CopyIcon.tsx, CheckIcon.tsx, ExternalLinkIcon.tsx
-- src/components/lottery/ — current-drawing surfaces
-  - PrizePool.tsx, Countdown.tsx, PrizeTiers.tsx, LifecycleStatus.tsx
-  - TicketBuilder.tsx — number entry + qty slider + custom-pin
-  - SubscriptionToggle.tsx — one-time vs subscription mode toggle
-  - BulkProgress.tsx — bulk-buy chunked progress
-- src/components/tickets/ — wallet + history surfaces
-  - WalletStatsCard.tsx — lifetime stats (Data API)
-  - CurrentDrawingTickets.tsx — RPC-backed ticket list
-  - TicketCard.tsx — numbers + match status
-  - ActiveSubscription.tsx — subscription status + cancel
-  - UnclaimedWins.tsx — wins to claim, per-row claim inlined
-  - PastRoundTickets.tsx — round-detail ticket listing
-  - ClaimReferralFees.tsx — operator earnings claim
-- src/components/lp/ — LP page surfaces
-  - PoolStatus.tsx — Open/Closed badge + capacity hint
-  - DepositForm.tsx — USDC approve + lpDeposit form
-  - WithdrawTwoStep.tsx — initiate → finalize flow with locked-drawing banner
-- src/components/history/ — history page surfaces
-  - DrawingList.tsx — paginated rounds with expanded-row detail
+- src/App.tsx — application shell and route/tab state.
+- src/pages/Play.tsx — direct and keeper purchase, recovery, reveal, and mint flow.
+- src/pages/Planets.tsx — direct/current Planet holdings and mining display.
+- src/pages/Leaderboard.tsx — daily snapshot leaderboard.
+- src/pages/Home.tsx, src/pages/Tickets.tsx, src/pages/History.tsx, src/pages/Lab.tsx
+  — supporting product surfaces.
+- src/hooks/ — wagmi/TanStack Query reads and transaction orchestration. Read the
+  local src/hooks/README.md before changing a hook.
+- src/components/ — product UI. Read src/components/README.md for boundaries.
+- src/lib/tickets.ts — ticket generation, validation, and route thresholds.
+- src/config/contracts.ts — chain-aware contract configuration and source tag.
 
-### src/config/ — chain-aware addresses + brand config + diagnostics
-- src/config/contracts.ts — chain-aware addresses + REFERRER_ADDRESS (env-driven via VITE_REFERRER_ADDRESS) + TICKET_SOURCE
-- src/config/wagmi.ts — wagmi + RainbowKit config; reads VITE_APP_NAME
-- src/config/copy.ts — single source for user-facing English strings
-- src/config/diagnostics.ts — boot-time placeholder warnings (dev-only) + bigint polyfill
+### Backend and data
 
-### src/lib/ — shared utilities
-- src/lib/api.ts — Data API client + types + QK query-key constants + retry helper
-- src/lib/tickets.ts — randomization, route picker, cost calc, MAX_CLAIM_BATCH
+- api/index.ts — Hono API composition, exact-origin CORS, routes, limits, and errors.
+- api/eligibility.ts — Megastera Proof verification and canonical ticket eligibility.
+- api/service.ts — voucher, immutable artifact, and proof orchestration.
+- api/prismaEligibilityStore.ts — PostgreSQL persistence for proofs, vouchers, artifacts,
+  and the v2 activation cursor.
+- api/planetIndexer.ts and api/planetIndexerWorker.ts — finalized V2 projector,
+  idempotency, boundary-hash reorg detection, and bounded recovery.
+- api/mining.ts and api/miningStore.ts — lifetime mining formula and read model.
+- api/leaderboard.ts, api/leaderboardStore.ts, and api/leaderboardWorker.ts —
+  daily UTC snapshot ranking and explicit finalization.
+- api/pinata.ts — immutable JSON/WebM pinning and media limits.
+- prisma/schema.prisma and prisma/migrations/ — database schema/history. Historical
+  migrations may remain for compatibility; do not reintroduce retired writes.
+- server/proxy.ts and examples/ — optional Megapot Data API proxy deployment references.
 
-### src/ — root
-- src/main.tsx — providers (Wagmi / QueryClient / RainbowKit) + bigint polyfill imports
-- src/App.tsx — tab state + Layout shell
-- src/index.css — Tailwind directives
+### Contract and generator
 
-### server/ — optional backend proxy
-- server/proxy.ts — framework-agnostic Hono proxy for the Data API
+- contracts/src/MegaPlanets.sol — seasonless ERC721A V2 contract source.
+- contracts/abi/MegaPlanets.json — checked-in frontend ABI; validate with
+  contracts/script/check-abi.sh.
+- packages/planet-generator/ — deterministic seed, traits, metadata, GIF fixtures,
+  and WebM encoding. Keep generator logic deterministic and browser-independent.
 
-### examples/ — platform deploy references (NOT active by default)
-- examples/deploy-vercel-function.ts — Vercel Functions wrapper for server/proxy.ts
-- examples/deploy-cloudflare-worker.ts — Cloudflare Workers wrapper
-- examples/README.md — index + deploy walkthrough
+## Safe change checklist
 
-## Config
+- Read the relevant source-of-truth docs and applicable skill before changing protocol calls.
+- Preserve bigint arithmetic, confirmation/finality checks, idempotency, and explicit errors.
+- Add focused tests for meaningful behavior changes.
+- For UI/runtime changes run pnpm lint, pnpm typecheck, pnpm test, pnpm build,
+  pnpm db:generate, and pnpm db:validate.
+- For contract changes also run forge build --sizes, forge test, invariant/fuzz tests,
+  and contracts/script/check-abi.sh.
+- Do not send live transactions or change contract addresses unless the stage explicitly requires it.
 
-- package.json — pnpm scripts (dev, build, typecheck, lint, format, setup)
-- vite.config.ts — Vite + React plugin
-- tailwind.config.ts — brand.primary token scale + content globs
-- biome.json — Biome 2.x lint + format config
-- tsconfig*.json — TypeScript project references (app + node tooling)
-- index.html — root with rebrand markers + theme-color
+## External protocol references
 
-## See also
-
-- Megapot toolkit (skills, recipes, examples): https://llms.megapot.io
-- Data API reference: https://api.megapot.io/v1/docs
-- Protocol contracts: https://llms.megapot.io/contracts/reference
+- Megapot protocol source of truth: https://llms.megapot.io/
+- Megapot Data API: https://api.megapot.io/v1/docs
+- MegaPlanets hackathon brief: https://www.inco.org/blog/summer-game-jam-resources-and-what-to-build

@@ -1,18 +1,33 @@
+import {
+  createPublicClient,
+  encodeAbiParameters,
+  encodeEventTopics,
+  stringToHex,
+  type TransactionReceipt,
+} from 'viem';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BASE_SEPOLIA_CHAIN_ID } from './config';
 import type { Stage5Config } from './config';
+import { BASE_SEPOLIA_CHAIN_ID } from './config';
+import { parseAllowedOrigins } from './cors';
+import { BASE_SEPOLIA_JACKPOT, type EligibleTicket, TICKET_PURCHASED_ABI } from './eligibility';
 import {
   assertReceiptFinality,
   createApp,
   createDefaultEligibilityStore,
   createVoucherRateLimiter,
+  findTicketFromReceipt,
   probeStage5Readiness,
   readMetadataSigner,
+  validateTicketAuthority,
 } from './index';
-import type { EligibleTicket } from './eligibility';
-import type { MintVoucher } from './voucher';
-import { MemoryEligibilityStore } from './store';
 import { createOperationalState } from './operations';
+import { MemoryEligibilityStore } from './store';
+import type { MintVoucher } from './voucher';
+
+vi.mock('viem', async () => {
+  const actual = await vi.importActual<typeof import('viem')>('viem');
+  return { ...actual, createPublicClient: vi.fn() };
+});
 
 const config: Stage5Config = {
   rpcUrl: 'https://rpc.example.test',
@@ -49,29 +64,75 @@ const voucher: MintVoucher = {
   expiresAt: 1_800_000_000n,
 };
 
+const receiptBlockHash = `0x${'cd'.repeat(32)}` as `0x${string}`;
+
+function ticketReceipt(): TransactionReceipt {
+  const source = stringToHex('MEGAPLANETS_V1', { size: 32 });
+  const log = {
+    address: BASE_SEPOLIA_JACKPOT,
+    blockNumber: ticket.blockNumber,
+    blockHash: receiptBlockHash,
+    transactionHash: ticket.originTxHash,
+    logIndex: Number(ticket.logIndex),
+    topics: encodeEventTopics({
+      abi: TICKET_PURCHASED_ABI,
+      eventName: 'TicketPurchased',
+      args: { recipient: ticket.recipient, currentDrawingId: ticket.drawingId, source },
+    }),
+    data: encodeAbiParameters(
+      [
+        { name: 'userTicketId', type: 'uint256' },
+        { name: 'normals', type: 'uint8[]' },
+        { name: 'bonusball', type: 'uint8' },
+        { name: 'referralScheme', type: 'bytes32' },
+      ],
+      [ticket.ticketId, [...ticket.normals], ticket.bonusBall, `0x${'00'.repeat(32)}`],
+    ),
+  };
+  return {
+    status: 'success',
+    transactionHash: ticket.originTxHash,
+    blockHash: receiptBlockHash,
+    blockNumber: ticket.blockNumber,
+    logs: [log],
+  } as unknown as TransactionReceipt;
+}
+
+const authorityStub = async () => undefined;
+
 describe('Stage 5 voucher endpoint', () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it('rejects the local voucher store when production has no PostgreSQL database', () => {
-    expect(() => createDefaultEligibilityStore({ ...config, databaseUrl: undefined }, { NODE_ENV: 'production' })).toThrow(/PostgreSQL/i);
+    expect(() =>
+      createDefaultEligibilityStore(
+        { ...config, databaseUrl: undefined },
+        { NODE_ENV: 'production' },
+      ),
+    ).toThrow(/PostgreSQL/i);
   });
 
   it('reads and validates the V2 metadata signer before readiness succeeds', async () => {
     const expected = `0x${'11'.repeat(20)}` as `0x${string}`;
     const actual = await readMetadataSigner(async () => expected.toLowerCase());
     expect(actual).toBe(expected.toLowerCase());
-    await expect(readMetadataSigner(async () => 'not-an-address')).rejects.toThrow(/metadata signer/i);
+    await expect(readMetadataSigner(async () => 'not-an-address')).rejects.toThrow(
+      /metadata signer/i,
+    );
   });
 
   it('closes default readiness when the on-chain metadata signer differs', async () => {
-    const result = await probeStage5Readiness({ ...config, planetDeploymentBlock: 45_347_860n }, {
-      databaseProbe: async () => undefined,
-      readChain: async () => ({
-        chainId: BASE_SEPOLIA_CHAIN_ID,
-        code: `0x${'aa'.repeat(20)}`,
-        metadataSigner: `0x${'22'.repeat(20)}`,
-      }),
-    });
+    const result = await probeStage5Readiness(
+      { ...config, planetDeploymentBlock: 45_347_860n },
+      {
+        databaseProbe: async () => undefined,
+        readChain: async () => ({
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          code: `0x${'aa'.repeat(20)}`,
+          metadataSigner: `0x${'22'.repeat(20)}`,
+        }),
+      },
+    );
     expect(result).toBe(false);
   });
 
@@ -95,34 +156,140 @@ describe('Stage 5 voucher endpoint', () => {
   });
 
   it('accepts a receipt only after the configured confirmation depth and canonical block hash check', () => {
-    expect(() => assertReceiptFinality({
-      blockNumber: 100n,
-      blockHash: `0x${'aa'.repeat(32)}`,
-    }, {
-      latestBlock: 106n,
-      canonicalBlockHash: `0x${'aa'.repeat(32)}`,
-      confirmations: 6n,
-    })).not.toThrow();
-    expect(() => assertReceiptFinality({
-      blockNumber: 100n,
-      blockHash: `0x${'aa'.repeat(32)}`,
-    }, {
-      latestBlock: 105n,
-      canonicalBlockHash: `0x${'aa'.repeat(32)}`,
-      confirmations: 6n,
-    })).toThrow(/confirm/i);
-    expect(() => assertReceiptFinality({
-      blockNumber: 100n,
-      blockHash: `0x${'aa'.repeat(32)}`,
-    }, {
-      latestBlock: 106n,
-      canonicalBlockHash: `0x${'bb'.repeat(32)}`,
-      confirmations: 6n,
-    })).toThrow(/canonical|reorg|block hash/i);
+    expect(() =>
+      assertReceiptFinality(
+        {
+          blockNumber: 100n,
+          blockHash: `0x${'aa'.repeat(32)}`,
+        },
+        {
+          latestBlock: 106n,
+          canonicalBlockHash: `0x${'aa'.repeat(32)}`,
+          confirmations: 6n,
+        },
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertReceiptFinality(
+        {
+          blockNumber: 100n,
+          blockHash: `0x${'aa'.repeat(32)}`,
+        },
+        {
+          latestBlock: 105n,
+          canonicalBlockHash: `0x${'aa'.repeat(32)}`,
+          confirmations: 6n,
+        },
+      ),
+    ).toThrow(/confirm/i);
+    expect(() =>
+      assertReceiptFinality(
+        {
+          blockNumber: 100n,
+          blockHash: `0x${'aa'.repeat(32)}`,
+        },
+        {
+          latestBlock: 106n,
+          canonicalBlockHash: `0x${'bb'.repeat(32)}`,
+          confirmations: 6n,
+        },
+      ),
+    ).toThrow(/canonical|reorg|block hash/i);
+  });
+
+  it('falls through a wrong-chain primary RPC before accepting a fully verified receipt', async () => {
+    const primary = { getChainId: vi.fn(async () => 1) };
+    const fallback = {
+      getChainId: vi.fn(async () => BASE_SEPOLIA_CHAIN_ID),
+      getTransactionReceipt: vi.fn(async () => ticketReceipt()),
+      getBlockNumber: vi.fn(async () => ticket.blockNumber + 6n),
+      getBlock: vi.fn(async (args: { blockNumber?: bigint; blockHash?: `0x${string}` }) => ({
+        hash: receiptBlockHash,
+        timestamp: 1_755_000_000n,
+        ...(args.blockHash ? {} : {}),
+      })),
+    };
+    vi.mocked(createPublicClient)
+      .mockReturnValueOnce(primary as never)
+      .mockReturnValueOnce(fallback as never);
+
+    const proof = await findTicketFromReceipt(
+      { ...config, rpcFallbackUrls: ['https://rpc.fallback.test'] },
+      requestBody,
+    );
+
+    expect(proof).toMatchObject({
+      chainId: BASE_SEPOLIA_CHAIN_ID,
+      ticketId: ticket.ticketId,
+      originTxHash: ticket.originTxHash,
+      purchasedAt: new Date(1_755_000_000_000),
+    });
+    expect(primary.getChainId).toHaveBeenCalledOnce();
+    expect(fallback.getTransactionReceipt).toHaveBeenCalledOnce();
+  });
+
+  it('validates live ticket ownership and unminted state through bounded RPC fallback', async () => {
+    const primary = { getChainId: vi.fn(async () => 1) };
+    const fallback = {
+      getChainId: vi.fn(async () => BASE_SEPOLIA_CHAIN_ID),
+      readContract: vi.fn(async ({ functionName }: { functionName: string }) =>
+        functionName === 'ownerOf' ? ticket.recipient : false,
+      ),
+    };
+    vi.mocked(createPublicClient)
+      .mockReturnValueOnce(primary as never)
+      .mockReturnValueOnce(fallback as never);
+
+    await expect(
+      validateTicketAuthority(
+        { ...config, rpcFallbackUrls: ['https://rpc.fallback.test'] },
+        ticket,
+      ),
+    ).resolves.toBeUndefined();
+    expect(fallback.readContract).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns a typed, safe authority error and never prepares an artifact when the ticket is no longer owned', async () => {
+    let prepared = false;
+    const app = createApp({
+      loadConfig: () => config,
+      findTicket: async () => ticket,
+      validateAuthority: async () => {
+        throw new Error('ticket owner mismatch');
+      },
+      prepare: async () => {
+        prepared = true;
+        return {
+          voucher,
+          signature: '0xdeadbeef',
+          signer: ticket.recipient,
+          digest: receiptBlockHash,
+        };
+      },
+      getStore: () => new MemoryEligibilityStore(),
+    });
+
+    const response = await app.request('/api/planets/vouchers', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-request-id': 'reveal-test-1' },
+      body: JSON.stringify(requestBody),
+    });
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      error: 'Ticket is not eligible for a Planet voucher.',
+      stage: 'authority',
+      code: 'ticket_not_authorized',
+      message: 'Ticket is not eligible for a Planet voucher.',
+      requestId: 'reveal-test-1',
+    });
+    expect(prepared).toBe(false);
   });
 
   it('exposes health and V2 configuration readiness probes', async () => {
-    const app = createApp({ loadConfig: () => ({ ...config, planetDeploymentBlock: 45_347_860n }) });
+    const app = createApp({
+      loadConfig: () => ({ ...config, planetDeploymentBlock: 45_347_860n }),
+    });
 
     expect(await (await app.request('/api/planets/health')).json()).toEqual({ ok: true, stage: 5 });
     expect(await (await app.request('/api/planets/readiness')).json()).toEqual({
@@ -134,9 +301,50 @@ describe('Stage 5 voucher endpoint', () => {
     });
   });
 
+  it('allows only explicitly configured frontend origins', async () => {
+    vi.stubEnv(
+      'MEGAPLANETS_ALLOWED_ORIGINS',
+      'https://demo.megaplanets.example, http://localhost:5173',
+    );
+    const app = createApp();
+
+    const allowed = await app.request('/api/planets/health', {
+      headers: { Origin: 'https://demo.megaplanets.example' },
+    });
+    expect(allowed.headers.get('access-control-allow-origin')).toBe(
+      'https://demo.megaplanets.example',
+    );
+
+    const preflight = await app.request('/api/planets/health', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:5173',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type',
+      },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
+
+    const denied = await app.request('/api/planets/health', {
+      headers: { Origin: 'https://evil.example' },
+    });
+    expect(denied.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  it('rejects wildcard and malformed CORS allowlists', () => {
+    expect(() => parseAllowedOrigins({ MEGAPLANETS_ALLOWED_ORIGINS: '*' })).toThrow(/origin/i);
+    expect(() => parseAllowedOrigins({ MEGAPLANETS_ALLOWED_ORIGINS: 'not an origin' })).toThrow(
+      /origin/i,
+    );
+  });
+
   it('exposes safe operational metrics without server credentials', async () => {
     const operations = createOperationalState({ role: 'api', now: () => 1_700_000_000_000 });
-    const app = createApp({ operations, loadConfig: () => ({ ...config, planetDeploymentBlock: 45_347_860n }) });
+    const app = createApp({
+      operations,
+      loadConfig: () => ({ ...config, planetDeploymentBlock: 45_347_860n }),
+    });
 
     const response = await app.request('/api/planets/metrics');
 
@@ -155,7 +363,9 @@ describe('Stage 5 voucher endpoint', () => {
   });
 
   it('keeps readiness closed when the database or deployment block is missing', async () => {
-    const app = createApp({ loadConfig: () => ({ ...config, databaseUrl: undefined, planetDeploymentBlock: undefined }) });
+    const app = createApp({
+      loadConfig: () => ({ ...config, databaseUrl: undefined, planetDeploymentBlock: undefined }),
+    });
 
     const response = await app.request('/api/planets/readiness');
 
@@ -206,7 +416,9 @@ describe('Stage 5 voucher endpoint', () => {
     });
     const app = createApp({ loadConfig: () => config, getStore: () => store });
 
-    const response = await app.request(`/api/planets/megastera-proofs?recipient=${ticket.recipient}&offset=0&limit=1`);
+    const response = await app.request(
+      `/api/planets/megastera-proofs?recipient=${ticket.recipient}&offset=0&limit=1`,
+    );
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
@@ -218,7 +430,9 @@ describe('Stage 5 voucher endpoint', () => {
   });
 
   it('bounds Megastera proof lookup pagination', async () => {
-    const response = await createApp().request('/api/planets/megastera-proofs?recipient=0x3333333333333333333333333333333333333333&limit=101');
+    const response = await createApp().request(
+      '/api/planets/megastera-proofs?recipient=0x3333333333333333333333333333333333333333&limit=101',
+    );
     expect(response.status).toBe(400);
   });
 
@@ -231,6 +445,7 @@ describe('Stage 5 voucher endpoint', () => {
         expect(request.transactionHash).toBe(ticket.originTxHash);
         return ticket;
       },
+      validateAuthority: authorityStub,
       prepare: async () => ({
         voucher,
         signature: '0xdeadbeef',
@@ -259,20 +474,30 @@ describe('Stage 5 voucher endpoint', () => {
       loadConfig: () => config,
       findTicket: async (_config, request) => {
         seen.push(request.logIndex);
-        return { ...ticket, ticketId: BigInt(500 + request.logIndex), logIndex: BigInt(request.logIndex) };
+        return {
+          ...ticket,
+          ticketId: BigInt(500 + request.logIndex),
+          logIndex: BigInt(request.logIndex),
+        };
       },
+      validateAuthority: authorityStub,
       prepare: async (_config, proof) => ({
         voucher: { ...voucher, ticketId: proof.ticketId, originTxHash: proof.originTxHash },
-        signature: '0xdeadbeef', signer: '0x4444444444444444444444444444444444444444', digest: `0x${'cd'.repeat(32)}`,
+        signature: '0xdeadbeef',
+        signer: '0x4444444444444444444444444444444444444444',
+        digest: `0x${'cd'.repeat(32)}`,
       }),
       getStore: () => new MemoryEligibilityStore(),
     });
     const response = await app.request('/api/planets/vouchers/batch', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ proofs: [
-        { transactionHash: ticket.originTxHash, logIndex: 4 },
-        { transactionHash: ticket.originTxHash, logIndex: 7 },
-      ] }),
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        proofs: [
+          { transactionHash: ticket.originTxHash, logIndex: 4 },
+          { transactionHash: ticket.originTxHash, logIndex: 7 },
+        ],
+      }),
     });
     expect(response.status).toBe(201);
     expect(seen).toEqual([4, 7]);
@@ -281,8 +506,24 @@ describe('Stage 5 voucher endpoint', () => {
 
   it('rejects an empty or oversized voucher batch', async () => {
     const app = createApp();
-    expect((await app.request('/api/planets/vouchers/batch', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ proofs: [] }) })).status).toBe(400);
-    expect((await app.request('/api/planets/vouchers/batch', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ proofs: new Array(51).fill(requestBody) }) })).status).toBe(400);
+    expect(
+      (
+        await app.request('/api/planets/vouchers/batch', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ proofs: [] }),
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await app.request('/api/planets/vouchers/batch', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ proofs: new Array(51).fill(requestBody) }),
+        })
+      ).status,
+    ).toBe(400);
   });
 
   it('does not resolve a receipt when the server is not configured', async () => {
@@ -311,6 +552,7 @@ describe('Stage 5 voucher endpoint', () => {
     const app = createApp({
       loadConfig: () => config,
       findTicket: async () => ticket,
+      validateAuthority: authorityStub,
       prepare: async () => {
         preparations += 1;
         await new Promise((resolve) => setTimeout(resolve, 5));
@@ -343,13 +585,24 @@ describe('Stage 5 voucher endpoint', () => {
     const app = createApp({
       loadConfig: () => config,
       findTicket: async () => ticket,
+      validateAuthority: authorityStub,
       getStore: () => store,
       prepare: async () => {
         preparations += 1;
-        return { voucher, signature: '0xdeadbeef', signer: '0x4444444444444444444444444444444444444444', digest: `0x${'cd'.repeat(32)}` };
+        return {
+          voucher,
+          signature: '0xdeadbeef',
+          signer: '0x4444444444444444444444444444444444444444',
+          digest: `0x${'cd'.repeat(32)}`,
+        };
       },
     });
-    const request = () => app.request('/api/planets/vouchers', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(requestBody) });
+    const request = () =>
+      app.request('/api/planets/vouchers', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
 
     expect((await request()).status).toBe(201);
     expect((await request()).status).toBe(201);
@@ -377,6 +630,7 @@ describe('Stage 5 voucher endpoint', () => {
         ticketId: BigInt(request.logIndex + 1),
         logIndex: BigInt(request.logIndex),
       }),
+      validateAuthority: authorityStub,
       prepare: async (_config, eligibleTicket) => ({
         voucher: {
           ...voucher,

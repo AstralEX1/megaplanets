@@ -5,7 +5,7 @@ const ADDRESS_A = '0x1111111111111111111111111111111111111111';
 const ADDRESS_B = '0x2222222222222222222222222222222222222222';
 const ADDRESS_C = '0x3333333333333333333333333333333333333333';
 
-describe('weekly leaderboard periods', () => {
+describe('daily leaderboard periods', () => {
   it('uses UTC calendar-day boundaries in the middle of a day', () => {
     expect(getLeaderboardPeriod(new Date('2026-08-12T12:00:00.000Z'))).toEqual({
       id: '2026-08-12',
@@ -23,7 +23,7 @@ describe('weekly leaderboard periods', () => {
   });
 });
 
-describe('weekly leaderboard ranking', () => {
+describe('daily leaderboard ranking', () => {
   it('sorts score descending and resolves ties by normalized wallet address', () => {
     expect(
       rankLeaderboardRows([

@@ -1,0 +1,9 @@
+.lightfall-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 72% 18%, rgb(174 185 255 / 0.11), transparent 34%),
+    radial-gradient(circle at 42% 62%, rgb(178 140 255 / 0.06), transparent 40%);
+}

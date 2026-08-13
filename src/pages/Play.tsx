@@ -1,5 +1,5 @@
 import { derivePlanetPreview, type PlanetPreview } from '@megaplanets/planet-generator';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
 import { Button } from '@/components/common/Button';
 import { TxStatus } from '@/components/common/TxStatus';
@@ -33,11 +33,10 @@ import {
 } from '@/lib/expeditionFlow';
 import {
   clearExpeditionSession,
-  readExpeditionSession,
-  writeExpeditionSession,
   type ExpeditionSessionV1,
+  writeExpeditionSession,
 } from '@/lib/expeditionSession';
-import { mergePlanetTickets } from '@/lib/planetTickets';
+import { selectRevealTickets } from '@/lib/revealPlan';
 import { BULK_THRESHOLD, type CustomTicket, isValidTicket, totalCost } from '@/lib/tickets';
 
 type DiscoveredPlanet = { preview: PlanetPreview; logIndex: bigint | undefined };
@@ -82,6 +81,7 @@ export function Play() {
   const checkoutDisabled =
     !isConnected || phase !== 'open' || purchase.isPending || !(isBulk ? bulkReady : directReady);
   const recovered = useEligiblePlanetTickets(address, {
+    enabled: flowActive || session !== null,
     refetchInterval: flowActive ? 5_000 : undefined,
   });
   const indexed = useIndexedPlanets(address);
@@ -93,57 +93,49 @@ export function Play() {
     [indexed.planets],
   );
   const expectedCount = session?.quantity ?? count;
+  const revealPurchaseMode = session?.purchaseMode ?? (isBulk ? 'bulk' : 'direct');
   const candidateTickets = useMemo(
     () =>
-      mergePlanetTickets(
-        isBulk ? bulk.confirmedTickets : direct.purchasedTickets,
-        recovered.tickets.filter(
-          (ticket) =>
-            ticket.drawingId === drawingId && !indexedTicketIds.has(ticket.ticketId.toString()),
-        ),
-      ),
+      selectRevealTickets({
+        exactTickets:
+          revealPurchaseMode === 'bulk' ? bulk.confirmedTickets : direct.purchasedTickets,
+        recoveredTickets: recovered.tickets,
+        mode: revealPurchaseMode,
+        drawingId,
+        purchaseTxHash: session?.purchaseTxHash,
+        expectedCount,
+        indexedTicketIds,
+      }),
     [
       bulk.confirmedTickets,
       direct.purchasedTickets,
       drawingId,
+      expectedCount,
       indexedTicketIds,
-      isBulk,
+      revealPurchaseMode,
       recovered.tickets,
+      session?.purchaseTxHash,
     ],
   );
-  const sessionCandidateCount = useMemo(() => {
-    if (!session) return 0;
-    if (session.purchaseMode === 'direct' && session.purchaseTxHash) {
-      return recovered.tickets.filter(
-        (ticket) =>
-          ticket.drawingId.toString() === session.drawingId &&
-          ticket.originTxHash.toLowerCase() === session.purchaseTxHash?.toLowerCase(),
-      ).length;
-    }
-    return recovered.tickets.filter((ticket) => ticket.drawingId.toString() === session.drawingId)
-      .length;
-  }, [recovered.tickets, session]);
   const confirmedTickets = useMemo(() => {
     if (!flowActive) return [];
-    if (session?.purchaseMode === 'direct' && session.purchaseTxHash) {
-      return candidateTickets
-        .filter(
-          (ticket) => ticket.originTxHash.toLowerCase() === session.purchaseTxHash?.toLowerCase(),
-        )
-        .slice(0, expectedCount);
-    }
-    return candidateTickets.slice(-expectedCount);
-  }, [candidateTickets, expectedCount, flowActive, session]);
+    return candidateTickets.slice(0, expectedCount);
+  }, [candidateTickets, expectedCount, flowActive]);
   const activeBatch = bulk.orderInfo?.[0];
 
   useEffect(() => {
     if (!address) {
       setSession(null);
       setFlowActive(false);
+      setRevealedTicketIds(new Set());
+      setRevealState('idle');
       return;
     }
-    setSession(readExpeditionSession(address, chainId));
+    clearExpeditionSession(address, chainId);
+    setSession(null);
     setFlowActive(false);
+    setRevealedTicketIds(new Set());
+    setRevealState('idle');
   }, [address, chainId]);
 
   useEffect(() => {
@@ -281,18 +273,11 @@ export function Play() {
     setFlowActive(true);
     setRevealState('idle');
     if (isBulk) void bulk.createOrder();
-    else if (bounds) void direct.buy({ customTickets: staticTickets, count, bounds });
-  };
-  const resume = () => {
-    if (!session) return;
-    setCount(session.quantity);
-    setAutomaticQuickPick(session.automaticQuickPick);
-    setStaticTickets(session.coordinates);
-    setFlowActive(true);
-    if (session.purchaseTxHash) return;
-    if (session.purchaseMode === 'bulk') void bulk.createOrder();
     else if (bounds) {
-      void direct.buy({ customTickets: session.coordinates, count: session.quantity, bounds });
+      // A new expedition must never reuse receipt tickets from a prior wallet
+      // or expedition while the new purchase is still being confirmed.
+      direct.reset();
+      void direct.buy({ customTickets: staticTickets, count, bounds });
     }
   };
   const retry = () => {
@@ -342,42 +327,23 @@ export function Play() {
   let content: ReactNode;
   if (purchaseInline) {
     content = (
-      <>
-        {session && !flowActive ? (
-          <section className="mx-auto mb-4 flex max-w-[720px] flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--primary)]/50 bg-[var(--surface-raised)] px-4 py-3">
-            <div>
-              <p className="font-hud font-bold text-[var(--text-primary)]">
-                {sessionCandidateCount >= session.quantity
-                  ? `${session.quantity} planets ready to reveal`
-                  : 'Expedition in progress'}
-              </p>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                Progress will be verified from Base Sepolia before continuing.
-              </p>
-            </div>
-            <Button size="sm" onClick={resume}>
-              Resume
-            </Button>
-          </section>
-        ) : null}
-        <ExpeditionConfigurator
-          quantity={count}
-          total={total}
-          jackpotAmount={state?.prizePool}
-          bounds={bounds}
-          manuallyEditedTickets={staticTickets}
-          automaticQuickPick={automaticQuickPick}
-          disabled={flowActive && !inlineRetry ? true : checkoutDisabled}
-          exploreLabel={exploreLabel}
-          approvalSpender={approvalSpender}
-          approvalAmount={approvalAmount}
-          onApproved={refetchJackpot}
-          onQuantityChange={setQuantity}
-          onAutomaticQuickPickChange={setAutomaticQuickPick}
-          onTicketsChange={setStaticTickets}
-          onExplore={inlineRetry ? retry : launch}
-        />
-      </>
+      <ExpeditionConfigurator
+        quantity={count}
+        total={total}
+        jackpotAmount={state?.prizePool}
+        bounds={bounds}
+        manuallyEditedTickets={staticTickets}
+        automaticQuickPick={automaticQuickPick}
+        disabled={flowActive && !inlineRetry ? true : checkoutDisabled}
+        exploreLabel={exploreLabel}
+        approvalSpender={approvalSpender}
+        approvalAmount={approvalAmount}
+        onApproved={refetchJackpot}
+        onQuantityChange={setQuantity}
+        onAutomaticQuickPickChange={setAutomaticQuickPick}
+        onTicketsChange={setStaticTickets}
+        onExplore={inlineRetry ? retry : launch}
+      />
     );
   } else if (mysteryVisible) {
     content = (

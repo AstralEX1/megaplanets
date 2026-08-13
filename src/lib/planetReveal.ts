@@ -11,36 +11,66 @@ const ticketOwnerAbi = [
 ] as const;
 
 export type RevealCandidate = { ticketId: bigint; logIndex: bigint };
-export type RevealUnavailable = { planet: RevealCandidate; reason: 'burned' | 'transferred' | 'unreadable' };
+export type RevealUnavailable = {
+  planet: RevealCandidate;
+  reason: 'already-minted' | 'burned' | 'transferred' | 'unreadable';
+};
 
-function isOwnershipReadError(error: unknown) {
+function isKnownMissingToken(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  return !/revert|nonexistent|erc721|not found/i.test(message);
+  return /erc721(?:a)?[^\n]*(?:nonexistent|invalid token)|owner query for nonexistent token|token does not exist/i.test(
+    message,
+  );
 }
+
+const planetMintedAbi = [
+  {
+    type: 'function',
+    name: 'planetMinted',
+    stateMutability: 'view',
+    inputs: [{ name: 'ticketId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+] as const;
 
 export async function getLiveRevealCandidates(
   client: Pick<PublicClient, 'readContract'>,
   recipient: Address,
   candidates: readonly RevealCandidate[],
   ticketNft: Address,
+  planetContract?: Address,
 ) {
-  const checks = await Promise.all(candidates.map(async (planet) => {
-    try {
-      const owner = await client.readContract({
-        address: ticketNft,
-        abi: ticketOwnerAbi,
-        functionName: 'ownerOf',
-        args: [planet.ticketId],
-      });
-      return owner.toLowerCase() === recipient.toLowerCase()
-        ? { planet, live: true as const }
-        : { planet, reason: 'transferred' as const };
-    } catch (error) {
-      const reason = isOwnershipReadError(error) ? 'unreadable' : 'burned';
-      return { planet, reason } as const;
-    }
-  }));
-  const live = checks.flatMap((check) => check.live ? [check.planet] : []);
-  const unavailable = checks.flatMap((check) => check.live ? [] : [{ planet: check.planet, reason: check.reason }]);
+  const checks = await Promise.all(
+    candidates.map(async (planet) => {
+      try {
+        const owner = await client.readContract({
+          address: ticketNft,
+          abi: ticketOwnerAbi,
+          functionName: 'ownerOf',
+          args: [planet.ticketId],
+        });
+        if (owner.toLowerCase() !== recipient.toLowerCase()) {
+          return { planet, reason: 'transferred' as const };
+        }
+        if (planetContract) {
+          const minted = await client.readContract({
+            address: planetContract,
+            abi: planetMintedAbi,
+            functionName: 'planetMinted',
+            args: [planet.ticketId],
+          });
+          if (minted) return { planet, reason: 'already-minted' as const };
+        }
+        return { planet, live: true as const };
+      } catch (error) {
+        const reason = isKnownMissingToken(error) ? 'burned' : 'unreadable';
+        return { planet, reason } as const;
+      }
+    }),
+  );
+  const live = checks.flatMap((check) => (check.live ? [check.planet] : []));
+  const unavailable = checks.flatMap((check) =>
+    check.live ? [] : [{ planet: check.planet, reason: check.reason }],
+  );
   return { live, unavailable };
 }

@@ -1,115 +1,43 @@
-# Delivery Roadmap
+# Roadmap and next work
 
-Each stage ends with a user-visible checkpoint. Work must not continue into the next stage
-until the user explicitly requests it.
+This roadmap describes the current lean architecture. It is ordered by demo/release
+value, not by the historical implementation stages. Do not reintroduce superseded
+accrual, ledger, same-type, weekly, continuous-ticket-indexer, or application-auth work.
 
-Status as of 2026-08-12: Stages 1-6 have substantial implementations, the seasonless
-ERC721A V2 is deployed on Base Sepolia, and the first ticket-to-Planet mint has completed
-with PostgreSQL/indexer convergence. Historical V1 deployments are no longer supported.
-The remaining work is controlled testnet coverage and production operations; the detailed
-gaps are in [`STATUS.md`](./STATUS.md).
+## Now — hackathon submission
 
-## Stage 1 — Repository foundation and ERC-721A V2
+- Keep the five-minute path obvious: connect → buy Megapot tickets → confirm the
+  Megastera Proof → mint a Planet → inspect lifetime mining → open the daily leaderboard.
+- Record a clean demo environment and a short video showing one direct purchase/reveal;
+  use a previously indexed Planet for the mining/leaderboard segment when live funding is
+  unavailable.
+- Publish the public repository, architecture/writeup, and the official submission form.
+- Verify the exact Base Sepolia V2 identity and keep checked-in runtime addresses empty.
 
-**Status: implemented and deployed.** Contract source, ABI, unit, fuzz, and invariant
-coverage exist; the seasonless V2 deployment is recorded on Base Sepolia.
+## Before public testnet release
 
-Audit the starter-kit baseline, define the simplified game loop, and prepare the clean,
-non-upgradeable ERC-721A V2 contract. Pin contract dependencies, regenerate the ABI, and
-validate individual and batch ticket-backed mints locally. Do not deploy from this stage.
+1. Deploy API and finalized Planet projector separately with managed PostgreSQL, Pinata,
+   RPC fallbacks, secret storage, and exact `MEGAPLANETS_ALLOWED_ORIGINS`.
+2. Backfill from the V2 deployment block, compare the database to finalized
+   `PlanetMinted`/`Transfer` events, and run replay twice to prove idempotency.
+3. Test a bounded recent reorg rewind, restore from backup, and verify cursor block hashes.
+4. Schedule the daily leaderboard worker and alert on readiness, indexer failures/lag,
+   reorgs, database errors, and stale finalization.
+5. Run funded direct, keeper bulk, voucher, batch mint, transfer, burn, and claim flows
+   with explicit approval and a disposable database.
+6. Add a focused browser smoke suite once a safe wallet/test-fixture strategy exists.
 
-Checkpoint: architecture documents, contract code, ABI, and Foundry tests prove sequential
-Planet IDs, atomic batch minting, and ticket-to-Planet provenance mappings.
+## Later, only with explicit product approval
 
-## Stage 2 — Direct and bulk Megapot purchase provenance
+- Base mainnet activation.
+- On-chain mineral payouts or a separately designed rewards economy.
+- Special editions or non-ticket Planet sources.
+- Additional social/retention mechanics that do not make ownership or mining ambiguous.
 
-**Status: implemented and unit-tested.** A controlled direct and keeper-executed live
-rehearsal is still required.
+## Explicitly rejected for the current MVP
 
-Target Base Sepolia with two purchase paths: one to ten immediate manual or client
-quick-pick tickets through `Jackpot.buyTickets`, and 11 to 50 all-random tickets through
-`BatchPurchaseFacilitator`. Every bulk order passes its full quantity as
-`dynamicTicketCount` with an empty static-ticket array. Read dynamic bounds, ticket price,
-and bulk minimum dynamically; compare allowance with the exact required amount and,
-when insufficient, approve the route-specific spender with `maxUint256` (an intentional
-approve-once security trade-off).
-
-Decode every canonical `TicketPurchased` event and persist ticket ID, drawing ID, numbers,
-origin transaction hash, and log index. For bulk orders, provenance comes from each keeper
-execution transaction, never the initial order-creation transaction.
-
-Checkpoint: confirmed immediate and keeper-executed purchases have independently
-reproducible provenance for every emitted ticket.
-
-## Stage 3 — Deterministic Planet generator
-
-**Status: implemented with regenerated golden fixtures.** Final art/economy sign-off remains.
-
-Implement the canonical generator with the V3 ABI seed, configurable Types, deterministic
-names, minerals/rarity, GIF previews, and golden vectors.
-
-Checkpoint: metadata and GIF outputs are reproducible from canonical ticket provenance.
-
-## Stage 4 — Metadata, eligibility, and ERC-721A V2 integration
-
-**Status: implemented with a completed single-mint rehearsal.** The voucher, Prisma,
-finalized indexer, and frontend paths have passed a real V2 ticket-to-IPFS-to-mint flow;
-batch-mint and broader purchase coverage remain controlled follow-ups.
-
-Index eligible source events for the original purchase recipient, generate and pin
-canonical metadata, issue replay-protected mint vouchers, and index the V2 `PlanetMinted`
-and ERC-721A `Transfer` events. Update frontend configuration and claimed/revealed state to
-use Planet token IDs and the ticket provenance mapping.
-
-Checkpoint: a local ticket-to-IPFS-to-voucher-to-V2-Planet flow works against an isolated
-test environment and remains idempotent after indexer replay.
-
-## Stage 5 — Mining and same-Type bonuses
-
-**Status: implemented and regression-tested.** Sender/receiver repricing, burn removal,
-fixed-point remainder persistence, and reorg-safe cursor/reset behavior are covered by
-focused tests. A live transfer/burn rehearsal remains intentionally pending.
-
-Add lazy fixed-point mineral accrual, an immutable mineral ledger, and same-Type
-production-bonus calculation. Settle production at transfer and bonus-change
-boundaries rather than using daily accrual jobs.
-
-Checkpoint: mineral totals are reproducible and transfers split production at the correct
-timestamp.
-
-## Stage 6 — Weekly leaderboard
-
-**Status: implemented locally and exercised through the rehearsal API.** Production
-scheduling, monitoring, and independent period finalization remain.
-
-Add Monday-to-Monday UTC periods, current and historical ranks, distance to the next rank,
-and reproducible finalization. Include active production through the period cutoff.
-
-Checkpoint: a complete local leaderboard rehearsal can be reconstructed from ledger and
-rate-segment data.
-
-## Stage 7 — Base Sepolia deployment and end-to-end test
-
-**Status: in progress.** ERC721A V2 deployment, verification, one authorized mint,
-metadata publication, six confirmations, indexer convergence, and idempotent replay have
-passed. Direct/keeper purchase, batch mint, transfer/burn, mining transition, and
-leaderboard scenarios still need controlled coverage.
-
-Keep checked-in runtime defaults empty. Use the recorded V2 address and deployment block
-through environment-only activation for controlled Base Sepolia runs, then validate
-minting, transfers, mining, and leaderboard indexing from receipts and events.
-
-Checkpoint: real individual and batch Planet mints have IPFS metadata, Basescan links, and
-correct indexed gameplay state.
-
-## Stage 8 — Testnet operations and public MVP release
-
-**Status: in progress.** The repository now contains separate API and finalized indexer
-processes, health/readiness/metrics probes, CI Foundry checks, an operations runbook, and
-a disposable PostgreSQL rehearsal.
-
-Next, deploy the API, indexer, PostgreSQL, and frontend as separate testnet services;
-configure managed RPC and secret storage; add lag/alert monitoring, backups/restore,
-scheduled leaderboard finalization, and Playwright user-flow smoke coverage. Complete the
-remaining controlled purchase, batch, transfer/burn, and leaderboard rehearsals before a
-public testnet announcement. Mainnet remains a separate approval-gated decision.
+- Per-second or daily mineral writes.
+- Transfer-period accrual settlement and ownership-history mining ledgers.
+- Same-type or diversity repricing.
+- Continuous indexing of every Megapot Ticket event.
+- Browser-trusted metadata, mutable media, or backend user-auth accounts.

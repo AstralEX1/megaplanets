@@ -2,8 +2,6 @@ import type { PrismaClient } from './generated/prisma/client';
 import { calculateLifetimeMinerals, MINERAL_SCALE } from './mining';
 import type { PlanetScope } from './stage2Store';
 
-const BASIS_POINTS = 10_000n;
-
 export async function getPlanetMiningSnapshot(
   prisma: PrismaClient,
   tokenId: string,
@@ -39,8 +37,6 @@ export async function getPlanetMiningSnapshot(
     tokenId: planet.tokenId.toFixed(0),
     ownerAddress: planet.ownerAddress,
     baseMineralsPerDay: planet.baseMineralsPerDay.toString(),
-    multiplierBps: BASIS_POINTS.toString(),
-    pendingMicros: '0',
     earnedMicros: lifetimeMicros.toString(),
     activeSince: planet.mintedAt.toISOString(),
   };
@@ -57,7 +53,6 @@ export async function getWalletMiningSnapshot(
       ownerAddress,
       asOf: now.toISOString(),
       ownedPlanetCount: 0,
-      pendingMicros: '0',
       earnedMicros: '0',
       effectiveMineralsPerDayMicros: '0',
       planets: [],
@@ -93,9 +88,7 @@ export async function getWalletMiningSnapshot(
       {
         tokenId: planet.tokenId.toFixed(0),
         baseMineralsPerDay: planet.baseMineralsPerDay.toString(),
-        multiplierBps: BASIS_POINTS.toString(),
         effectiveMineralsPerDayMicros: effectiveRate.toString(),
-        pendingMicros: '0',
         earnedMicros: lifetime.toString(),
         activeSince: planet.mintedAt.toISOString(),
       },
@@ -106,7 +99,6 @@ export async function getWalletMiningSnapshot(
     ownerAddress,
     asOf: now.toISOString(),
     ownedPlanetCount: planets.length,
-    pendingMicros: '0',
     earnedMicros: lifetimeMicros.toString(),
     effectiveMineralsPerDayMicros: effectiveMineralsPerDayMicros.toString(),
     planets: planetSnapshots,

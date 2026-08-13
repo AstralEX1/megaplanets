@@ -85,6 +85,33 @@ describe('paginateLeaderboardRows', () => {
 });
 
 describe('finalizeLeaderboardPeriod', () => {
+  it('wraps the void advisory-lock result in a scalar for Prisma decoding', async () => {
+    let lockQuery = '';
+    const transaction = {
+      $queryRaw: async (strings: TemplateStringsArray) => {
+        lockQuery = strings.join('?');
+      },
+      leaderboardPeriod: {
+        findUnique: async () => undefined,
+        upsert: async ({ create }: { create: typeof PERIOD }) => create,
+      },
+      leaderboardEntry: {
+        createMany: async () => ({ count: 0 }),
+        findMany: async () => [],
+      },
+      planet: { findMany: async () => [] },
+    };
+    const prisma = {
+      $transaction: async (operation: (client: typeof transaction) => Promise<unknown>) =>
+        operation(transaction),
+    } as unknown as PrismaClient;
+
+    await finalizeLeaderboardPeriod(prisma, PERIOD, new Date('2026-08-17T00:00:01.000Z'));
+
+    expect(lockQuery).toContain('SELECT 1 AS locked');
+    expect(lockQuery).toContain('pg_advisory_xact_lock');
+  });
+
   it('archives a period only once when finalization is retried', async () => {
     let periodRecord: { id: string; finalizedAt: Date } | undefined;
     let periodWrites = 0;

@@ -1,7 +1,7 @@
 import { derivePlanetPreview, type PlanetPreview } from '@megaplanets/planet-generator';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useEffect, useMemo, useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useChainId } from 'wagmi';
 import mineralIcon from '@/assets/mineral-icon.png';
 import { Button } from '@/components/common/Button';
 import { TxStatus } from '@/components/common/TxStatus';
@@ -27,6 +27,7 @@ import {
 } from '@/lib/planetInventory';
 import type { RevealUnavailable } from '@/lib/planetReveal';
 import { mergePlanetTickets } from '@/lib/planetTickets';
+import type { PurchasedTicket } from '@/lib/purchaseReceipt';
 import {
   PURCHASED_TICKETS_UPDATED_EVENT,
   readPersistedPurchasedTickets,
@@ -37,6 +38,18 @@ type PlanetsProps = {
   onViewPlanet: (tokenId: string) => void;
   routePlanetId?: string;
 };
+
+/**
+ * Indexed Planet rows are display/provenance fallback only: Stage2 currently
+ * omits TicketPurchase.logIndex, so its synthetic position must never replace
+ * receipt-verified ticket provenance recovered from RPC/server proofs.
+ */
+export function mergeIndexedTicketsWithCanonical(
+  canonicalTickets: readonly PurchasedTicket[],
+  indexedTickets: readonly PurchasedTicket[],
+): readonly PurchasedTicket[] {
+  return mergePlanetTickets(canonicalTickets, indexedTickets);
+}
 
 function isMobileViewport() {
   return window.matchMedia?.('(max-width: 767px)').matches ?? false;
@@ -65,6 +78,7 @@ function ConnectWalletPrompt() {
 
 export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProps) {
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const [stored, setStored] = useState(() => ({
     tickets: [] as ReturnType<typeof readPersistedPurchasedTickets>['tickets'],
     invalidKeys: [] as readonly string[],
@@ -76,26 +90,43 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   const [unavailableRevealTickets, setUnavailableRevealTickets] = useState<
     readonly RevealUnavailable[]
   >([]);
+  const [revealRetryGenerations, setRevealRetryGenerations] = useState<ReadonlyMap<string, number>>(
+    () => new Map(),
+  );
 
   useEffect(() => {
     if (!address) {
       setStored({ tickets: [], invalidKeys: [] });
+      setRevealedTicketIds(new Set());
       setUnavailableRevealTickets([]);
+      setRevealRetryGenerations(new Map());
       return;
     }
+    if (!Number.isSafeInteger(chainId) || chainId <= 0) return;
     const syncStoredTickets = () => setStored(readPersistedPurchasedTickets(address));
     const onTicketsUpdated = (event: Event) => {
       const account = (event as CustomEvent<{ account?: string }>).detail?.account;
       if (account === address.toLowerCase()) syncStoredTickets();
     };
+    setRevealedTicketIds(new Set());
     setUnavailableRevealTickets([]);
+    setRevealRetryGenerations(new Map());
     syncStoredTickets();
     window.addEventListener(PURCHASED_TICKETS_UPDATED_EVENT, onTicketsUpdated);
     return () => window.removeEventListener(PURCHASED_TICKETS_UPDATED_EVENT, onTicketsUpdated);
-  }, [address]);
+  }, [address, chainId]);
 
   const onChain = useEligiblePlanetTickets(address);
-  const indexed = useIndexedPlanets(address);
+  const mintProvenanceTicketIds = useMemo(
+    () => [
+      ...new Set([
+        ...stored.tickets.map((ticket) => ticket.ticketId.toString()),
+        ...onChain.tickets.map((ticket) => ticket.ticketId.toString()),
+      ]),
+    ],
+    [onChain.tickets, stored.tickets],
+  );
+  const indexed = useIndexedPlanets(address, { ticketIds: mintProvenanceTicketIds });
   const ownershipLabel = indexed.isDirect ? 'on-chain' : 'indexed';
   const mining = useWalletMining(address);
   const jackpot = useJackpotState();
@@ -133,7 +164,7 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
     [indexed.planets],
   );
   const tickets = useMemo(
-    () => mergePlanetTickets(eligibleTickets, indexedTickets),
+    () => mergeIndexedTicketsWithCanonical(eligibleTickets, indexedTickets),
     [eligibleTickets, indexedTickets],
   );
   const ticketRefs = useMemo(
@@ -165,6 +196,13 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       ),
     [indexed.planets],
   );
+  const heldOnlyPlanets = useMemo(
+    () => indexed.planets.filter((planet) => !planet.ticket),
+    [indexed.planets],
+  );
+  const immutableMintedTicketIds = indexed.mintedTicketIds ?? new Set<string>();
+  const mintProvenanceUnavailable =
+    indexed.provenanceLoading === true || indexed.provenanceError !== undefined;
 
   const gallery = useMemo(() => {
     const previews: PlanetPreview[] = [];
@@ -201,16 +239,19 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
           drawingId: preview.descriptor.input.drawingId.toString(),
           tokenId: indexedPlanet?.tokenId,
           mintedAt: indexedPlanet?.mintedAt,
-          revealed: indexedPlanet !== undefined || revealedTicketIds.has(ticketId),
+          revealed:
+            indexedPlanet !== undefined ||
+            immutableMintedTicketIds.has(ticketId) ||
+            revealedTicketIds.has(ticketId),
         };
       }),
-    [gallery.previews, indexedByTicketId, revealedTicketIds],
+    [gallery.previews, immutableMintedTicketIds, indexedByTicketId, revealedTicketIds],
   );
   const sortedInventory = useMemo(() => sortPlanetInventory(inventory, sort), [inventory, sort]);
   const revealablePlanets = useMemo(
     () =>
       inventory.flatMap((item) => {
-        if (item.revealed) return [];
+        if (item.revealed || mintProvenanceUnavailable) return [];
         const ticket = tickets.find((candidate) => candidate.ticketId.toString() === item.ticketId);
         if (
           !ticket?.originTxHash ||
@@ -220,7 +261,7 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
           return [];
         return [{ preview: item.preview, logIndex: ticket.logIndex }];
       }),
-    [inventory, tickets],
+    [inventory, mintProvenanceUnavailable, tickets],
   );
 
   const liveRevealablePlanets = useMemo(
@@ -250,6 +291,9 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   const selected = routePlanetId
     ? inventory.find((item) => item.tokenId === routePlanetId)
     : (inventory.find((item) => item.ticketId === selectedTicketId) ?? sortedInventory[0]);
+  const selectedHeldOnly = routePlanetId
+    ? heldOnlyPlanets.find((planet) => planet.tokenId === routePlanetId)
+    : undefined;
   const selectedStatus = selected
     ? (ticketStatuses.statuses.get(selected.ticketId) ?? STATUS_UNAVAILABLE)
     : STATUS_UNAVAILABLE;
@@ -265,6 +309,20 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
 
   const markRevealed = (ticketIds: readonly bigint[]) => {
     setRevealedTicketIds((current) => new Set([...current, ...ticketIds.map(String)]));
+    setUnavailableRevealTickets((current) =>
+      current.filter(({ planet }) => !ticketIds.some((ticketId) => ticketId === planet.ticketId)),
+    );
+  };
+  const clearUnavailableRevealTicket = (ticketId: bigint) => {
+    const key = ticketId.toString();
+    setUnavailableRevealTickets((current) =>
+      current.filter(({ planet }) => planet.ticketId !== ticketId),
+    );
+    setRevealRetryGenerations((current) => {
+      const next = new Map(current);
+      next.set(key, (next.get(key) ?? 0) + 1);
+      return next;
+    });
   };
   const rememberUnavailableRevealTickets = (ticketsToAdd: readonly RevealUnavailable[]) => {
     if (ticketsToAdd.length === 0) return;
@@ -277,21 +335,41 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
     });
   };
   const blockedRevealTickets = unavailableRevealTickets.filter(
-    ({ reason }) => reason !== 'unreadable',
+    ({ reason }) => reason === 'transferred' || reason === 'burned',
   );
   const mintAction = (preview: PlanetPreview) => {
     const unavailable = unavailableRevealTickets.find(
       ({ planet }) => planet.ticketId === preview.descriptor.input.ticketId,
     );
     if (unavailable) {
+      const ticketId = preview.descriptor.input.ticketId;
+      if (unavailable.reason === 'already-minted') {
+        return <p className="text-xs text-amber-200">This ticket has already revealed a Planet.</p>;
+      }
+      if (unavailable.reason === 'burned') {
+        return (
+          <p className="text-xs text-amber-200">This ticket NFT was burned and cannot reveal.</p>
+        );
+      }
       return (
-        <p className="text-xs text-amber-200">
-          {unavailable.reason === 'burned'
-            ? 'This ticket NFT was burned and cannot reveal.'
-            : unavailable.reason === 'transferred'
+        <div className="space-y-1">
+          <p className="text-xs text-amber-200">
+            {unavailable.reason === 'transferred'
               ? 'This ticket NFT is no longer owned by this wallet.'
               : 'Ticket ownership could not be read. Retry when the RPC is available.'}
-        </p>
+          </p>
+          <MintPlanetButton
+            key={`retry-${ticketId.toString()}-${revealRetryGenerations.get(ticketId.toString()) ?? 0}`}
+            preview={preview}
+            logIndex={tickets.find((ticket) => ticket.ticketId === ticketId)?.logIndex}
+            buttonLabel="Retry reveal"
+            onMinted={(mintedTicketId) => markRevealed([mintedTicketId])}
+            onUnavailable={(ticket) => rememberUnavailableRevealTickets([ticket])}
+            onStateChange={(state) => {
+              if (state === 'wallet-confirmation') clearUnavailableRevealTicket(ticketId);
+            }}
+          />
+        </div>
       );
     }
     return (
@@ -352,7 +430,8 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       </section>
     );
   }
-  if (indexed.error && inventory.length === 0) {
+  const collectionCount = inventory.length + heldOnlyPlanets.length;
+  if (indexed.error && collectionCount === 0) {
     return (
       <section className="card-pad mx-auto max-w-2xl space-y-3 text-center">
         <h1 className="text-balance text-2xl font-semibold">Planet collection unavailable</h1>
@@ -363,7 +442,7 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       </section>
     );
   }
-  if (inventory.length === 0) {
+  if (collectionCount === 0) {
     return (
       <section className="card-pad mx-auto max-w-2xl space-y-4 text-center">
         <h1 className="text-balance text-2xl font-semibold">No planets yet</h1>
@@ -381,7 +460,7 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       </section>
     );
   }
-  if (routePlanetId && !selected) {
+  if (routePlanetId && !selected && !selectedHeldOnly) {
     return (
       <section className="card-pad mx-auto max-w-xl space-y-4 text-center">
         <h1 className="text-2xl font-semibold">Planet not found</h1>
@@ -420,6 +499,25 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
         error={claim.error}
       />
     </div>
+  ) : selectedHeldOnly ? (
+    <section className="rounded-3xl border border-[var(--border-strong)] bg-[var(--surface-raised)] p-4 sm:p-5">
+      {routePlanetId ? (
+        <button
+          type="button"
+          onClick={() => onNavigate('planets')}
+          className="mb-4 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+        >
+          ← Back to My Planets
+        </button>
+      ) : null}
+      <h1 className="font-hud text-2xl font-bold tracking-[-0.04em] text-[var(--text-primary)]">
+        Planet #{selectedHeldOnly.tokenId}
+      </h1>
+      <p className="mt-3 text-sm text-[var(--text-secondary)]">
+        This held NFT is confirmed on-chain. Immutable Planet provenance is syncing; reveal is
+        unavailable because this ticket has already minted.
+      </p>
+    </section>
   ) : null;
 
   if (routePlanetId || mobileDetailTicketId)
@@ -527,6 +625,19 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(20rem,0.85fr)]">
         <section aria-label="Planet collection">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {heldOnlyPlanets.map((planet) => (
+              <article
+                key={`held-${planet.tokenId}`}
+                className="rounded-2xl border-2 border-[var(--border-strong)] bg-[var(--surface-raised)] p-4 shadow-[0_18px_42px_rgba(0,0,0,0.52)]"
+              >
+                <p className="font-hud text-lg font-bold text-[var(--text-primary)]">
+                  Planet #{planet.tokenId}
+                </p>
+                <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                  Held on-chain; immutable provenance is syncing.
+                </p>
+              </article>
+            ))}
             {sortedInventory.map((item) => (
               <PlanetInventoryCard
                 key={item.ticketId}

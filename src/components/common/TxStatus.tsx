@@ -4,16 +4,16 @@
  *             (useWriteContract + useWaitForTransactionReceipt). Includes a
  *             BaseScan link when a hash is available.
  *
- *             Error copy is intentionally generic — raw wagmi/viem error
- *             messages leak revert reasons and RPC noise into the UI.
- *             A fork that wants nuanced errors can map specific codes
- *             (e.g. UserRejectedRequestError → "Transaction cancelled")
- *             inside the `if (error)` branch below.
+ *             On-chain write/receipt errors remain generic so raw wagmi/viem
+ *             revert reasons and RPC noise do not leak into the UI. Typed
+ *             voucher-service failures are safe preflight messages and retain
+ *             their request reference for support/debugging.
  * ---
  */
 
 import { ExternalLinkIcon } from '@/components/icons/ExternalLinkIcon';
 import { EXPLORER_TX_URL } from '@/config/contracts';
+import { isPlanetVoucherServiceError } from '@/lib/planetVoucher';
 
 type Variant = 'pending' | 'success' | 'error';
 
@@ -41,9 +41,10 @@ export function TxStatus({
 
   let variant: Variant = 'pending';
   let label = 'Submitting…';
+  const voucherError = error && isPlanetVoucherServiceError(error) ? error : undefined;
   if (error) {
     variant = 'error';
-    label = 'Transaction failed — please try again.';
+    label = voucherError ? voucherError.message : 'Transaction failed — please try again.';
   } else if (isSuccess) {
     variant = 'success';
     label = 'Confirmed';
@@ -57,8 +58,16 @@ export function TxStatus({
       className={`flex items-center justify-between rounded-md border px-3 py-2 text-xs font-medium ${STYLES[variant]}`}
       role="status"
       aria-live="polite"
+      data-error-stage={voucherError?.stage}
+      data-error-code={voucherError?.code}
+      data-request-id={voucherError?.requestId}
     >
-      <span>{label}</span>
+      <span>
+        {label}
+        {voucherError?.requestId ? (
+          <span className="ml-2 opacity-80">Reference {voucherError.requestId}</span>
+        ) : null}
+      </span>
       {hash && (
         <a
           href={`${EXPLORER_TX_URL}${hash}`}

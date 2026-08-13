@@ -3,6 +3,10 @@ import { getPlanetHoldingsAtBlock } from './holdings';
 import { createDailySnapshot, type DailySnapshot, type PlanetHolding } from './scoring';
 import type { EligibilityStore } from './store';
 
+/**
+ * Compatibility-only block snapshot job. The active daily leaderboard uses
+ * api/leaderboardWorker.ts and does not call this module.
+ */
 export type SnapshotSource = { getLatestBlock: () => Promise<bigint>; getHoldingsAtBlock: (blockNumber: bigint) => Promise<PlanetHolding[]> };
 
 export function selectFinalizedBlock(latestBlock: bigint, confirmations = 6n): bigint {

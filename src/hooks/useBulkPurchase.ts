@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   useAccount,
+  useChainId,
   usePublicClient,
   useReadContract,
   useWaitForTransactionReceipt,
@@ -27,9 +28,12 @@ import {
   persistPurchasedTickets,
   readPurchasedTickets,
 } from '@/lib/purchaseReceipt';
-import type { CustomTicket } from '@/lib/tickets';
-import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 import { invalidatePostWriteQueries } from '@/lib/queryInvalidation';
+import type { CustomTicket } from '@/lib/tickets';
+import {
+  getTransactionReceiptError,
+  isSuccessfulTransactionReceipt,
+} from '@/lib/transactionReceipt';
 
 const MAX_STATIC_BULK_TICKETS = 10;
 
@@ -50,9 +54,21 @@ function isValidDraft(draft: BulkOrderDraft | null): draft is BulkOrderDraft {
   return draft.dynamicCount + draft.staticTickets.length > 0;
 }
 
+export function hasBulkPurchaseContext(
+  draft: BulkOrderDraft | null,
+  persistedOrder: PersistedBulkOrder | null,
+): boolean {
+  return (
+    (isValidDraft(draft) &&
+      draft.dynamicCount + draft.staticTickets.length > MAX_STATIC_BULK_TICKETS) ||
+    persistedOrder !== null
+  );
+}
+
 /** Keeper-executed Megapot checkout for 11+ ticket orders. */
 export function useBulkPurchase(draft: BulkOrderDraft | null) {
   const { address } = useAccount();
+  const walletChainId = useChainId();
   const publicClient = usePublicClient();
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState<BatchProgress | null>(null);
@@ -62,18 +78,20 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
   const [submissionError, setSubmissionError] = useState<Error | null>(null);
   const [cancellationError, setCancellationError] = useState<Error | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
+  const hasBulkContext = hasBulkPurchaseContext(draft, createdOrder);
 
   const minimum = useReadContract({
     address: BATCH_PURCHASE_FACILITATOR_ADDRESS,
     abi: batchOrderAbi,
     functionName: 'minimumTicketCount',
+    query: { enabled: hasBulkContext },
   });
   const activeOrder = useReadContract({
     address: BATCH_PURCHASE_FACILITATOR_ADDRESS,
     abi: batchOrderAbi,
     functionName: 'hasActiveBatchOrder',
     args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 5_000 },
+    query: { enabled: !!address && hasBulkContext, refetchInterval: 5_000 },
   });
   const orderInfo = useReadContract({
     address: BATCH_PURCHASE_FACILITATOR_ADDRESS,
@@ -81,7 +99,7 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
     functionName: 'getBatchOrderInfo',
     args: address && activeOrder.data === true ? [address] : undefined,
     query: {
-      enabled: !!address && activeOrder.data === true,
+      enabled: !!address && hasBulkContext && activeOrder.data === true,
       retry: false,
       refetchInterval: 5_000,
     },
@@ -117,12 +135,18 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
   }, [queryClient]);
 
   useEffect(() => {
+    void walletChainId;
+    setConfirmedTickets([]);
+    setProgress(null);
+    setProvenanceError(null);
+    setSubmissionError(null);
+    setCancellationError(null);
     if (!address) {
       setCreatedOrder(null);
       return;
     }
     setCreatedOrder(readPersistedBulkOrder(address));
-  }, [address]);
+  }, [address, walletChainId]);
 
   useEffect(() => {
     if (!createReceipt.data || !address || !createSucceeded) return;
@@ -176,7 +200,7 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
   );
 
   useWatchContractEvent({
-    address: BATCH_PURCHASE_FACILITATOR_ADDRESS,
+    address: hasBulkContext ? BATCH_PURCHASE_FACILITATOR_ADDRESS : undefined,
     abi: batchOrderAbi,
     eventName: 'BatchOrderExecuted',
     args: address ? { user: address } : undefined,
@@ -207,7 +231,7 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
       activeOrder.refetch();
       orderInfo.refetch();
     },
-    poll: true,
+    poll: hasBulkContext,
   });
 
   const createOrder = async () => {
@@ -248,7 +272,9 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
       });
       cancel.writeContract(simulation.request);
     } catch (error) {
-      setCancellationError(error instanceof Error ? error : new Error('Bulk order cancellation failed.'));
+      setCancellationError(
+        error instanceof Error ? error : new Error('Bulk order cancellation failed.'),
+      );
     }
   };
 
@@ -270,7 +296,12 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
       isPending: isPreparing || create.isPending || createReceipt.isLoading,
       isSuccess: createSucceeded && provenanceError === null,
       isReady: createArgs !== undefined && activeOrder.data !== true && !isPreparing,
-      error: provenanceError ?? submissionError ?? create.error ?? createReceipt.error ?? getTransactionReceiptError(createReceipt.data),
+      error:
+        provenanceError ??
+        submissionError ??
+        create.error ??
+        createReceipt.error ??
+        getTransactionReceiptError(createReceipt.data),
       reset: () => {
         create.reset();
         setSubmissionError(null);
@@ -282,11 +313,15 @@ export function useBulkPurchase(draft: BulkOrderDraft | null) {
       isMining: cancelReceipt.isLoading,
       isPending: cancel.isPending || cancelReceipt.isLoading,
       isSuccess: cancelSucceeded,
-       error: cancellationError ?? cancel.error ?? cancelReceipt.error ?? getTransactionReceiptError(cancelReceipt.data),
-       reset: () => {
-         cancel.reset();
-         setCancellationError(null);
-       },
+      error:
+        cancellationError ??
+        cancel.error ??
+        cancelReceipt.error ??
+        getTransactionReceiptError(cancelReceipt.data),
+      reset: () => {
+        cancel.reset();
+        setCancellationError(null);
+      },
     },
   };
 }

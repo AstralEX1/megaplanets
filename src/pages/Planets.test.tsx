@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
     address: '0x0000000000000000000000000000000000000001' as `0x${string}` | undefined,
     isConnected: true,
   },
+  chainId: 84532,
   tickets: [
     {
       ticketId: 24n,
@@ -57,29 +58,33 @@ const state = vi.hoisted(() => ({
   refetchStatuses: vi.fn(),
   claim: vi.fn(),
   claimSuccess: false,
+  mintedTicketIds: new Set<string>(),
+  provenanceLoading: false,
+  provenanceError: undefined as Error | undefined,
+  mintUnavailableReason: undefined as
+    | 'already-minted'
+    | 'burned'
+    | 'transferred'
+    | 'unreadable'
+    | undefined,
   mining: {
     ownerAddress: '0x0000000000000000000000000000000000000001',
     asOf: '2026-08-10T00:00:01.000Z',
     ownedPlanetCount: 2,
-    pendingMicros: '3100000',
     earnedMicros: '10100000',
     effectiveMineralsPerDayMicros: '104000000',
     planets: [
       {
         tokenId: '7',
         baseMineralsPerDay: '24',
-        multiplierBps: '10500',
         effectiveMineralsPerDayMicros: '25200000',
-        pendingMicros: '1000000',
         earnedMicros: '4000000',
         activeSince: '2026-08-10T00:00:00.000Z',
       },
       {
         tokenId: '8',
         baseMineralsPerDay: '80',
-        multiplierBps: '10000',
         effectiveMineralsPerDayMicros: '80000000',
-        pendingMicros: '2100000',
         earnedMicros: '6100000',
         activeSince: '2026-08-10T00:00:00.000Z',
       },
@@ -89,6 +94,7 @@ const state = vi.hoisted(() => ({
 
 vi.mock('wagmi', () => ({
   useAccount: () => state.account,
+  useChainId: () => state.chainId,
 }));
 vi.mock('@rainbow-me/rainbowkit', () => ({
   ConnectButton: {
@@ -145,6 +151,9 @@ vi.mock('@/hooks/useIndexedPlanets', () => ({
     planets: state.planets,
     isLoading: state.indexedLoading,
     error: state.indexedError,
+    mintedTicketIds: state.mintedTicketIds,
+    provenanceLoading: state.provenanceLoading,
+    provenanceError: state.provenanceError,
   }),
 }));
 vi.mock('@/hooks/useWalletMining', () => ({
@@ -189,8 +198,35 @@ vi.mock('@/components/planets/PlanetGif', () => ({
   ),
 }));
 vi.mock('@/components/planets/MintPlanetButton', () => ({
-  MintPlanetButton: ({ buttonLabel }: { buttonLabel?: string }) => (
-    <button type="button">{buttonLabel}</button>
+  MintPlanetButton: ({
+    buttonLabel,
+    preview,
+    onUnavailable,
+    onStateChange,
+  }: {
+    buttonLabel?: string;
+    preview: { descriptor: { input: { ticketId: bigint } } };
+    onUnavailable?: (ticket: {
+      planet: { ticketId: bigint; logIndex: bigint };
+      reason: 'already-minted' | 'burned' | 'transferred' | 'unreadable';
+    }) => void;
+    onStateChange?: (state: 'wallet-confirmation' | 'idle') => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => {
+        const reason = state.mintUnavailableReason;
+        if (reason) {
+          onUnavailable?.({
+            planet: { ticketId: preview.descriptor.input.ticketId, logIndex: 0n },
+            reason,
+          });
+        }
+        onStateChange?.('wallet-confirmation');
+      }}
+    >
+      {buttonLabel}
+    </button>
   ),
 }));
 vi.mock('@/components/planets/MintPlanetBatchButton', () => ({
@@ -212,7 +248,7 @@ vi.mock('@/components/planets/MintPlanetBatchButton', () => ({
   ),
 }));
 
-import { Planets } from './Planets';
+import { mergeIndexedTicketsWithCanonical, Planets } from './Planets';
 
 describe('Planets', () => {
   beforeEach(() => {
@@ -221,6 +257,7 @@ describe('Planets', () => {
       value: vi.fn().mockReturnValue({ matches: false }),
     });
     state.account = { address: '0x0000000000000000000000000000000000000001', isConnected: true };
+    state.chainId = 84532;
     state.tickets = [
       {
         ticketId: 24n,
@@ -265,6 +302,10 @@ describe('Planets', () => {
     ];
     state.indexedLoading = false;
     state.indexedError = undefined;
+    state.mintedTicketIds = new Set();
+    state.provenanceLoading = false;
+    state.provenanceError = undefined;
+    state.mintUnavailableReason = undefined;
     state.statuses = new Map([
       ['24', { kind: 'claim', amount: 12_500_000n, ticketId: 24n }],
       ['25', { kind: 'drawn' }],
@@ -275,6 +316,20 @@ describe('Planets', () => {
   });
 
   afterEach(cleanup);
+
+  it('preserves canonical receipt logIndex over indexed fallback provenance', () => {
+    const canonical = {
+      ticketId: 24n,
+      drawingId: 218n,
+      normals: [4, 11, 17, 26, 39],
+      bonusBall: 66,
+      originTxHash: `0x${'1'.repeat(64)}` as `0x${string}`,
+      logIndex: 17n,
+    };
+    const indexedFallback = { ...canonical, logIndex: 0n };
+
+    expect(mergeIndexedTicketsWithCanonical([canonical], [indexedFallback])).toEqual([canonical]);
+  });
 
   it('shows collection totals and all working sort choices', () => {
     render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
@@ -437,11 +492,95 @@ describe('Planets', () => {
     expect(onNavigate).toHaveBeenCalledWith('play');
   });
 
+  it('shows a Planet transferred to this wallet even without the buyer ticket proof', () => {
+    state.tickets = [];
+    state.planets = [{ tokenId: '7', ticketId: '24', mintedAt: undefined, ticket: null }] as never;
+
+    render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    expect(screen.getByText('Planet #7')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'No planets yet' })).not.toBeInTheDocument();
+  });
+
+  it('does not offer reveal while immutable mint provenance exists during holding finality lag', () => {
+    state.planets = [];
+    state.tickets = [state.tickets[0]];
+    state.mintedTicketIds = new Set(['24']);
+
+    render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: 'Reveal' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'My Planets' })).toBeInTheDocument();
+  });
+
+  it('renders already-minted as already revealed and never leaves a Reveal action', () => {
+    state.planets = [];
+    state.tickets = [state.tickets[0]];
+    state.mintUnavailableReason = 'already-minted';
+
+    render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    const card = screen
+      .getByRole('button', { name: 'Select unrevealed Ticket #24' })
+      .closest('article');
+    expect(card).not.toBeNull();
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: 'Reveal' }));
+
+    expect(
+      within(card as HTMLElement).getByText('This ticket has already revealed a Planet.'),
+    ).toBeInTheDocument();
+    expect(
+      within(card as HTMLElement).queryByRole('button', { name: 'Reveal' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps a transferred ticket retryable and clears its stale unavailable state on retry', () => {
+    state.planets = [];
+    state.tickets = [state.tickets[0]];
+    state.mintUnavailableReason = 'transferred';
+
+    render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    const card = screen
+      .getByRole('button', { name: 'Select unrevealed Ticket #24' })
+      .closest('article');
+    expect(card).not.toBeNull();
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: 'Reveal' }));
+    expect(
+      within(card as HTMLElement).getByText('This ticket NFT is no longer owned by this wallet.'),
+    ).toBeInTheDocument();
+    expect(
+      within(card as HTMLElement).getByRole('button', { name: 'Retry reveal' }),
+    ).toBeInTheDocument();
+
+    state.mintUnavailableReason = undefined;
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: 'Retry reveal' }));
+
+    expect(
+      within(card as HTMLElement).queryByText('This ticket NFT is no longer owned by this wallet.'),
+    ).not.toBeInTheDocument();
+    expect(within(card as HTMLElement).getByRole('button', { name: 'Reveal' })).toBeInTheDocument();
+  });
+
   it('shows the existing wallet connect action when disconnected', () => {
     state.account = { address: undefined, isConnected: false };
     render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
 
     expect(screen.getByText('Connect your wallet to view your planets')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Connect wallet' })).toBeInTheDocument();
+  });
+
+  it('clears optimistic reveal state after a wallet or network switch', () => {
+    state.planets = [];
+    const view = render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reveal all (2)' }));
+    expect(screen.queryByRole('button', { name: 'Reveal all (2)' })).not.toBeInTheDocument();
+
+    state.account = { address: '0x0000000000000000000000000000000000000002', isConnected: true };
+    state.chainId = 84533;
+    view.rerender(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'Reveal all (2)' })).toBeInTheDocument();
   });
 });

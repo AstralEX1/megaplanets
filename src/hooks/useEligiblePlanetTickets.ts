@@ -367,21 +367,32 @@ export async function readEligiblePlanetTickets(
     activationResult.status === 'fulfilled' ? activationResult.value : [],
     recentResult.status === 'fulfilled' ? recentResult.value : [],
   ];
-  if (
-    proofs.length === 0 &&
-    history.length === 0 &&
-    chainGroups.every((group) => group.length === 0) &&
-    activationResult.status === 'rejected'
-  ) {
-    throw activationResult.reason;
+  const merged = mergeEligibleTickets(proofs, history, ...chainGroups);
+  if (merged.length === 0) {
+    // An empty result is authoritative only when every recovery source completed.
+    // Preserve the original provider error so the query can surface a retryable
+    // outage instead of telling the wallet that it owns no eligible tickets.
+    const failedSource = [recentResult, activationResult, historyResult, proofResult].find(
+      (result) => result.status === 'rejected',
+    );
+    if (failedSource?.status === 'rejected') throw failedSource.reason;
   }
-  return mergeEligibleTickets(proofs, history, ...chainGroups);
+  return merged;
+}
+
+export function shouldEnableEligiblePlanetTickets(input: {
+  chain: string;
+  hasAddress: boolean;
+  hasClient: boolean;
+  requested: boolean;
+}): boolean {
+  return input.chain === 'testnet' && input.hasAddress && input.hasClient && input.requested;
 }
 
 /** Discovers eligible tickets from server proofs, canonical receipts, and recent RPC recovery. */
 export function useEligiblePlanetTickets(
   address: `0x${string}` | undefined,
-  options: { refetchInterval?: number } = {},
+  options: { refetchInterval?: number; enabled?: boolean } = {},
 ) {
   const client = usePublicClient();
   const query = useQuery({
@@ -391,7 +402,12 @@ export function useEligiblePlanetTickets(
         throw new Error('A public RPC client and connected wallet are required.');
       return readEligiblePlanetTickets(client as PublicClient, address);
     },
-    enabled: CHAIN === 'testnet' && !!address && !!client,
+    enabled: shouldEnableEligiblePlanetTickets({
+      chain: CHAIN,
+      hasAddress: !!address,
+      hasClient: !!client,
+      requested: options.enabled ?? true,
+    }),
     staleTime: ONE_MINUTE,
     refetchInterval: options.refetchInterval,
   });

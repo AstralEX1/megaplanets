@@ -34,9 +34,9 @@ jobs:
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
-      - run: forge test --match-contract MegaPlanetsTest -vv
+      - run: forge build --sizes
         working-directory: contracts
-      - run: forge test --match-contract MegaPlanetsFuzzTest -vv
+      - run: FOUNDRY_INVARIANT_RUNS=16 FOUNDRY_INVARIANT_DEPTH=32 forge test -vv
         working-directory: contracts
-      - run: FOUNDRY_INVARIANT_RUNS=16 FOUNDRY_INVARIANT_DEPTH=16 forge test --match-contract MegaPlanetsInvariantTest -vv
+      - run: ./script/check-abi.sh
         working-directory: contracts
