@@ -240,6 +240,23 @@ describe('readEligiblePlanetTickets', () => {
 
     expect(tickets.map((ticket) => ticket.ticketId)).toEqual([7n]);
   });
+
+  it('does not report a successful empty result when recent RPC recovery fails', async () => {
+    await expect(
+      readEligiblePlanetTickets(
+        {
+          getBlockNumber: vi.fn().mockRejectedValue(new Error('recent RPC unavailable')),
+          getLogs: vi.fn().mockResolvedValue([]),
+          getTransactionReceipt: vi.fn(),
+        } as never,
+        ACCOUNT,
+        {
+          listMegasteraProofs: async () => ({ proofs: [], total: 0, offset: 0, limit: 100 }),
+          listWalletTickets: async () => ({ data: [], has_more: false, next_cursor: null }),
+        },
+      ),
+    ).rejects.toThrow('recent RPC unavailable');
+  });
 });
 
 describe('readActivationEligibleTicketsFromChain', () => {

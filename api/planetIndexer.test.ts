@@ -1,10 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPublicClient, keccak256, stringToHex, type Hex } from 'viem';
 import { createPlanetConfig, derivePlanet } from '@megaplanets/planet-generator';
+import { createPublicClient, type Hex, keccak256, stringToHex } from 'viem';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BASE_SEPOLIA_CHAIN_ID } from './config';
 import { BASE_SEPOLIA_JACKPOT, type MegasteraProof } from './eligibility';
 import type { PrismaClient } from './generated/prisma/client';
-import { indexPlanetEvents, PrismaPlanetIndexStore, type MintedPlanetEvent, type PlanetTransferEvent } from './planetIndexer';
+import {
+  indexPlanetEvents,
+  type MintedPlanetEvent,
+  type PlanetTransferEvent,
+  PrismaPlanetIndexStore,
+} from './planetIndexer';
 import type { Stage2Config } from './stage2Config';
 
 vi.mock('viem', async () => {
@@ -43,13 +48,16 @@ const proof: MegasteraProof = {
   purchasedAt: new Date('2026-08-10T00:00:00.000Z'),
 };
 
-const canonicalPlanet = derivePlanet({
-  ticketId: proof.ticketId,
-  drawingId: proof.drawingId,
-  normals: proof.normals,
-  bonusBall: proof.bonusBall,
-  originTxHash: proof.originTxHash,
-}, createPlanetConfig());
+const canonicalPlanet = derivePlanet(
+  {
+    ticketId: proof.ticketId,
+    drawingId: proof.drawingId,
+    normals: proof.normals,
+    bonusBall: proof.bonusBall,
+    originTxHash: proof.originTxHash,
+  },
+  createPlanetConfig(),
+);
 
 const mintedEvent: MintedPlanetEvent = {
   chainId: BASE_SEPOLIA_CHAIN_ID,
@@ -80,7 +88,12 @@ const mintedEvent: MintedPlanetEvent = {
 describe('PrismaPlanetIndexStore ownership projection', () => {
   it('changes current ownership without writing the retired mining ledger', async () => {
     let currentOwner = previousOwner;
-    const planet = { id: 'planet-1', ownerAddress: previousOwner, baseMineralsPerDay: 86_400n, planetType: 'volcanic' };
+    const planet = {
+      id: 'planet-1',
+      ownerAddress: previousOwner,
+      baseMineralsPerDay: 86_400n,
+      planetType: 'volcanic',
+    };
     const transaction = {
       $queryRaw(this: unknown, strings: TemplateStringsArray, ..._values: unknown[]) {
         expect(this).toBe(transaction);
@@ -98,7 +111,8 @@ describe('PrismaPlanetIndexStore ownership projection', () => {
     };
     const prisma = {
       processedBlockchainEvent: { findUnique: async () => null },
-      $transaction: async (callback: (tx: typeof transaction) => Promise<void>) => callback(transaction),
+      $transaction: async (callback: (tx: typeof transaction) => Promise<void>) =>
+        callback(transaction),
     } as unknown as PrismaClient;
     const event: PlanetTransferEvent = {
       chainId: BASE_SEPOLIA_CHAIN_ID,
@@ -159,10 +173,26 @@ describe('PrismaPlanetIndexStore mint provenance projection', () => {
         }),
       },
       processedBlockchainEvent: {
-        findUnique: vi.fn(async ({ where }: { where: { chainId_contractAddress_transactionHash_logIndex?: { transactionHash: string; logIndex: number } } }) => processed.find((entry) => {
-          const identity = where.chainId_contractAddress_transactionHash_logIndex;
-          return identity && entry.transactionHash === identity.transactionHash && entry.logIndex === identity.logIndex;
-        })),
+        findUnique: vi.fn(
+          async ({
+            where,
+          }: {
+            where: {
+              chainId_contractAddress_transactionHash_logIndex?: {
+                transactionHash: string;
+                logIndex: number;
+              };
+            };
+          }) =>
+            processed.find((entry) => {
+              const identity = where.chainId_contractAddress_transactionHash_logIndex;
+              return (
+                identity &&
+                entry.transactionHash === identity.transactionHash &&
+                entry.logIndex === identity.logIndex
+              );
+            }),
+        ),
         create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
           processed.push(data);
           return data;
@@ -187,7 +217,14 @@ describe('PrismaPlanetIndexStore mint provenance projection', () => {
         }
       },
     } as unknown as PrismaClient;
-    return { prisma, transaction, getTicket: () => ticket, getPlanet: () => planet, history, processed };
+    return {
+      prisma,
+      transaction,
+      getTicket: () => ticket,
+      getPlanet: () => planet,
+      history,
+      processed,
+    };
   }
 
   it('atomically creates the proof, Planet, and marker, then replays as a no-op', async () => {
@@ -210,7 +247,10 @@ describe('PrismaPlanetIndexStore mint provenance projection', () => {
       logIndex: Number(proof.logIndex),
       purchasedAt: proof.purchasedAt,
     });
-    expect(state.getPlanet()).toMatchObject({ ticketPurchaseId: 'ticket-1', ownerAddress: zeroAddress });
+    expect(state.getPlanet()).toMatchObject({
+      ticketPurchaseId: 'ticket-1',
+      ownerAddress: zeroAddress,
+    });
     expect(state.processed).toHaveLength(1);
 
     await expect(store.recordMinted(mintedEvent, proof)).resolves.toBe(false);
@@ -221,7 +261,9 @@ describe('PrismaPlanetIndexStore mint provenance projection', () => {
 
   it('rolls back TicketPurchase and Planet writes when the processed marker fails', async () => {
     const state = makePrisma();
-    state.transaction.processedBlockchainEvent.create.mockRejectedValueOnce(new Error('marker write failed'));
+    state.transaction.processedBlockchainEvent.create.mockRejectedValueOnce(
+      new Error('marker write failed'),
+    );
     const store = new PrismaPlanetIndexStore(state.prisma);
 
     await expect(store.recordMinted(mintedEvent, proof)).rejects.toThrow('marker write failed');
@@ -253,8 +295,9 @@ describe('PrismaPlanetIndexStore mint provenance projection', () => {
       purchasedAt: proof.purchasedAt,
     };
     const state = makePrisma(existing);
-    await expect(new PrismaPlanetIndexStore(state.prisma).recordMinted(mintedEvent, proof))
-      .rejects.toThrow('immutable Megastera proof fields');
+    await expect(
+      new PrismaPlanetIndexStore(state.prisma).recordMinted(mintedEvent, proof),
+    ).rejects.toThrow('immutable Megastera proof fields');
     expect(state.transaction.ticketPurchase.create).not.toHaveBeenCalled();
     expect(state.transaction.planet.create).not.toHaveBeenCalled();
     expect(state.processed).toHaveLength(0);
@@ -262,17 +305,21 @@ describe('PrismaPlanetIndexStore mint provenance projection', () => {
 
   it('rejects a mint event whose ticket or recipient disagrees with its proof', async () => {
     const ticketMismatch = makePrisma();
-    await expect(new PrismaPlanetIndexStore(ticketMismatch.prisma).recordMinted(
-      { ...mintedEvent, ticketId: proof.ticketId + 1n },
-      proof,
-    )).rejects.toThrow(/ticket/i);
+    await expect(
+      new PrismaPlanetIndexStore(ticketMismatch.prisma).recordMinted(
+        { ...mintedEvent, ticketId: proof.ticketId + 1n },
+        proof,
+      ),
+    ).rejects.toThrow(/ticket/i);
     expect(ticketMismatch.transaction.ticketPurchase.create).not.toHaveBeenCalled();
 
     const recipientMismatch = makePrisma();
-    await expect(new PrismaPlanetIndexStore(recipientMismatch.prisma).recordMinted(
-      { ...mintedEvent, recipient: nextOwner },
-      proof,
-    )).rejects.toThrow(/recipient/i);
+    await expect(
+      new PrismaPlanetIndexStore(recipientMismatch.prisma).recordMinted(
+        { ...mintedEvent, recipient: nextOwner },
+        proof,
+      ),
+    ).rejects.toThrow(/recipient/i);
     expect(recipientMismatch.transaction.ticketPurchase.create).not.toHaveBeenCalled();
   });
 
@@ -281,7 +328,9 @@ describe('PrismaPlanetIndexStore mint provenance projection', () => {
     const store = new PrismaPlanetIndexStore(state.prisma);
     await expect(store.recordMinted(mintedEvent, proof)).resolves.toBe(true);
     const changedEvent = { ...mintedEvent, metadataHash: `0x${'88'.repeat(32)}` as Hex };
-    await expect(store.recordMinted(changedEvent, proof)).rejects.toThrow('conflicts with immutable payload');
+    await expect(store.recordMinted(changedEvent, proof)).rejects.toThrow(
+      'conflicts with immutable payload',
+    );
     expect(state.transaction.ticketPurchase.create).toHaveBeenCalledTimes(1);
     expect(state.transaction.planet.create).toHaveBeenCalledTimes(1);
     expect(state.processed).toHaveLength(1);
@@ -304,7 +353,9 @@ describe('PrismaPlanetIndexStore mint provenance projection', () => {
       blockTimestamp: mintedEvent.blockTimestamp,
     };
     await store.recordTransfer(initialTransfer);
-    await expect(store.recordTransfer({ ...initialTransfer, to: nextOwner })).rejects.toThrow('conflicts with immutable payload');
+    await expect(store.recordTransfer({ ...initialTransfer, to: nextOwner })).rejects.toThrow(
+      'conflicts with immutable payload',
+    );
   });
 
   it('requires the initial zero-address Transfer recipient to match the mint proof', async () => {
@@ -327,7 +378,9 @@ describe('PrismaPlanetIndexStore mint provenance projection', () => {
     await expect(store.recordTransfer({ ...transfer, to: mintRecipient })).resolves.toBe(true);
     expect(state.getPlanet()).toMatchObject({ ownerAddress: mintRecipient });
     expect(state.history).toHaveLength(1);
-    await expect(store.recordTransfer({ ...transfer, to: nextOwner })).rejects.toThrow('immutable payload');
+    await expect(store.recordTransfer({ ...transfer, to: nextOwner })).rejects.toThrow(
+      'immutable payload',
+    );
     expect(state.history).toHaveLength(1);
   });
 });
@@ -338,19 +391,48 @@ describe('PrismaPlanetIndexStore reorg resets', () => {
     const transaction = {
       planetOwnershipHistory: {
         findMany: async () => [],
-        deleteMany: async () => { calls.push('planetOwnershipHistory.deleteMany'); },
+        deleteMany: async () => {
+          calls.push('planetOwnershipHistory.deleteMany');
+        },
       },
-      processedBlockchainEvent: { deleteMany: async () => { calls.push('processedBlockchainEvent.deleteMany'); } },
+      processedBlockchainEvent: {
+        deleteMany: async () => {
+          calls.push('processedBlockchainEvent.deleteMany');
+        },
+      },
+      planetArtifact: {
+        deleteMany: async () => {
+          calls.push('planetArtifact.deleteMany');
+        },
+      },
+      mintVoucherRecord: {
+        deleteMany: async () => {
+          calls.push('mintVoucherRecord.deleteMany');
+        },
+      },
+      ticketPurchase: {
+        deleteMany: async () => {
+          calls.push('ticketPurchase.deleteMany');
+        },
+      },
       planet: {
-        findMany: async () => [],
-        deleteMany: async () => { calls.push('planet.deleteMany'); },
+        findMany: async ({ select }: { select: Record<string, unknown> }) =>
+          'ticketPurchaseId' in select ? [{ ticketPurchaseId: 'ticket-reorged' }] : [],
+        deleteMany: async () => {
+          calls.push('planet.deleteMany');
+        },
         findUnique: async () => null,
         update: async () => undefined,
       },
-      indexerCursor: { updateMany: async () => { calls.push('indexerCursor.updateMany'); } },
+      indexerCursor: {
+        updateMany: async () => {
+          calls.push('indexerCursor.updateMany');
+        },
+      },
     };
     const prisma = {
-      $transaction: async (callback: (tx: typeof transaction) => Promise<void>) => callback(transaction),
+      $transaction: async (callback: (tx: typeof transaction) => Promise<void>) =>
+        callback(transaction),
     } as unknown as PrismaClient;
 
     await new PrismaPlanetIndexStore(prisma).rewind(planetContract, deploymentBlock);
@@ -359,8 +441,46 @@ describe('PrismaPlanetIndexStore reorg resets', () => {
       'planetOwnershipHistory.deleteMany',
       'processedBlockchainEvent.deleteMany',
       'planet.deleteMany',
+      'planetArtifact.deleteMany',
+      'mintVoucherRecord.deleteMany',
+      'ticketPurchase.deleteMany',
       'indexerCursor.updateMany',
     ]);
+  });
+
+  it('removes stale proof, artifact, and voucher rows for reorged Planet mints', async () => {
+    const transaction = {
+      planetOwnershipHistory: { deleteMany: vi.fn(async () => undefined) },
+      processedBlockchainEvent: { deleteMany: vi.fn(async () => undefined) },
+      planet: {
+        findMany: vi
+          .fn()
+          .mockResolvedValueOnce([
+            { ticketPurchaseId: 'ticket-reorged' },
+            { ticketPurchaseId: null },
+          ])
+          .mockResolvedValueOnce([]),
+        deleteMany: vi.fn(async () => undefined),
+        update: vi.fn(async () => undefined),
+      },
+      planetArtifact: { deleteMany: vi.fn(async () => undefined) },
+      mintVoucherRecord: { deleteMany: vi.fn(async () => undefined) },
+      ticketPurchase: { deleteMany: vi.fn(async () => undefined) },
+      indexerCursor: { updateMany: vi.fn(async () => undefined) },
+    };
+    const prisma = {
+      $transaction: async (callback: (tx: typeof transaction) => Promise<void>) =>
+        callback(transaction),
+    } as unknown as PrismaClient;
+
+    await new PrismaPlanetIndexStore(prisma).rewind(planetContract, deploymentBlock);
+
+    const where = { ticketPurchaseId: { in: ['ticket-reorged'] } };
+    expect(transaction.planetArtifact.deleteMany).toHaveBeenCalledWith({ where });
+    expect(transaction.mintVoucherRecord.deleteMany).toHaveBeenCalledWith({ where });
+    expect(transaction.ticketPurchase.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['ticket-reorged'] } },
+    });
   });
 
   it('restores a surviving Planet owner from its latest retained ownership event', async () => {
@@ -370,16 +490,19 @@ describe('PrismaPlanetIndexStore reorg resets', () => {
       processedBlockchainEvent: { deleteMany: vi.fn(async () => undefined) },
       planet: {
         deleteMany: vi.fn(async () => undefined),
-        findMany: vi.fn(async () => [{
-          id: 'planet-survivor',
-          ownershipHistory: [{ toAddress: previousOwner }],
-        }]),
+        findMany: vi.fn(async () => [
+          {
+            id: 'planet-survivor',
+            ownershipHistory: [{ toAddress: previousOwner }],
+          },
+        ]),
         update,
       },
       indexerCursor: { updateMany: vi.fn(async () => undefined) },
     };
     const prisma = {
-      $transaction: async (callback: (tx: typeof transaction) => Promise<void>) => callback(transaction),
+      $transaction: async (callback: (tx: typeof transaction) => Promise<void>) =>
+        callback(transaction),
     } as unknown as PrismaClient;
 
     await new PrismaPlanetIndexStore(prisma).rewind(planetContract, deploymentBlock + 10n);
@@ -388,11 +511,12 @@ describe('PrismaPlanetIndexStore reorg resets', () => {
       where: { id: 'planet-survivor' },
       data: { ownerAddress: previousOwner },
     });
-    expect(transaction.planet.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ mintBlockNumber: { lt: deploymentBlock + 10n } }),
-    }));
+    expect(transaction.planet.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ mintBlockNumber: { lt: deploymentBlock + 10n } }),
+      }),
+    );
   });
-
 });
 
 describe('planet indexer cursor hashing', () => {
@@ -436,16 +560,16 @@ describe('planet indexer cursor hashing', () => {
       blockRange: 100n,
     });
 
-    expect(store.rewind).toHaveBeenCalledWith(planetContract, deploymentBlock + 28n);
+    expect(store.rewind).toHaveBeenCalledWith(planetContract, deploymentBlock);
     expect(client.getLogs).toHaveBeenCalledWith(
       expect.objectContaining({
         address: planetContract,
-        fromBlock: deploymentBlock + 28n,
+        fromBlock: deploymentBlock,
         toBlock: deploymentBlock + 40n,
       }),
     );
     expect(result).toMatchObject({
-      fromBlock: deploymentBlock + 28n,
+      fromBlock: deploymentBlock,
       throughBlock: deploymentBlock + 40n,
       eventsProcessed: 0,
       reorgDetected: true,
@@ -453,15 +577,20 @@ describe('planet indexer cursor hashing', () => {
   });
 
   it('rejects a zero-block reorg window that cannot replay the mismatched boundary', async () => {
-    await expect(indexPlanetEvents(config, {
-      getCursor: vi.fn(),
-      setCursor: vi.fn(),
-      rewind: vi.fn(),
-      recordMinted: vi.fn(),
-      recordTransfer: vi.fn(),
-    }, { reorgWindow: 0n })).rejects.toThrow('bounds');
+    await expect(
+      indexPlanetEvents(
+        config,
+        {
+          getCursor: vi.fn(),
+          setCursor: vi.fn(),
+          rewind: vi.fn(),
+          recordMinted: vi.fn(),
+          recordTransfer: vi.fn(),
+        },
+        { reorgWindow: 0n },
+      ),
+    ).rejects.toThrow('bounds');
   });
-
 });
 
 describe('planet projector provenance integration', () => {
@@ -503,7 +632,9 @@ describe('planet projector provenance integration', () => {
         hash: blockNumber === deploymentBlock ? mintBlockHash : blockHash(blockNumber),
         timestamp: 1_754_784_006n,
       })),
-      getLogs: vi.fn(async ({ event }: { event: { name: string } }) => event.name === 'PlanetMinted' ? [mintedLog] : [transferLog]),
+      getLogs: vi.fn(async ({ event }: { event: { name: string } }) =>
+        event.name === 'PlanetMinted' ? [mintedLog] : [transferLog],
+      ),
       readContract: vi.fn().mockResolvedValue(mintedEvent.metadataUri),
       getTransaction: vi.fn(),
       getTransactionReceipt: vi.fn(),
@@ -515,17 +646,20 @@ describe('planet projector provenance integration', () => {
     vi.mocked(createPublicClient).mockReturnValue(client as never);
     const resolver = {
       clearCache: vi.fn(),
-      resolveMint: vi.fn().mockResolvedValue({ proof, voucher: {
-        recipient: mintRecipient,
-        ticketId: proof.ticketId,
-        drawingId: proof.drawingId,
-        originTxHash: proof.originTxHash,
-        seed: mintedEvent.traits.seed,
-        traitsHash: mintedEvent.traits.traitsHash,
-        metadataHash: mintedEvent.metadataHash,
-        metadataURI: mintedEvent.metadataUri,
-        expiresAt: 9_999_999_999n,
-      } }),
+      resolveMint: vi.fn().mockResolvedValue({
+        proof,
+        voucher: {
+          recipient: mintRecipient,
+          ticketId: proof.ticketId,
+          drawingId: proof.drawingId,
+          originTxHash: proof.originTxHash,
+          seed: mintedEvent.traits.seed,
+          traitsHash: mintedEvent.traits.traitsHash,
+          metadataHash: mintedEvent.metadataHash,
+          metadataURI: mintedEvent.metadataUri,
+          expiresAt: 9_999_999_999n,
+        },
+      }),
     };
     const store = {
       getCursor: vi.fn().mockResolvedValue(undefined),
@@ -542,13 +676,21 @@ describe('planet projector provenance integration', () => {
     });
 
     expect(resolver.clearCache).toHaveBeenCalledTimes(1);
-    expect(resolver.resolveMint).toHaveBeenCalledWith(planetContract, expect.objectContaining({
-      chainId: BASE_SEPOLIA_CHAIN_ID,
-      ticketId: proof.ticketId,
-      recipient: mintRecipient,
-    }));
-    expect(store.recordMinted).toHaveBeenCalledWith(expect.objectContaining({ tokenId: 1n }), proof);
-    expect(store.recordTransfer).toHaveBeenCalledWith(expect.objectContaining({ from: zeroAddress, to: mintRecipient }));
+    expect(resolver.resolveMint).toHaveBeenCalledWith(
+      planetContract,
+      expect.objectContaining({
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+        ticketId: proof.ticketId,
+        recipient: mintRecipient,
+      }),
+    );
+    expect(store.recordMinted).toHaveBeenCalledWith(
+      expect.objectContaining({ tokenId: 1n }),
+      proof,
+    );
+    expect(store.recordTransfer).toHaveBeenCalledWith(
+      expect.objectContaining({ from: zeroAddress, to: mintRecipient }),
+    );
     expect(store.setCursor).toHaveBeenCalledTimes(1);
   });
 
@@ -567,11 +709,13 @@ describe('planet projector provenance integration', () => {
       recordTransfer: vi.fn(),
     };
 
-    await expect(indexPlanetEvents(config, store, {
-      confirmations: 6n,
-      blockRange: 100n,
-      provenanceResolver: resolver,
-    })).rejects.toThrow('origin receipt unavailable');
+    await expect(
+      indexPlanetEvents(config, store, {
+        confirmations: 6n,
+        blockRange: 100n,
+        provenanceResolver: resolver,
+      }),
+    ).rejects.toThrow('origin receipt unavailable');
     expect(store.setCursor).not.toHaveBeenCalled();
   });
 
@@ -580,17 +724,20 @@ describe('planet projector provenance integration', () => {
     vi.mocked(createPublicClient).mockReturnValue(client as never);
     const resolver = {
       clearCache: vi.fn(),
-      resolveMint: vi.fn().mockResolvedValue({ proof, voucher: {
-        recipient: mintRecipient,
-        ticketId: proof.ticketId,
-        drawingId: proof.drawingId,
-        originTxHash: proof.originTxHash,
-        seed: mintedEvent.traits.seed,
-        traitsHash: mintedEvent.traits.traitsHash,
-        metadataHash: mintedEvent.metadataHash,
-        metadataURI: mintedEvent.metadataUri,
-        expiresAt: 9_999_999_999n,
-      } }),
+      resolveMint: vi.fn().mockResolvedValue({
+        proof,
+        voucher: {
+          recipient: mintRecipient,
+          ticketId: proof.ticketId,
+          drawingId: proof.drawingId,
+          originTxHash: proof.originTxHash,
+          seed: mintedEvent.traits.seed,
+          traitsHash: mintedEvent.traits.traitsHash,
+          metadataHash: mintedEvent.metadataHash,
+          metadataURI: mintedEvent.metadataUri,
+          expiresAt: 9_999_999_999n,
+        },
+      }),
     };
     let cursor: { nextBlock: bigint; lastBlockHash?: Hex } | undefined;
     const store = {
@@ -604,18 +751,22 @@ describe('planet projector provenance integration', () => {
       recordTransfer: vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false),
     };
 
-    await expect(indexPlanetEvents(config, store, {
-      confirmations: 6n,
-      blockRange: 100n,
-      provenanceResolver: resolver,
-    })).rejects.toThrow('cursor write unavailable');
+    await expect(
+      indexPlanetEvents(config, store, {
+        confirmations: 6n,
+        blockRange: 100n,
+        provenanceResolver: resolver,
+      }),
+    ).rejects.toThrow('cursor write unavailable');
     expect(cursor).toBeUndefined();
 
-    await expect(indexPlanetEvents(config, store, {
-      confirmations: 6n,
-      blockRange: 100n,
-      provenanceResolver: resolver,
-    })).resolves.toMatchObject({ eventsProcessed: 0 });
+    await expect(
+      indexPlanetEvents(config, store, {
+        confirmations: 6n,
+        blockRange: 100n,
+        provenanceResolver: resolver,
+      }),
+    ).resolves.toMatchObject({ eventsProcessed: 0 });
     expect(store.recordMinted).toHaveBeenCalledTimes(2);
     expect(store.recordTransfer).toHaveBeenCalledTimes(2);
     expect(cursor?.nextBlock).toBe(deploymentBlock + 1n);
@@ -626,17 +777,20 @@ describe('planet projector provenance integration', () => {
     vi.mocked(createPublicClient).mockReturnValue(client as never);
     const resolver = {
       clearCache: vi.fn(),
-      resolveMint: vi.fn().mockResolvedValue({ proof, voucher: {
-        recipient: mintRecipient,
-        ticketId: proof.ticketId + 1n,
-        drawingId: proof.drawingId,
-        originTxHash: proof.originTxHash,
-        seed: mintedEvent.traits.seed,
-        traitsHash: mintedEvent.traits.traitsHash,
-        metadataHash: mintedEvent.metadataHash,
-        metadataURI: mintedEvent.metadataUri,
-        expiresAt: 9_999_999_999n,
-      } }),
+      resolveMint: vi.fn().mockResolvedValue({
+        proof,
+        voucher: {
+          recipient: mintRecipient,
+          ticketId: proof.ticketId + 1n,
+          drawingId: proof.drawingId,
+          originTxHash: proof.originTxHash,
+          seed: mintedEvent.traits.seed,
+          traitsHash: mintedEvent.traits.traitsHash,
+          metadataHash: mintedEvent.metadataHash,
+          metadataURI: mintedEvent.metadataUri,
+          expiresAt: 9_999_999_999n,
+        },
+      }),
     };
     const store = {
       getCursor: vi.fn().mockResolvedValue(undefined),
@@ -646,11 +800,13 @@ describe('planet projector provenance integration', () => {
       recordTransfer: vi.fn(),
     };
 
-    await expect(indexPlanetEvents(config, store, {
-      confirmations: 6n,
-      blockRange: 100n,
-      provenanceResolver: resolver,
-    })).rejects.toThrow('voucher ticket');
+    await expect(
+      indexPlanetEvents(config, store, {
+        confirmations: 6n,
+        blockRange: 100n,
+        provenanceResolver: resolver,
+      }),
+    ).rejects.toThrow('voucher ticket');
     expect(store.recordMinted).not.toHaveBeenCalled();
     expect(store.setCursor).not.toHaveBeenCalled();
   });
@@ -660,17 +816,20 @@ describe('planet projector provenance integration', () => {
     vi.mocked(createPublicClient).mockReturnValue(client as never);
     const resolver = {
       clearCache: vi.fn(),
-      resolveMint: vi.fn().mockResolvedValue({ proof, voucher: {
-        recipient: mintRecipient,
-        ticketId: proof.ticketId,
-        drawingId: proof.drawingId,
-        originTxHash: proof.originTxHash,
-        seed: mintedEvent.traits.seed,
-        traitsHash: `0x${'99'.repeat(32)}`,
-        metadataHash: mintedEvent.metadataHash,
-        metadataURI: mintedEvent.metadataUri,
-        expiresAt: 9_999_999_999n,
-      } }),
+      resolveMint: vi.fn().mockResolvedValue({
+        proof,
+        voucher: {
+          recipient: mintRecipient,
+          ticketId: proof.ticketId,
+          drawingId: proof.drawingId,
+          originTxHash: proof.originTxHash,
+          seed: mintedEvent.traits.seed,
+          traitsHash: `0x${'99'.repeat(32)}`,
+          metadataHash: mintedEvent.metadataHash,
+          metadataURI: mintedEvent.metadataUri,
+          expiresAt: 9_999_999_999n,
+        },
+      }),
     };
     const store = {
       getCursor: vi.fn().mockResolvedValue(undefined),
@@ -695,17 +854,20 @@ describe('planet projector provenance integration', () => {
     vi.mocked(createPublicClient).mockReturnValue(client as never);
     const resolver = {
       clearCache: vi.fn(),
-      resolveMint: vi.fn().mockResolvedValue({ proof, voucher: {
-        recipient: mintRecipient,
-        ticketId: proof.ticketId + 1n,
-        drawingId: proof.drawingId,
-        originTxHash: proof.originTxHash,
-        seed: mintedEvent.traits.seed,
-        traitsHash: mintedEvent.traits.traitsHash,
-        metadataHash: mintedEvent.metadataHash,
-        metadataURI: mintedEvent.metadataUri,
-        expiresAt: 9_999_999_999n,
-      } }),
+      resolveMint: vi.fn().mockResolvedValue({
+        proof,
+        voucher: {
+          recipient: mintRecipient,
+          ticketId: proof.ticketId + 1n,
+          drawingId: proof.drawingId,
+          originTxHash: proof.originTxHash,
+          seed: mintedEvent.traits.seed,
+          traitsHash: mintedEvent.traits.traitsHash,
+          metadataHash: mintedEvent.metadataHash,
+          metadataURI: mintedEvent.metadataUri,
+          expiresAt: 9_999_999_999n,
+        },
+      }),
     };
     const store = {
       getCursor: vi.fn().mockResolvedValue(undefined),
@@ -715,11 +877,13 @@ describe('planet projector provenance integration', () => {
       recordTransfer: vi.fn(),
     };
 
-    await expect(indexPlanetEvents(config, store, {
-      confirmations: 6n,
-      blockRange: 100n,
-      provenanceResolver: resolver,
-    })).rejects.toThrow(/voucher ticket/i);
+    await expect(
+      indexPlanetEvents(config, store, {
+        confirmations: 6n,
+        blockRange: 100n,
+        provenanceResolver: resolver,
+      }),
+    ).rejects.toThrow(/voucher ticket/i);
     expect(store.recordMinted).not.toHaveBeenCalled();
     expect(store.setCursor).not.toHaveBeenCalled();
   });

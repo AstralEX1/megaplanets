@@ -58,6 +58,9 @@ const state = vi.hoisted(() => ({
   refetchStatuses: vi.fn(),
   claim: vi.fn(),
   claimSuccess: false,
+  mintedTicketIds: new Set<string>(),
+  provenanceLoading: false,
+  provenanceError: undefined as Error | undefined,
   mining: {
     ownerAddress: '0x0000000000000000000000000000000000000001',
     asOf: '2026-08-10T00:00:01.000Z',
@@ -142,6 +145,9 @@ vi.mock('@/hooks/useIndexedPlanets', () => ({
     planets: state.planets,
     isLoading: state.indexedLoading,
     error: state.indexedError,
+    mintedTicketIds: state.mintedTicketIds,
+    provenanceLoading: state.provenanceLoading,
+    provenanceError: state.provenanceError,
   }),
 }));
 vi.mock('@/hooks/useWalletMining', () => ({
@@ -263,6 +269,9 @@ describe('Planets', () => {
     ];
     state.indexedLoading = false;
     state.indexedError = undefined;
+    state.mintedTicketIds = new Set();
+    state.provenanceLoading = false;
+    state.provenanceError = undefined;
     state.statuses = new Map([
       ['24', { kind: 'claim', amount: 12_500_000n, ticketId: 24n }],
       ['25', { kind: 'drawn' }],
@@ -433,6 +442,27 @@ describe('Planets', () => {
     expect(screen.getByRole('heading', { name: 'No planets yet' })).toBeInTheDocument();
     screen.getByRole('button', { name: 'Explore planets' }).click();
     expect(onNavigate).toHaveBeenCalledWith('play');
+  });
+
+  it('shows a Planet transferred to this wallet even without the buyer ticket proof', () => {
+    state.tickets = [];
+    state.planets = [{ tokenId: '7', ticketId: '24', mintedAt: undefined, ticket: null }] as never;
+
+    render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    expect(screen.getByText('Planet #7')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'No planets yet' })).not.toBeInTheDocument();
+  });
+
+  it('does not offer reveal while immutable mint provenance exists during holding finality lag', () => {
+    state.planets = [];
+    state.tickets = [state.tickets[0]];
+    state.mintedTicketIds = new Set(['24']);
+
+    render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: 'Reveal' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'My Planets' })).toBeInTheDocument();
   });
 
   it('shows the existing wallet connect action when disconnected', () => {

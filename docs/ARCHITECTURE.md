@@ -87,7 +87,8 @@ finalized block hash under `megaplanets-v2`. The worker:
 
 1. chooses a finalized range;
 2. compares the stored boundary hash with the chain;
-3. rewinds only the configured recent deployment-scoped window on mismatch;
+3. replays from the V2 deployment block on boundary mismatch rather than assuming
+   the divergence is contained inside a fixed window;
 4. decodes and validates events;
 5. writes mint/owner state and processed-event idempotency records; and
 6. advances the cursor only after the range is complete.

@@ -67,7 +67,8 @@ The normal cycle is:
 
 1. choose the finalized range using the configured confirmation depth;
 2. compare the cursor boundary hash with the chain;
-3. on mismatch, stop and rewind only the configured recent deployment-scoped window;
+3. on boundary mismatch, stop and replay the full V2 deployment scope because one
+   boundary hash cannot prove a safe recent common ancestor;
 4. delete dependent artifact/voucher/ticket rows in FK-safe order when a ticket proof is
    inside the rewind window;
 5. replay events idempotently; and
