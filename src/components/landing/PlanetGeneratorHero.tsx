@@ -29,16 +29,15 @@ function createPreview(ticketNumber: number): PlanetPreview {
 export function PlanetGeneratorHero() {
   const [ticketNumber, setTicketNumber] = useState(INITIAL_TICKET_NUMBER);
   const preview = useMemo(() => createPreview(ticketNumber), [ticketNumber]);
-  const generateAnother = useCallback(() => setTicketNumber((current) => current + 1), []);
+  const generatePlanet = useCallback(() => setTicketNumber((current) => current + 1), []);
 
   return (
-    <article className="landing-live-generator" aria-label="Generated Planet ticket preview">
+    <article className="landing-live-generator" aria-label="Generated Planet preview">
       <div className="landing-live-generator-art">
         <PlanetGif preview={preview} deferGeneration />
       </div>
-      <button className="landing-live-generator-button" type="button" onClick={generateAnother}>
-        <LandingSplitText text="Generate another" className="landing-button-label" />
-        <span className="landing-live-generator-button-icon" aria-hidden="true">↗</span>
+      <button className="landing-live-generator-button" type="button" onClick={generatePlanet}>
+        <LandingSplitText text="Generate planet" className="landing-button-label" />
       </button>
     </article>
   );

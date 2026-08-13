@@ -15,11 +15,12 @@ describe('PlanetGeneratorHero', () => {
     vi.useRealTimers();
   });
 
-  it('connects the generated Planet to a Megapot ticket and refreshes only on demand', () => {
+  it('generates another Planet preview only on demand', () => {
     vi.useFakeTimers();
     const { container } = render(<PlanetGeneratorHero />);
 
     expect(screen.getByTestId('planet-gif-preview')).toHaveTextContent('Generated ticket 5001');
+    expect(screen.getByRole('article', { name: 'Generated Planet preview' })).toBeInTheDocument();
     expect(container.querySelector('.landing-live-generator')).toBeInTheDocument();
     expect(container.querySelector('.landing-live-generator-topline')).not.toBeInTheDocument();
     expect(container.querySelector('.landing-live-generator-meta')).not.toBeInTheDocument();
@@ -27,7 +28,11 @@ describe('PlanetGeneratorHero', () => {
     expect(screen.queryByText('PLANET = TICKET')).not.toBeInTheDocument();
     expect(screen.queryByText('MEGAPOT · IN DRAW')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Generate another/i }));
+    const generatePlanetButton = screen.getByRole('button', { name: 'Generate planet' });
+    expect(generatePlanetButton).not.toHaveTextContent('↗');
+    expect(screen.queryByRole('button', { name: /Generate another/i })).not.toBeInTheDocument();
+
+    fireEvent.click(generatePlanetButton);
     expect(screen.getByTestId('planet-gif-preview')).toHaveTextContent('Generated ticket 5002');
 
     act(() => {

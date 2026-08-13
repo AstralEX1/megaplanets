@@ -60,13 +60,6 @@ export function Landing() {
             />
           </div>
           <div className="landing-hero-copy">
-            <LandingSplitText
-              tag="span"
-              className="landing-kicker"
-              text="A planet-first cosmic lottery game"
-              delay={28}
-              duration={0.62}
-            />
             <h1 id="hero-title" className="landing-hero-title">
               <LandingSplitText
                 tag="span"
@@ -148,7 +141,6 @@ export function Landing() {
 
           <div className="landing-mechanics-grid">
             <article className="landing-mechanic landing-ticket-mechanic">
-              <LandingSplitText tag="span" className="landing-micro-label" text="01 / MEGAPOT TICKET" />
               <div className="landing-ticket-visual">
                 <div className="landing-megapot-ticket" role="img" aria-label="Megapot Ticket preview with five numbers and one bonus ball">
                   <div className="landing-megapot-ticket-head">
@@ -176,14 +168,7 @@ export function Landing() {
               />
             </article>
 
-            <div className="landing-mechanics-connection" aria-hidden="true">
-              <LandingSplitText tag="span" text="ONE TICKET" delay={24} duration={0.58} />
-              <i>→</i>
-              <LandingSplitText tag="span" text="ONE PLANET" delay={24} duration={0.58} />
-            </div>
-
             <article className="landing-mechanic landing-planet-mechanic">
-              <LandingSplitText tag="span" className="landing-micro-label" text="02 / PLANET" />
               <div className="landing-mechanic-planet-stack">
                 {generatedPlanetAssets.map((planet) => (
                   <LandingPlanetCard

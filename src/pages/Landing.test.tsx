@@ -17,12 +17,13 @@ vi.mock('@/hooks/useJackpotState', () => ({
 describe('Landing', () => {
   afterEach(cleanup);
 
-  it('presents the Megastera planet-first message without the app wallet shell', () => {
-    render(<Landing />);
+  it('presents the Megastera message without the app wallet shell', () => {
+    const { container } = render(<Landing />);
 
     expect(screen.getByRole('heading', { name: /Explore Planets\.\s*Win prizes\./ })).toBeInTheDocument();
     expect(screen.getByText('Every ticket becomes a Planet and enters the draw.')).toBeInTheDocument();
     expect(screen.getByText('powered by Megapot')).toBeInTheDocument();
+    expect(container.textContent).not.toContain('A planet-first cosmic lottery game');
     expect(screen.queryByText(/connect wallet/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/MegaPlanets/i)).not.toBeInTheDocument();
   });
@@ -48,10 +49,16 @@ describe('Landing', () => {
     expect(landing.getByRole('heading', { name: 'Planet' })).toBeInTheDocument();
     expect(landing.getByText(/enters the Megapot draw and can win the jackpot/i)).toBeInTheDocument();
     expect(landing.getByText(/tied to that ticket, mines minerals and competes on the leaderboard/i)).toBeInTheDocument();
-    expect(container.querySelector('.landing-mechanics-connection')).toHaveTextContent(/ONE TICKET\s*→\s*ONE PLANET/);
+    expect(container.textContent).not.toContain('01 / MEGAPOT TICKET');
+    expect(container.textContent).not.toContain('ONE TICKET');
+    expect(container.textContent).not.toContain('ONE PLANET');
+    expect(container.textContent).not.toContain('02 / PLANET');
+    expect(container.querySelector('.landing-mechanics-connection')).not.toBeInTheDocument();
     expect(landing.queryByText('PLANET = TICKET')).not.toBeInTheDocument();
     expect(landing.queryByText('MEGAPOT · IN DRAW')).not.toBeInTheDocument();
-    expect(container.querySelector('.landing-live-generator-button')).toBeInTheDocument();
+    const generatePlanetButton = landing.getByRole('button', { name: 'Generate planet' });
+    expect(generatePlanetButton).toBeInTheDocument();
+    expect(generatePlanetButton).not.toHaveTextContent('↗');
     expect(container.querySelector('.landing-megapot-ticket')).toBeInTheDocument();
     expect(container.querySelectorAll('.landing-ticket-ball')).toHaveLength(6);
     expect(container.querySelectorAll('.landing-ticket-ball-bonus')).toHaveLength(1);
@@ -86,7 +93,6 @@ describe('Landing', () => {
     const animatedCopySelectors = [
       '.landing-header .landing-wordmark .split-parent',
       '.landing-header .landing-button .split-parent',
-      '.landing-hero-copy > .landing-kicker.split-parent',
       '.landing-hero-subtitle.split-parent',
       '.landing-hero-powered-by.split-parent',
       '.landing-hero-actions .landing-button .split-parent',
@@ -98,10 +104,8 @@ describe('Landing', () => {
       '.landing-mechanics-heading .landing-kicker.split-parent',
       '.landing-mechanics-heading h2 .split-parent',
       '.landing-mechanics-heading > .split-parent',
-      '.landing-ticket-mechanic .landing-micro-label.split-parent',
       '.landing-ticket-mechanic h3 .split-parent',
       '.landing-ticket-mechanic > p.split-parent',
-      '.landing-planet-mechanic .landing-micro-label.split-parent',
       '.landing-planet-mechanic h3 .split-parent',
       '.landing-planet-mechanic > p.split-parent',
       '.landing-mechanics-proof .landing-micro-label.split-parent',
