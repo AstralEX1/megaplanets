@@ -1,5 +1,5 @@
 name: Documentation issue
-description: Something in the README, CUSTOMIZE, ARCHITECTURE, AGENTS, or in-source docs is wrong or unclear.
+description: Something in the README, architecture, operations, AGENTS, or in-source docs is wrong or unclear.
 title: "[Docs]: "
 labels: ["documentation"]
 body:
@@ -7,7 +7,7 @@ body:
     id: location
     attributes:
       label: Which doc or file
-      description: e.g. `README.md`, `docs/CUSTOMIZE.md`, JSDoc on `src/hooks/useJackpotState.ts`.
+      description: e.g. `README.md`, `docs/OPERATIONS.md`, or a source comment.
     validations:
       required: true
 

@@ -89,6 +89,35 @@ describe('PrismaEligibilityStore reorg resets', () => {
   });
 });
 
+describe('PrismaEligibilityStore activation cursor', () => {
+  it('writes the same v2 activation stream that reads use', async () => {
+    const upsert = vi.fn(async () => undefined);
+    const store = new PrismaEligibilityStore({
+      indexerCursor: { upsert },
+    } as unknown as PrismaClient);
+
+    await store.setCursor(45_000_000n, `0x${'ef'.repeat(32)}`);
+
+    expect(upsert).toHaveBeenCalledWith({
+      where: {
+        chainId_contractAddress_stream: {
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
+          stream: TICKET_INDEX_STREAM,
+        },
+      },
+      update: { nextBlock: 45_000_000n, lastBlockHash: `0x${'ef'.repeat(32)}` },
+      create: {
+        chainId: BASE_SEPOLIA_CHAIN_ID,
+        contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
+        stream: TICKET_INDEX_STREAM,
+        nextBlock: 45_000_000n,
+        lastBlockHash: `0x${'ef'.repeat(32)}`,
+      },
+    });
+  });
+});
+
 describe('PrismaEligibilityStore Megastera proof lookup', () => {
   it('lists canonical proofs for one recipient with bounded newest-first pagination', async () => {
     const count = vi.fn(async () => 2);

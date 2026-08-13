@@ -42,7 +42,7 @@ describe('Expedition success screens', () => {
     expect(
       screen.getByRole('heading', { name: 'Your new planets are ready.' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Drawing #218 · Season 01')).toBeInTheDocument();
+    expect(screen.getByText('Drawing #218')).toBeInTheDocument();
     expect(screen.getAllByRole('article')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: 'Claim' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Explore again' })).toBeInTheDocument();

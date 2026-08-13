@@ -24,7 +24,7 @@ const proof: MegasteraProof = {
   jackpotAddress: '0x465dA3c859f193A3807386387bEE941B2A4c3279',
 };
 
-describe('eligibility store rewind', () => {
+describe('legacy snapshot preservation during eligibility rewind', () => {
   afterEach(async () => {
     await Promise.all(tempDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
   });

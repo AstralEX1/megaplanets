@@ -20,7 +20,7 @@ function holding(
   return { tokenId, holder, planetType, minerals };
 }
 
-describe('daily Planet scoring', () => {
+describe('legacy block snapshot scoring compatibility', () => {
   it('keeps UTC midnight as the daily snapshot boundary', () => {
     expect(getUtcDayBounds(new Date('2026-08-03T23:59:59.999Z'))).toEqual({
       id: '2026-08-03',
@@ -57,7 +57,7 @@ describe('daily Planet scoring', () => {
     expect(snapshot.capturedAt).toBe('2026-08-03T00:00:00.000Z');
   });
 
-  it('applies the Type multiplier before the diversity multiplier', () => {
+  it('preserves historical Type and diversity multipliers for old snapshots', () => {
     const score = scoreWalletHoldings(alice, [
       holding(3n, alice, 'Nebula', 10n),
       holding(1n, alice, 'Nebula', 10n),

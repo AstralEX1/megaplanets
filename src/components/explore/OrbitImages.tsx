@@ -32,6 +32,7 @@ type OrbitImagesProps = {
   width?: number | '100%';
   height?: number | 'auto';
   className?: string;
+  itemClassName?: string;
   centerContent?: ReactNode;
   responsive?: boolean;
 };
@@ -68,6 +69,7 @@ function OrbitItem({
   progress,
   fill,
   altPrefix,
+  itemClassName,
 }: {
   src: string;
   index: number;
@@ -78,6 +80,7 @@ function OrbitItem({
   progress: MotionValue<number>;
   fill: boolean;
   altPrefix: string;
+  itemClassName: string;
 }) {
   const offset = useTransform(
     progress,
@@ -86,7 +89,7 @@ function OrbitItem({
   );
   return (
     <motion.div
-      className="orbit-item"
+      className={`orbit-item ${itemClassName}`.trim()}
       style={{
         width: itemSize,
         height: itemSize,
@@ -125,6 +128,7 @@ export function OrbitImages({
   width = '100%',
   height = 'auto',
   className = '',
+  itemClassName = '',
   centerContent,
   responsive = true,
 }: OrbitImagesProps) {
@@ -196,6 +200,7 @@ export function OrbitImages({
               progress={progress}
               fill={fill}
               altPrefix={altPrefix}
+              itemClassName={itemClassName}
             />
           ))}
         </div>

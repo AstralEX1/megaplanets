@@ -9,7 +9,7 @@ function transfer(from: PlanetTransfer['from'], to: PlanetTransfer['to'], blockN
   return { from, to, tokenId: 7n, blockNumber, logIndex };
 }
 
-describe('Planet holdings', () => {
+describe('compatibility snapshot Planet holdings', () => {
   it('uses the owner after a transfer before the recorded snapshot block', () => {
     const owners = reconstructPlanetOwners([transfer(zero, alice, 10n, 1n), transfer(alice, bob, 12n, 3n)]);
     expect(owners.get(7n)).toBe(bob);

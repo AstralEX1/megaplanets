@@ -9,11 +9,33 @@ import {
   readEligibleTicketsFromWalletHistory,
   readMegasteraProofsFromServer,
   readRecentEligibleTicketsFromChain,
+  shouldEnableEligiblePlanetTickets,
 } from './useEligiblePlanetTickets';
 
 const ACCOUNT = '0x0000000000000000000000000000000000000001' as const;
 const HASH_A = `0x${'a'.repeat(64)}` as const;
 const HASH_B = `0x${'b'.repeat(64)}` as const;
+
+describe('eligible Planet ticket query gating', () => {
+  it('stays idle until an expedition or resumable session needs recovery', () => {
+    expect(
+      shouldEnableEligiblePlanetTickets({
+        chain: 'testnet',
+        hasAddress: true,
+        hasClient: true,
+        requested: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldEnableEligiblePlanetTickets({
+        chain: 'testnet',
+        hasAddress: true,
+        hasClient: true,
+        requested: true,
+      }),
+    ).toBe(true);
+  });
+});
 
 function historyTicket(ticketId: string, transactionHash: `0x${string}`): Ticket {
   return {

@@ -314,7 +314,7 @@ export class PrismaEligibilityStore implements EligibilityStore {
         chainId_contractAddress_stream: {
           chainId: BASE_SEPOLIA_CHAIN_ID,
           contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
-          stream: 'megapot-tickets',
+          stream: TICKET_INDEX_STREAM,
         },
       },
       update: { nextBlock, lastBlockHash },

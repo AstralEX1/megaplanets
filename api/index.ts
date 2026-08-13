@@ -16,6 +16,7 @@ import { BASE_SEPOLIA_CHAIN_ID, DEFAULT_RECEIPT_CONFIRMATIONS } from './config';
 import { readBoundedJson, withTimeout } from './http';
 import { assertMetadataSignerMatch, assertProductionDatabase } from './readiness';
 import { readWithRpcFallback } from './rpc';
+import { createCorsMiddleware } from './cors';
 
 type VoucherRequest = { transactionHash: Hex; logIndex: number };
 
@@ -276,6 +277,8 @@ export function createApp(
   const dependencies = { ...defaultDependencies, ...overrides };
   const app = new Hono();
   const inFlightPreparations = new Map<string, Promise<PreparedVoucher>>();
+
+  app.use('*', createCorsMiddleware());
 
   app.use('*', async (c, next) => {
     await next();

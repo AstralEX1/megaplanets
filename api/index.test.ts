@@ -13,6 +13,7 @@ import type { EligibleTicket } from './eligibility';
 import type { MintVoucher } from './voucher';
 import { MemoryEligibilityStore } from './store';
 import { createOperationalState } from './operations';
+import { parseAllowedOrigins } from './cors';
 
 const config: Stage5Config = {
   rpcUrl: 'https://rpc.example.test',
@@ -132,6 +133,37 @@ describe('Stage 5 voucher endpoint', () => {
       contractAddress: config.planetContractAddress,
       deploymentBlock: '45347860',
     });
+  });
+
+  it('allows only explicitly configured frontend origins', async () => {
+    vi.stubEnv('MEGAPLANETS_ALLOWED_ORIGINS', 'https://demo.megaplanets.example, http://localhost:5173');
+    const app = createApp();
+
+    const allowed = await app.request('/api/planets/health', {
+      headers: { Origin: 'https://demo.megaplanets.example' },
+    });
+    expect(allowed.headers.get('access-control-allow-origin')).toBe('https://demo.megaplanets.example');
+
+    const preflight = await app.request('/api/planets/health', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:5173',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type',
+      },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
+
+    const denied = await app.request('/api/planets/health', {
+      headers: { Origin: 'https://evil.example' },
+    });
+    expect(denied.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  it('rejects wildcard and malformed CORS allowlists', () => {
+    expect(() => parseAllowedOrigins({ MEGAPLANETS_ALLOWED_ORIGINS: '*' })).toThrow(/origin/i);
+    expect(() => parseAllowedOrigins({ MEGAPLANETS_ALLOWED_ORIGINS: 'not an origin' })).toThrow(/origin/i);
   });
 
   it('exposes safe operational metrics without server credentials', async () => {

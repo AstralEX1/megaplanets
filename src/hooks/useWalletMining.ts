@@ -4,9 +4,7 @@ import { BACKEND_API_BASE_URL, backendApiFetch } from '@/lib/backendApi';
 export type PlanetMiningSnapshot = {
   tokenId: string;
   baseMineralsPerDay: string;
-  multiplierBps: string;
   effectiveMineralsPerDayMicros: string;
-  pendingMicros: string;
   earnedMicros: string;
   activeSince: string;
 };
@@ -15,7 +13,6 @@ export type WalletMiningSnapshot = {
   ownerAddress: `0x${string}`;
   asOf: string;
   ownedPlanetCount: number;
-  pendingMicros: string;
   earnedMicros: string;
   effectiveMineralsPerDayMicros: string;
   planets: PlanetMiningSnapshot[];

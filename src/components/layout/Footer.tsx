@@ -1,15 +1,7 @@
 /**
- * ---
- * @customize  Disclaimer footer. The link itself lives in
- *             `<DisclaimerLink />` — change the URL there. To remove the
- *             disclaimer entirely for a fork, delete the `<DisclaimerLink />`
- *             reference below.
- *
- *             Rendered as a normal in-flow footer on every breakpoint. On
- *             mobile, <Layout /> adds a spacer after the footer that matches
- *             the height of the fixed bottom nav so the disclaimer scrolls
- *             into view above the nav rather than being covered by it.
- * ---
+ * Disclaimer footer. Rendered as a normal in-flow footer on every breakpoint.
+ * On mobile, <Layout /> adds a spacer after the footer so it remains visible
+ * above the fixed bottom navigation.
  */
 import { COPY } from '@/config/copy';
 import { DisclaimerLink } from './DisclaimerLink';

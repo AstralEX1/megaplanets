@@ -8,7 +8,7 @@
 
 // RainbowKit (not ConnectKit or vanilla wagmi): zero-config WalletConnect
 // modal + injected detection in ~5 lines. Swap is two files — wagmi.ts and
-// this provider wrapper. See docs/CUSTOMIZE.md § "Wallet provider".
+// this provider wrapper. See docs/ARCHITECTURE.md for the active frontend boundary.
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';

@@ -4,7 +4,7 @@ import { TicketPicker } from '@/components/lottery/TicketPicker';
 import { type CustomTicket, isValidTicket, MAX_CUSTOM_TICKETS, randomTicket } from '@/lib/tickets';
 
 /**
- * Mirrors the Megapot Starter Kit: custom tickets are optional and all remaining
+ * Custom tickets are optional and all remaining
  * direct slots are client-generated quick-picks at checkout. Bulk random slots are
  * keeper-generated, so they deliberately have no final numbers client-side.
  */

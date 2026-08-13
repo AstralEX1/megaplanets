@@ -18,7 +18,7 @@
  *             API too.
  *
  *             Endpoint coverage. The `api` object below mirrors all 10 v1
- *             endpoints; the starter kit consumes 4 of them via dedicated
+ *             endpoints; the current frontend consumes the required subset via dedicated
  *             hooks (`walletStats`, `walletWins`, `walletTicketsForRound`,
  *             `listRounds`). The other 6 (`activeRound`, `round`,
  *             `roundTickets`, `roundWins`, `walletTickets`,
@@ -45,10 +45,9 @@
  *      directly, anonymous tier (10/min, 500/day).
  *   2. Browser key: set `VITE_MEGAPOT_API_KEY`. Same default base URL,
  *      higher tier (60/min, 10K/day). Key ships to the browser bundle.
- *   3. Proxy: set `VITE_API_BASE_URL=/api/megapot` AND deploy
- *      `server/proxy.ts` with `MEGAPOT_API_KEY` (no VITE_ prefix) on
- *      the server side. The key never reaches the browser. See
- *      `examples/` for platform-specific deploy wrappers.
+ *   3. Proxy: set `VITE_API_BASE_URL=/api/megapot` and deploy a
+ *      separately managed server-side proxy with `MEGAPOT_API_KEY`
+ *      (no VITE_ prefix). The key never reaches the browser.
  *
  * Empty / whitespace-only env values fall back to the default URL.
  */
@@ -365,7 +364,7 @@ async function get<T>(
 // ─── Endpoints ───────────────────────────────────────────────────────────────
 
 /**
- * Complete v1 endpoint surface — most are unused by the starter kit but kept
+ * Complete v1 endpoint surface — some endpoints are unused by the current frontend but kept
  * in place so a fork that wants e.g. round-leaderboards or per-round wallet
  * tickets can call them without re-deriving the URL or response type.
  */

@@ -213,7 +213,8 @@ The API exposes health, readiness, metrics, voucher, Planet, mining,
 and leaderboard routes. Check `/api/planets/health`, `/api/planets/readiness`, and
 `/api/planets/metrics` before using a configured environment. The browser uses
 `VITE_BACKEND_API_BASE_URL` for split frontend/API deployments; same-origin routes are
-the local default.
+the local default. Set `MEGAPLANETS_ALLOWED_ORIGINS` to an exact comma-separated
+frontend-origin allowlist for a split deployment; wildcard CORS is rejected.
 
 Never commit `.env.local`, private keys, signer material, Pinata credentials, database
 URLs, or API keys. The checked-in `.env.example` contains placeholders and intentionally
@@ -228,6 +229,7 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm db:generate
 pnpm db:validate
 pnpm --filter @megaplanets/planet-generator golden
 ```
@@ -236,9 +238,9 @@ For contract work:
 
 ```bash
 cd contracts
-forge build
+forge build --sizes
 forge test
-forge inspect MegaPlanets abi --json > abi/MegaPlanets.json
+./script/check-abi.sh
 ```
 
 ## Repository map
@@ -247,11 +249,12 @@ forge inspect MegaPlanets abi --json > abi/MegaPlanets.json
 - [`api/`](api/) — Hono API, voucher service, indexer, mining, and leaderboard.
 - [`contracts/`](contracts/) — ERC721A V2 source, ABI, deployment/verification scripts, and Foundry tests.
 - [`packages/planet-generator/`](packages/planet-generator/) — canonical deterministic generator and golden fixtures.
-- [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md) — product rules and MVP boundaries.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — API/RPC/indexer and data-flow boundaries.
-- [`docs/STATUS.md`](docs/STATUS.md) — current implementation state, deployment record, and blockers.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — staged delivery plan and release checkpoints.
-- [`docs/V2_INDEXER_REHEARSAL_RUNBOOK.md`](docs/V2_INDEXER_REHEARSAL_RUNBOOK.md) — controlled testnet operations runbook.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — authoritative source-of-truth and data-flow boundaries.
+- [`docs/STATUS.md`](docs/STATUS.md) — current implementation state, V2 identity, and blockers.
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — deployment, projector recovery, and release runbook.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — submission path and explicitly approved next work.
+- [`docs/DECISIONS.md`](docs/DECISIONS.md) — active architectural decisions.
+- [Official Summer Game Jam brief](https://www.inco.org/blog/summer-game-jam-resources-and-what-to-build) — judging criteria and submission requirements.
 
 ## License
 

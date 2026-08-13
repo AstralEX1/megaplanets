@@ -38,25 +38,20 @@ describe('getWalletMiningSnapshot', () => {
       ownerAddress,
       asOf: '2026-08-10T00:00:01.000Z',
       ownedPlanetCount: 2,
-      pendingMicros: '0',
       earnedMicros: '172803000000',
       effectiveMineralsPerDayMicros: '259200000000',
       planets: [
         {
           tokenId: '1',
           baseMineralsPerDay: '86400',
-          multiplierBps: '10000',
           effectiveMineralsPerDayMicros: '86400000000',
-          pendingMicros: '0',
           earnedMicros: '1000000',
           activeSince: '2026-08-10T00:00:00.000Z',
         },
         {
           tokenId: '2',
           baseMineralsPerDay: '172800',
-          multiplierBps: '10000',
           effectiveMineralsPerDayMicros: '172800000000',
-          pendingMicros: '0',
           earnedMicros: '172802000000',
           activeSince: '2026-08-09T00:00:00.000Z',
         },
@@ -88,7 +83,6 @@ describe('getPlanetMiningSnapshot', () => {
     expect(snapshot).toMatchObject({
       tokenId: '7',
       ownerAddress: '0x0000000000000000000000000000000000000002',
-      pendingMicros: '0',
       earnedMicros: '20000000',
       activeSince: '2026-08-10T00:00:00.000Z',
     });

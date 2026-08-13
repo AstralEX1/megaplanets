@@ -1,0 +1,354 @@
+[
+  {
+    "file": "planet-01.gif",
+    "input": {
+      "ticketId": "5001",
+      "drawingId": "701",
+      "normals": [
+        20,
+        51,
+        82,
+        113,
+        244
+      ],
+      "bonusBall": 103,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Draheunia",
+    "type": "Toxic",
+    "rarity": "Common",
+    "seed": "0x854cb27ebf1735d94eb8daa8c59716f8ea340819b69c95f255cbde6bbe267e1f",
+    "gifSha256": "0xf069b70cfe46517a07954bab9269c7858623f66e68be92d1693b6509acb307ee",
+    "gifBytes": 202154
+  },
+  {
+    "file": "planet-02.gif",
+    "input": {
+      "ticketId": "5002",
+      "drawingId": "702",
+      "normals": [
+        2,
+        33,
+        64,
+        95,
+        126
+      ],
+      "bonusBall": 120,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Cegantu IV",
+    "type": "Oceanic",
+    "rarity": "Epic",
+    "seed": "0x0c58b66dc047ee1324d4d428d0c0f2eed2da22cd9b29313106580d092facbc6e",
+    "gifSha256": "0xaa7ad52f69da05ffb24a9a0f1528d95c45dd5b8df294e6efed8af47f93827586",
+    "gifBytes": 132330
+  },
+  {
+    "file": "planet-03.gif",
+    "input": {
+      "ticketId": "5003",
+      "drawingId": "703",
+      "normals": [
+        15,
+        46,
+        77,
+        108,
+        139
+      ],
+      "bonusBall": 137,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Esmiuq II",
+    "type": "Volcanic",
+    "rarity": "Common",
+    "seed": "0x904e00976c754822190cc0a17fbf166fd6578d11f41f2e75e865c37c2c8928a7",
+    "gifSha256": "0x8f765e104a8b092d52bf20a626791604f12dcd40463763676ba69ac0d900727f",
+    "gifBytes": 131656
+  },
+  {
+    "file": "planet-04.gif",
+    "input": {
+      "ticketId": "5004",
+      "drawingId": "704",
+      "normals": [
+        28,
+        59,
+        90,
+        121,
+        152
+      ],
+      "bonusBall": 154,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Asterth-43",
+    "type": "Toxic",
+    "rarity": "Common",
+    "seed": "0xfaac93959fa62667da8bac3ab52ce1a73523f136b55184fbe26768fb0bd80ade",
+    "gifSha256": "0x6ce636312c53da6aaf96f6fe1ad6d1a4166238e2ff39d9f1289f25a507a686f3",
+    "gifBytes": 190974
+  },
+  {
+    "file": "planet-05.gif",
+    "input": {
+      "ticketId": "5005",
+      "drawingId": "700",
+      "normals": [
+        41,
+        72,
+        103,
+        134,
+        165
+      ],
+      "bonusBall": 171,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Wheuagawa III",
+    "type": "Nebula",
+    "rarity": "Uncommon",
+    "seed": "0x17239ae3f638813131621fa56629db79defa7c656f4e4dc99eca2e72e0ea0b71",
+    "gifSha256": "0x5938d114b08988ab9dfc5cfcc5d04399181a2d8d3fd715cfe6053b6abd1fde6a",
+    "gifBytes": 129371
+  },
+  {
+    "file": "planet-06.gif",
+    "input": {
+      "ticketId": "5006",
+      "drawingId": "701",
+      "normals": [
+        54,
+        85,
+        116,
+        147,
+        178
+      ],
+      "bonusBall": 188,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Ostrara",
+    "type": "Gas Giant",
+    "rarity": "Common",
+    "seed": "0x97ed0b4812ea2948a9646f119e25b6f57dd5536e0f5579ad0c935f0e6263270f",
+    "gifSha256": "0xf9c36e6538633f98e1541d6910b15c1bb79ad849fe863be6c8d58bfb870f1062",
+    "gifBytes": 198398
+  },
+  {
+    "file": "planet-07.gif",
+    "input": {
+      "ticketId": "5007",
+      "drawingId": "702",
+      "normals": [
+        67,
+        98,
+        129,
+        160,
+        191
+      ],
+      "bonusBall": 205,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Ravis",
+    "type": "Void",
+    "rarity": "Common",
+    "seed": "0x67362690365067ca200d98ba797c47966e68a200724fe642728f2238b5f115db",
+    "gifSha256": "0x872e0898c307b27f3aff5abeb7a99c7f9be33f57c364a399f2f286b567186664",
+    "gifBytes": 142015
+  },
+  {
+    "file": "planet-08.gif",
+    "input": {
+      "ticketId": "5008",
+      "drawingId": "703",
+      "normals": [
+        80,
+        111,
+        142,
+        173,
+        204
+      ],
+      "bonusBall": 222,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Fruywainia II",
+    "type": "Void",
+    "rarity": "Common",
+    "seed": "0x2cad1d60b4849d93c1b1df56fb8a745550af87b675d6452104e2f53c06afcdb6",
+    "gifSha256": "0xe23e4d443e9b6d5b0860d6f9e4486a70c2cde141a90179509ba6635fc4cbdde1",
+    "gifBytes": 145413
+  },
+  {
+    "file": "planet-09.gif",
+    "input": {
+      "ticketId": "5009",
+      "drawingId": "704",
+      "normals": [
+        93,
+        124,
+        155,
+        186,
+        217
+      ],
+      "bonusBall": 239,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Auclagua-94",
+    "type": "Rocky",
+    "rarity": "Common",
+    "seed": "0xbb849157fd4a7e3c9cb834c2e82e0017004098a43a35029d3e839eab43d01f06",
+    "gifSha256": "0xb96b8bb27d2ea24820aa39cc44deb1eabcff66c6daa919ef286d8ed4779d223f",
+    "gifBytes": 115128
+  },
+  {
+    "file": "planet-10.gif",
+    "input": {
+      "ticketId": "5010",
+      "drawingId": "700",
+      "normals": [
+        106,
+        137,
+        168,
+        199,
+        230
+      ],
+      "bonusBall": 1,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Uplichi",
+    "type": "Nebula",
+    "rarity": "Uncommon",
+    "seed": "0x29a7f38f194ac7fb545a75b0ae46c00ae9b7ce9c2bd08a2d50568a21514dcbbb",
+    "gifSha256": "0x9f14cfc51f7f48d33837b0c86c1ff211ad0bb29416d841fde2b5a3f98f93e712",
+    "gifBytes": 105770
+  },
+  {
+    "file": "planet-11.gif",
+    "input": {
+      "ticketId": "5011",
+      "drawingId": "701",
+      "normals": [
+        119,
+        150,
+        181,
+        212,
+        243
+      ],
+      "bonusBall": 18,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Iefryke",
+    "type": "Gas Giant",
+    "rarity": "Common",
+    "seed": "0x0cb048afe0c4c39dccc176da36700be8fcd0fe04fd07b7e5c5d7cf5a4e376488",
+    "gifSha256": "0xda81fa8851fd409eea0bf20ad6c8982a6c6647c019c2a6ccad1dddc00eafe67a",
+    "gifBytes": 131119
+  },
+  {
+    "file": "planet-12.gif",
+    "input": {
+      "ticketId": "5012",
+      "drawingId": "702",
+      "normals": [
+        1,
+        132,
+        163,
+        194,
+        225
+      ],
+      "bonusBall": 35,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Oeplbeshan",
+    "type": "Volcanic",
+    "rarity": "Epic",
+    "seed": "0x2187cf2de408b737cb7bcaf2922a55d678f647b4f8eaa92245a1c5e3b42a3867",
+    "gifSha256": "0x2dbc0e80719fb1b3ed249559f0e9ee71f12e78eb774d3499ec6f202c080d1caf",
+    "gifBytes": 196476
+  },
+  {
+    "file": "planet-13.gif",
+    "input": {
+      "ticketId": "5013",
+      "drawingId": "703",
+      "normals": [
+        14,
+        145,
+        176,
+        207,
+        238
+      ],
+      "bonusBall": 52,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Iosluna",
+    "type": "Rocky",
+    "rarity": "Epic",
+    "seed": "0x4ed7ac1a3cdc70d8e4a34ade0059944ec5cc5253a3603533fa9b9be8781768d7",
+    "gifSha256": "0xd6e758d07c59d8f3afb02afafe9eb9afdebc6fce90dc8a3fded848a9b7e0819f",
+    "gifBytes": 111976
+  },
+  {
+    "file": "planet-14.gif",
+    "input": {
+      "ticketId": "5014",
+      "drawingId": "704",
+      "normals": [
+        27,
+        158,
+        189,
+        220,
+        251
+      ],
+      "bonusBall": 69,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Oyraigroria-64",
+    "type": "Rocky",
+    "rarity": "Common",
+    "seed": "0xa225295adcd3340d07cc855da6579ecbd2916ea9f83a6beddc1d0dd0a31e3cb1",
+    "gifSha256": "0x21908ef8eb383b67ed652222cc0e51bfca29fa73f256ba83c6c9aaa10b3891cd",
+    "gifBytes": 110837
+  },
+  {
+    "file": "planet-15.gif",
+    "input": {
+      "ticketId": "5015",
+      "drawingId": "700",
+      "normals": [
+        9,
+        40,
+        171,
+        202,
+        233
+      ],
+      "bonusBall": 86,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Snaynoynides",
+    "type": "Rocky",
+    "rarity": "Uncommon",
+    "seed": "0x197ef3e875552b2e07562088a534a778c5e018d176965db3580dd7756a04131a",
+    "gifSha256": "0x163acfdfdf370ff19f999e4e06718e0f7b20e7ae2465716a07d13089da9f54c7",
+    "gifBytes": 98838
+  },
+  {
+    "file": "planet-16.gif",
+    "input": {
+      "ticketId": "5016",
+      "drawingId": "701",
+      "normals": [
+        22,
+        53,
+        184,
+        215,
+        246
+      ],
+      "bonusBall": 103,
+      "originTxHash": "0x5151515151515151515151515151515151515151515151515151515151515151"
+    },
+    "name": "Upthilia",
+    "type": "Rocky",
+    "rarity": "Common",
+    "seed": "0x2ebec17075d63e146482ed402b4803cc000ae56b2c1026bbd8a7e04c21a4b935",
+    "gifSha256": "0x48852d5b78ddc58e74daf70fa1c94510a9510b706b2868b9aa256690fac43022",
+    "gifBytes": 88908
+  }
+]

@@ -9,7 +9,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('backend mining fetchers', () => {
   it('loads one aggregated wallet mining snapshot', async () => {
-    const payload = { mining: { ownerAddress: ADDRESS, asOf: '2026-08-12T12:00:00.000Z', ownedPlanetCount: 1, pendingMicros: '1', earnedMicros: '2', effectiveMineralsPerDayMicros: '3', planets: [] } };
+    const payload = { mining: { ownerAddress: ADDRESS, asOf: '2026-08-12T12:00:00.000Z', ownedPlanetCount: 1, earnedMicros: '2', effectiveMineralsPerDayMicros: '3', planets: [] } };
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 

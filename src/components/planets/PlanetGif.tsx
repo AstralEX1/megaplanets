@@ -7,37 +7,68 @@ type GifState =
   | { status: 'ready'; url: string }
   | { status: 'error'; url: null };
 
-export function PlanetGif({ preview }: { preview: PlanetPreview }) {
+export function PlanetGif({
+  preview,
+  deferGeneration = false,
+}: {
+  preview: PlanetPreview;
+  deferGeneration?: boolean;
+}) {
   const [gif, setGif] = useState<GifState>({ status: 'loading', url: null });
+  const [generationStarted, setGenerationStarted] = useState(!deferGeneration);
 
   useEffect(() => {
-    if (typeof Worker === 'undefined') {
-      setGif({ status: 'error', url: null });
-      return;
-    }
-
     const requestId = `${preview.descriptor.seed}:${preview.descriptor.input.ticketId.toString()}`;
-    const worker = new Worker(new URL('../../workers/planetGif.worker.ts', import.meta.url), { type: 'module' });
+    let worker: Worker | null = null;
     let objectUrl: string | null = null;
+    let active = true;
+    if (deferGeneration) setGenerationStarted(false);
     setGif({ status: 'loading', url: null });
 
-    worker.onmessage = (event: MessageEvent<{ requestId: string; gif: ArrayBuffer } | { requestId: string; error: string }>) => {
-      if (event.data.requestId !== requestId) return;
-      if ('error' in event.data) {
+    const startGeneration = () => {
+      if (!active) return;
+      setGenerationStarted(true);
+      if (typeof Worker === 'undefined') {
         setGif({ status: 'error', url: null });
         return;
       }
-      objectUrl = URL.createObjectURL(new Blob([event.data.gif], { type: 'image/gif' }));
-      setGif({ status: 'ready', url: objectUrl });
+
+      worker = new Worker(new URL('../../workers/planetGif.worker.ts', import.meta.url), { type: 'module' });
+      worker.onmessage = (event: MessageEvent<{ requestId: string; gif: ArrayBuffer } | { requestId: string; error: string }>) => {
+        if (!active || event.data.requestId !== requestId) return;
+        if ('error' in event.data) {
+          setGif({ status: 'error', url: null });
+          return;
+        }
+        objectUrl = URL.createObjectURL(new Blob([event.data.gif], { type: 'image/gif' }));
+        setGif({ status: 'ready', url: objectUrl });
+      };
+      worker.onerror = () => {
+        if (active) setGif({ status: 'error', url: null });
+      };
+      worker.postMessage({ requestId, input: serializePlanetInput(preview.descriptor.input) });
     };
-    worker.onerror = () => setGif({ status: 'error', url: null });
-    worker.postMessage({ requestId, input: serializePlanetInput(preview.descriptor.input) });
+
+    const timer = deferGeneration ? window.setTimeout(startGeneration, 450) : null;
+    if (!deferGeneration) startGeneration();
 
     return () => {
-      worker.terminate();
+      active = false;
+      if (timer !== null) window.clearTimeout(timer);
+      worker?.terminate();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [preview]);
+  }, [deferGeneration, preview]);
+
+  if (deferGeneration && !generationStarted) {
+    return (
+      <div
+        className="relative aspect-square w-full bg-[#050610]"
+        role="img"
+        aria-label={`Preparing animated planet ${preview.descriptor.traits.name}`}
+      />
+    );
+  }
 
   if (gif.status === 'ready') {
     return (

@@ -9,7 +9,7 @@ const state = vi.hoisted(() => ({
 }));
 
 const current = {
-  period: { id: '2026-08-10', startsAt: '2026-08-10T00:00:00.000Z', endsAt: '2026-08-17T00:00:00.000Z' },
+  period: { id: '2026-08-12', startsAt: '2026-08-12T00:00:00.000Z', endsAt: '2026-08-13T00:00:00.000Z' },
   asOf: '2026-08-12T12:00:00.000Z',
   total: 2,
   offset: 0,
@@ -24,7 +24,7 @@ vi.mock('wagmi', () => ({ useAccount: () => state.account }));
 vi.mock('@/hooks/useLeaderboard', () => ({
   useCurrentLeaderboard: () => ({ data: current, isLoading: false, error: state.error, refetch: vi.fn() }),
   useWalletLeaderboardPosition: () => ({ data: { period: current.period, asOf: current.asOf, row: current.rows[1], distanceToNextRankMicros: '6000000' }, isLoading: false }),
-  useLeaderboardHistory: () => ({ data: { total: 1, offset: 0, limit: 20, periods: [{ id: '2026-08-03', startsAt: '2026-08-03T00:00:00.000Z', endsAt: '2026-08-10T00:00:00.000Z', finalizedAt: '2026-08-10T00:00:01.000Z' }] } }),
+  useLeaderboardHistory: () => ({ data: { total: 1, offset: 0, limit: 20, periods: [{ id: '2026-08-11', startsAt: '2026-08-11T00:00:00.000Z', endsAt: '2026-08-12T00:00:00.000Z', finalizedAt: '2026-08-12T00:00:01.000Z' }] } }),
   useArchivedLeaderboard: () => ({ data: undefined, isLoading: false, error: undefined }),
 }));
 
@@ -47,7 +47,7 @@ describe('Leaderboard', () => {
     expect(screen.getByText('Your rank')).toBeInTheDocument();
     expect(screen.getByText('6 to next rank')).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Latest snapshot/ })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /Aug 3/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Aug 11/ })).toBeInTheDocument();
     expect(container.querySelector('[data-wallet-row="true"]')).toBeInTheDocument();
     expect(container.querySelector('[data-mobile-standings]')).toHaveClass('md:hidden');
   });

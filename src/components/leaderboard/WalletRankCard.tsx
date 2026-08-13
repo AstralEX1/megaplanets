@@ -5,7 +5,7 @@ export function WalletRankCard({ position }: { position: WalletLeaderboardPositi
   if (!position.row) return (
     <aside className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
       <p className="telemetry text-[var(--text-secondary)]">Your rank</p>
-      <p className="mt-2 text-sm text-[var(--text-secondary)]">Reveal a Planet to start mining this week.</p>
+      <p className="mt-2 text-sm text-[var(--text-secondary)]">Reveal a Planet to appear in the next daily snapshot.</p>
     </aside>
   );
   return (

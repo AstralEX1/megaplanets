@@ -7,7 +7,7 @@ const source: SnapshotSource = {
   getHoldingsAtBlock: async () => [{ holder: '0x1111111111111111111111111111111111111111', tokenId: 1n, planetType: 'Nebula', minerals: 10n }],
 };
 
-describe('daily snapshot job', () => {
+describe('legacy block snapshot job', () => {
   it('selects a finalized block and stores a reproducible report once', async () => {
     const store = new MemoryEligibilityStore();
     const snapshot = await captureDailySnapshot(store, source, () => new Date('2026-08-04T00:00:00.000Z'));

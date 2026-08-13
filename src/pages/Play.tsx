@@ -82,6 +82,7 @@ export function Play() {
   const checkoutDisabled =
     !isConnected || phase !== 'open' || purchase.isPending || !(isBulk ? bulkReady : directReady);
   const recovered = useEligiblePlanetTickets(address, {
+    enabled: flowActive || session !== null,
     refetchInterval: flowActive ? 5_000 : undefined,
   });
   const indexed = useIndexedPlanets(address);
