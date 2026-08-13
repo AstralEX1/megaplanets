@@ -12,18 +12,22 @@ describe('CompactPlanetDial', () => {
 
     const slider = screen.getByRole('slider', { name: 'Planets to explore' });
 
+    expect(slider).toHaveAttribute('type', 'range');
     expect(slider).toHaveAttribute('aria-valuemin', '1');
     expect(slider).toHaveAttribute('aria-valuemax', '50');
     expect(slider).toHaveAttribute('aria-valuenow', '3');
-    expect(screen.queryByRole('button', { name: 'Selected planets thumb' })).not.toBeInTheDocument();
+    expect(slider).toHaveAttribute('aria-valuetext', '3 planets');
+    expect(
+      screen.queryByRole('button', { name: 'Selected planets thumb' }),
+    ).not.toBeInTheDocument();
   });
 
   it('renders the slider markers as prominent quantity labels', () => {
     render(<CompactPlanetDial quantity={3} onChange={vi.fn()} />);
 
-    expect(screen.getByText('25').parentElement).toHaveClass('text-sm', 'font-bold');
-    expect(sliderClass(screen.getByRole('slider', { name: 'Planets to explore' }))).toContain('h-8');
-    expect(screen.getByText('25').parentElement).toHaveClass('-mt-1');
+    for (const marker of [1, 5, 10, 25, 50]) {
+      expect(screen.getByText(String(marker), { exact: true })).toBeVisible();
+    }
   });
 
   it('emits the value while the slider is dragged', () => {
@@ -35,18 +39,25 @@ describe('CompactPlanetDial', () => {
     expect(onChange).toHaveBeenLastCalledWith(50);
   });
 
-  it('maps pointer position on the track to the selected quantity', () => {
+  it('forwards native range changes to the selected quantity', () => {
     const onChange = vi.fn();
     render(<CompactPlanetDial quantity={3} onChange={onChange} />);
 
     const slider = screen.getByRole('slider', { name: 'Planets to explore' });
-    Object.defineProperty(slider, 'getBoundingClientRect', { value: () => ({ left: 100, width: 490 }) });
-    fireEvent.pointerDown(slider, { pointerId: 1, clientX: 340 });
+    fireEvent.change(slider, { target: { value: '25' } });
 
     expect(onChange).toHaveBeenLastCalledWith(25);
   });
-});
 
-function sliderClass(element: HTMLElement) {
-  return element.className;
-}
+  it('submits a manually entered quantity on Enter', () => {
+    const onChange = vi.fn();
+    render(<CompactPlanetDial quantity={3} onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Custom quantity' }));
+    const input = screen.getByLabelText('Custom planet count');
+    fireEvent.change(input, { target: { value: '42' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onChange).toHaveBeenLastCalledWith(42);
+  });
+});

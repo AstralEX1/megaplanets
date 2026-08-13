@@ -57,15 +57,14 @@ export function fetchLeaderboardHistory(offset = 0, limit = 20): Promise<Leaderb
 }
 
 export function fetchArchivedLeaderboard(periodId: string, offset = 0, limit = 50): Promise<LeaderboardPage> {
-  return readJson(`/api/leaderboard/weeks/${encodeURIComponent(periodId)}?offset=${offset}&limit=${limit}`, 'Archived leaderboard');
+  return readJson(`/api/leaderboard/days/${encodeURIComponent(periodId)}?offset=${offset}&limit=${limit}`, 'Archived leaderboard');
 }
 
 export function useCurrentLeaderboard(offset = 0, limit = 50) {
   return useQuery({
     queryKey: ['megaplanets-backend', BACKEND_API_BASE_URL, 'leaderboard', 'current', offset, limit],
     queryFn: () => fetchCurrentLeaderboard(offset, limit),
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: 15 * 60_000,
   });
 }
 
@@ -77,8 +76,7 @@ export function useWalletLeaderboardPosition(address: `0x${string}` | undefined)
       return fetchWalletLeaderboardPosition(address);
     },
     enabled: !!address,
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: 15 * 60_000,
   });
 }
 
@@ -86,13 +84,13 @@ export function useLeaderboardHistory() {
   return useQuery({
     queryKey: ['megaplanets-backend', BACKEND_API_BASE_URL, 'leaderboard', 'history'],
     queryFn: () => fetchLeaderboardHistory(),
-    staleTime: 60_000,
+    staleTime: 60 * 60_000,
   });
 }
 
 export function useArchivedLeaderboard(periodId: string | undefined) {
   return useQuery({
-    queryKey: ['megaplanets-backend', BACKEND_API_BASE_URL, 'leaderboard', 'week', periodId],
+    queryKey: ['megaplanets-backend', BACKEND_API_BASE_URL, 'leaderboard', 'day', periodId],
     queryFn: () => {
       if (!periodId) throw new Error('A leaderboard period is required.');
       return fetchArchivedLeaderboard(periodId);

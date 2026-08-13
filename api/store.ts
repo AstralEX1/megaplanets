@@ -1,15 +1,30 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { getAddress, isAddress, isHash, type Address, type Hex } from 'viem';
-import type { EligibleTicket } from './eligibility';
+import { normalizeMegasteraProof, type EligibleTicket, type MegasteraProof, type MegasteraProofReference } from './eligibility';
 import type { DailySnapshot, PlanetHolding } from './scoring';
 import type { MintVoucher } from './voucher';
+import { MEGAPLANETS_TICKET_START_BLOCK } from './config';
 
 export type PreparedVoucher = {
   voucher: MintVoucher;
   signature: Hex;
   signer: Address;
   digest: Hex;
+  /** Internal handoff used to persist immutable media separately from signatures. */
+  artifact?: PlanetArtifact;
+};
+
+export type PlanetArtifact = {
+  key: string;
+  ticketId: string;
+  recipient: Address;
+  seed: Hex;
+  traitsHash: Hex;
+  metadataHash: Hex;
+  metadataURI: string;
+  mediaURI: string;
+  mediaHash: Hex;
 };
 
 export type IndexedTicket = EligibleTicket;
@@ -19,10 +34,23 @@ export type IndexerCursor = {
   lastBlockHash?: Hex;
 };
 
+export type ProofPagination = { offset: number; limit: number };
+export type ProofListResult = {
+  total: number;
+  offset: number;
+  limit: number;
+  proofs: MegasteraProof[];
+};
+
 export type EligibilityStore = {
   saveTicket(ticket: IndexedTicket): Promise<void>;
+  saveProof(proof: MegasteraProof): Promise<void>;
+  getProof(reference: MegasteraProofReference | Hex, logIndex?: bigint | number): Promise<MegasteraProof | undefined>;
+  listProofs(recipient: Address, pagination: ProofPagination): Promise<ProofListResult>;
   getVoucher(ticketId: bigint, recipient: Address, now: bigint): Promise<PreparedVoucher | undefined>;
   saveVoucher(prepared: PreparedVoucher): Promise<void>;
+  getArtifact?(key: string): Promise<PlanetArtifact | undefined>;
+  saveArtifact?(artifact: PlanetArtifact): Promise<void>;
   getCursor(): Promise<IndexerCursor | undefined>;
   setCursor(nextBlock: bigint, lastBlockHash: Hex): Promise<void>;
   rewind(fromBlock: bigint): Promise<void>;
@@ -33,9 +61,11 @@ export type EligibilityStore = {
 type PersistedStore = {
   version: 2;
   cursor?: { nextBlock: string; lastBlockHash?: Hex };
+  cursorEpoch?: string;
   tickets: Record<string, PersistedTicket>;
   vouchers: Record<string, PersistedVoucher>;
   snapshots: Record<string, PersistedSnapshot>;
+  artifacts?: Record<string, PlanetArtifact>;
 };
 type PersistedTicket = Omit<IndexedTicket, 'ticketId' | 'drawingId' | 'blockNumber' | 'logIndex'> & {
   ticketId: string;
@@ -58,7 +88,7 @@ export type PersistedSnapshot = Omit<DailySnapshot, 'blockNumber' | 'holdings' |
   }>;
 };
 
-const emptyStore = (): PersistedStore => ({ version: 2, tickets: {}, vouchers: {}, snapshots: {} });
+const emptyStore = (): PersistedStore => ({ version: 2, cursorEpoch: MEGAPLANETS_TICKET_START_BLOCK.toString(), tickets: {}, vouchers: {}, snapshots: {}, artifacts: {} });
 const voucherKey = (ticketId: bigint, recipient: Address) => `${ticketId}:${getAddress(recipient).toLowerCase()}`;
 const snapshotKey = (blockNumber: bigint) => blockNumber.toString();
 
@@ -70,9 +100,26 @@ function deserializeTicket(ticket: PersistedTicket): IndexedTicket {
   return { ...ticket, recipient: getAddress(ticket.recipient), ticketId: BigInt(ticket.ticketId), drawingId: BigInt(ticket.drawingId), blockNumber: BigInt(ticket.blockNumber), logIndex: BigInt(ticket.logIndex) };
 }
 
+function proofReferenceKey(reference: MegasteraProofReference | Hex, logIndexOverride?: bigint | number): string {
+  const normalizedReference = typeof reference === 'string'
+    ? { transactionHash: reference, logIndex: logIndexOverride }
+    : reference;
+  const transactionHash = normalizedReference.transactionHash ?? normalizedReference.originTxHash;
+  if (!transactionHash) throw new Error('Megastera proof transaction hash is required.');
+  if (normalizedReference.logIndex === undefined) throw new Error('Megastera proof log index is required.');
+  const logIndex = typeof normalizedReference.logIndex === 'bigint' ? normalizedReference.logIndex : BigInt(normalizedReference.logIndex);
+  if (logIndex < 0n) throw new Error('Megastera proof log index is invalid.');
+  return `${transactionHash.toLowerCase()}:${logIndex.toString()}`;
+}
+
+function proofFromTicket(ticket: IndexedTicket): MegasteraProof {
+  return normalizeMegasteraProof(ticket as MegasteraProof);
+}
+
 export function serializePreparedVoucher(prepared: PreparedVoucher): PersistedVoucher {
   const { voucher } = prepared;
-  return { ...prepared, voucher: { ...voucher, ticketId: voucher.ticketId.toString(), drawingId: voucher.drawingId.toString(), expiresAt: voucher.expiresAt.toString() } };
+  const { artifact: _artifact, ...persisted } = prepared;
+  return { ...persisted, voucher: { ...voucher, ticketId: voucher.ticketId.toString(), drawingId: voucher.drawingId.toString(), expiresAt: voucher.expiresAt.toString() } };
 }
 
 export function deserializePreparedVoucher(prepared: PersistedVoucher): PreparedVoucher {
@@ -116,6 +163,7 @@ function validateStore(value: unknown): PersistedStore {
   const candidate = value as {
     version?: number;
     cursor?: string | { nextBlock: string; lastBlockHash?: Hex };
+    cursorEpoch?: string;
     tickets?: Record<string, PersistedTicket>;
     vouchers?: Record<string, PersistedVoucher>;
     snapshots?: Record<string, PersistedSnapshot>;
@@ -174,6 +222,46 @@ export class FileEligibilityStore implements EligibilityStore {
     });
   }
 
+  async saveProof(proof: MegasteraProof): Promise<void> {
+    const normalized = proofFromTicket(proof);
+    const existing = await this.getProof({ transactionHash: normalized.originTxHash, logIndex: normalized.logIndex });
+    if (existing && JSON.stringify(serializeTicket(existing)) !== JSON.stringify(serializeTicket(normalized))) {
+      throw new Error(`Megastera proof ${normalized.originTxHash}:${normalized.logIndex} conflicts with existing provenance.`);
+    }
+    if (existing) return;
+    await this.saveTicket(normalized);
+  }
+
+  async getProof(reference: MegasteraProofReference | Hex, logIndex?: bigint | number): Promise<MegasteraProof | undefined> {
+    const key = proofReferenceKey(reference, logIndex);
+    const store = await this.read();
+    for (const persisted of Object.values(store.tickets)) {
+      if (`${persisted.originTxHash.toLowerCase()}:${persisted.logIndex}` !== key) continue;
+      return proofFromTicket(deserializeTicket(persisted));
+    }
+    return undefined;
+  }
+
+  async listProofs(recipient: Address, pagination: ProofPagination): Promise<ProofListResult> {
+    const normalizedRecipient = getAddress(recipient).toLowerCase();
+    const proofs = (await this.read()).tickets
+      ? Object.values((await this.read()).tickets)
+        .map((ticket) => proofFromTicket(deserializeTicket(ticket)))
+        .filter((proof) => proof.recipient.toLowerCase() === normalizedRecipient)
+        .sort((left, right) => {
+          if (left.blockNumber !== right.blockNumber) return left.blockNumber > right.blockNumber ? -1 : 1;
+          if (left.logIndex !== right.logIndex) return left.logIndex > right.logIndex ? -1 : 1;
+          return left.ticketId > right.ticketId ? -1 : left.ticketId < right.ticketId ? 1 : 0;
+        })
+      : [];
+    return {
+      total: proofs.length,
+      offset: pagination.offset,
+      limit: pagination.limit,
+      proofs: proofs.slice(pagination.offset, pagination.offset + pagination.limit),
+    };
+  }
+
   async getVoucher(ticketId: bigint, recipient: Address, now: bigint): Promise<PreparedVoucher | undefined> {
     const stored = (await this.read()).vouchers[voucherKey(ticketId, recipient)];
     if (!stored) return undefined;
@@ -187,13 +275,33 @@ export class FileEligibilityStore implements EligibilityStore {
     });
   }
 
+  async getArtifact(key: string): Promise<PlanetArtifact | undefined> {
+    const value = (await this.read() as PersistedStore & { artifacts?: Record<string, PlanetArtifact> }).artifacts?.[key];
+    return value ? { ...value, recipient: getAddress(value.recipient) } : undefined;
+  }
+
+  async saveArtifact(artifact: PlanetArtifact): Promise<void> {
+    await this.update((store) => {
+      const persisted = store as PersistedStore & { artifacts?: Record<string, PlanetArtifact> };
+      persisted.artifacts ??= {};
+      const existing = persisted.artifacts[artifact.key];
+      if (existing && JSON.stringify(existing) !== JSON.stringify(artifact)) throw new Error(`Planet artifact ${artifact.key} conflicts with immutable content.`);
+      persisted.artifacts[artifact.key] = artifact;
+    });
+  }
+
   async getCursor(): Promise<IndexerCursor | undefined> {
-    const cursor = (await this.read()).cursor;
+    const store = await this.read();
+    if (store.cursorEpoch !== MEGAPLANETS_TICKET_START_BLOCK.toString()) return undefined;
+    const cursor = store.cursor;
     return cursor === undefined ? undefined : { nextBlock: BigInt(cursor.nextBlock), lastBlockHash: cursor.lastBlockHash };
   }
 
   async setCursor(nextBlock: bigint, lastBlockHash: Hex): Promise<void> {
-    await this.update((store) => { store.cursor = { nextBlock: nextBlock.toString(), lastBlockHash }; });
+    await this.update((store) => {
+      store.cursor = { nextBlock: nextBlock.toString(), lastBlockHash };
+      store.cursorEpoch = MEGAPLANETS_TICKET_START_BLOCK.toString();
+    });
   }
 
   async rewind(fromBlock: bigint): Promise<void> {
@@ -209,6 +317,7 @@ export class FileEligibilityStore implements EligibilityStore {
         if (removedTicketIds.has(voucher.voucher.ticketId)) delete store.vouchers[key];
       }
       store.cursor = undefined;
+      store.cursorEpoch = MEGAPLANETS_TICKET_START_BLOCK.toString();
     });
   }
 
@@ -232,6 +341,7 @@ export class MemoryEligibilityStore implements EligibilityStore {
   private readonly vouchers = new Map<string, PreparedVoucher>();
   private cursor: IndexerCursor | undefined;
   private readonly snapshots = new Map<string, DailySnapshot>();
+  private readonly artifacts = new Map<string, PlanetArtifact>();
 
   async saveTicket(ticket: IndexedTicket) {
     const key = ticket.ticketId.toString();
@@ -239,11 +349,50 @@ export class MemoryEligibilityStore implements EligibilityStore {
     if (existing && JSON.stringify(serializeTicket(existing)) !== JSON.stringify(serializeTicket(ticket))) throw new Error(`Ticket ${key} conflicts with existing indexed provenance.`);
     this.tickets.set(key, ticket);
   }
+  async saveProof(proof: MegasteraProof) {
+    const normalized = proofFromTicket(proof);
+    const existing = await this.getProof({ transactionHash: normalized.originTxHash, logIndex: normalized.logIndex });
+    if (existing && JSON.stringify(serializeTicket(existing)) !== JSON.stringify(serializeTicket(normalized))) {
+      throw new Error(`Megastera proof ${normalized.originTxHash}:${normalized.logIndex} conflicts with existing provenance.`);
+    }
+    if (existing) return;
+    await this.saveTicket(normalized);
+  }
+  async getProof(reference: MegasteraProofReference | Hex, logIndex?: bigint | number) {
+    const key = proofReferenceKey(reference, logIndex);
+    for (const ticket of this.tickets.values()) {
+      if (`${ticket.originTxHash.toLowerCase()}:${ticket.logIndex.toString()}` === key) return proofFromTicket(ticket);
+    }
+    return undefined;
+  }
+  async listProofs(recipient: Address, pagination: ProofPagination): Promise<ProofListResult> {
+    const normalizedRecipient = getAddress(recipient).toLowerCase();
+    const proofs = [...this.tickets.values()]
+      .map(proofFromTicket)
+      .filter((proof) => proof.recipient.toLowerCase() === normalizedRecipient)
+      .sort((left, right) => {
+        if (left.blockNumber !== right.blockNumber) return left.blockNumber > right.blockNumber ? -1 : 1;
+        if (left.logIndex !== right.logIndex) return left.logIndex > right.logIndex ? -1 : 1;
+        return left.ticketId > right.ticketId ? -1 : left.ticketId < right.ticketId ? 1 : 0;
+      });
+    return {
+      total: proofs.length,
+      offset: pagination.offset,
+      limit: pagination.limit,
+      proofs: proofs.slice(pagination.offset, pagination.offset + pagination.limit),
+    };
+  }
   async getVoucher(ticketId: bigint, recipient: Address, now: bigint) {
     const voucher = this.vouchers.get(voucherKey(ticketId, recipient));
     return voucher && voucher.voucher.expiresAt > now ? voucher : undefined;
   }
   async saveVoucher(prepared: PreparedVoucher) { this.vouchers.set(voucherKey(prepared.voucher.ticketId, prepared.voucher.recipient), prepared); }
+  async getArtifact(key: string) { return this.artifacts.get(key); }
+  async saveArtifact(artifact: PlanetArtifact) {
+    const existing = this.artifacts.get(artifact.key);
+    if (existing && JSON.stringify(existing) !== JSON.stringify(artifact)) throw new Error(`Planet artifact ${artifact.key} conflicts with immutable content.`);
+    this.artifacts.set(artifact.key, artifact);
+  }
   async getCursor() { return this.cursor; }
   async setCursor(nextBlock: bigint, lastBlockHash: Hex) { this.cursor = { nextBlock, lastBlockHash }; }
   async rewind(fromBlock: bigint) {

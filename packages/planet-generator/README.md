@@ -63,10 +63,14 @@ Rarity is descriptive and never multiplies minerals or score.
 
 ## Rendering
 
-The accepted renderer produces a 128×128 animated GIF directly from the logical pixel
-scene. The UI uses nearest-neighbor CSS scaling for larger displays, so the stored asset
-stays small while retaining its intended pixel-art appearance. The preset contains 144
-frames over twelve seconds, loops forever, uses a fixed palette, and does not dither.
+The canonical NFT artifact is a real VP8/WebM animation (`video/webm`) rendered at
+128×128 from the logical pixel scene. `renderPlanetWebM` uses the pinned
+`webm-wasm@0.4.1` Apache-2.0 package, which bundles libvpx/libwebm/libyuv as WASM;
+deployment does not require a system ffmpeg binary. The preset is three seconds and
+the encoder enforces a five-second/two-megabyte upper bound. The output is deterministic
+for a descriptor, so immutable media can be cached and reused when a voucher signature
+expires. The old GIF renderer and fixtures remain available only as a legacy rollback
+and visual-regression reference.
 Animation speeds are loop-safe while retaining different planet, cloud, and satellite speeds.
 
 Clouds are a separate transparent pixel sphere, four logical pixels larger than the

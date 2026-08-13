@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
   },
   "scripts": {
     "golden": "vitest run tests/generator.test.ts",
@@ -13,7 +14,8 @@
   "dependencies": {
     "gifenc": "^1.0.3",
     "simplex-noise": "^4.0.3",
-    "viem": "^2.21.0"
+    "viem": "^2.21.0",
+    "webm-wasm": "0.4.1"
   },
   "devDependencies": {
     "tsx": "^4.20.6"

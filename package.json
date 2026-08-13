@@ -21,7 +21,10 @@
     "db:validate": "prisma validate"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@megaplanets/planet-generator": "workspace:*",
+    "@mui/material": "^9.3.1",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@rainbow-me/rainbowkit": "^2.2.0",

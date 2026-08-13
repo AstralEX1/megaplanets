@@ -2,7 +2,7 @@
  * ---
  * @skill      https://llms.megapot.io/tasks/buy-tickets
  * @customize  Pure functions: ticket randomization, route selection, cost calc.
- *             Edit MAX_CUSTOM_TICKETS, MAX_QTY_ONE_TIME, MAX_DAYS_SUBSCRIPTION
+ *             Edit MAX_CUSTOM_TICKETS and MAX_QTY_ONE_TIME
  *             to change UI caps. Routing thresholds match the protocol's
  *             `Jackpot.buyTickets` <=10 limit.
  * ---
@@ -13,8 +13,6 @@ import { BONUSBALL_MIN } from '@/config/contracts';
 export const MAX_CUSTOM_TICKETS = 10;
 /** UI cap on a single one-time purchase. */
 export const MAX_QTY_ONE_TIME = 50;
-/** UI cap on subscription duration in drawings. Devs can raise. */
-export const MAX_DAYS_SUBSCRIPTION = 30;
 /** Threshold above which the bulk facilitator is required (per buy-bulk skill). */
 export const BULK_THRESHOLD = 10;
 
@@ -28,27 +26,6 @@ export const MAX_CLAIM_BATCH = 50;
 
 export type CustomTicket = { normals: number[]; bonusball: number };
 export type TicketBounds = { ballMax: number; bonusballMax: number };
-export type PurchaseRoute = 'jackpot' | 'bulk' | 'subscribe';
-
-/**
- * Pick the contract route based on purchase shape. Per the buy-bulk skill +
- * Jackpot.buyTickets's hard cap of 10 tickets per call:
- *
- *   recurring | count   | route       | reason
- *   --------- | ------- | ----------- | --------------------------------------
- *   true      | any     | subscribe   | JackpotAutoSubscription, one per addr
- *   false     | <= 10   | jackpot     | Jackpot.buyTickets (cheapest path)
- *   false     | > 10    | bulk        | BatchPurchaseFacilitator (multi-tx)
- *
- * Approval target follows the route — the kit's ApprovalButton reads
- * `route` and approves against the matching contract.
- */
-export function pickPurchaseRoute(args: { count: number; recurring: boolean }): PurchaseRoute {
-  if (args.recurring) return 'subscribe';
-  if (args.count > BULK_THRESHOLD) return 'bulk';
-  return 'jackpot';
-}
-
 /** Returns the contract-ready static/dynamic split for an 11+ keeper bulk order. */
 export function getBulkOrderShape(args: { count: number; staticTicketCount: number }) {
   if (!Number.isSafeInteger(args.count) || args.count <= BULK_THRESHOLD) {
@@ -71,17 +48,14 @@ export function getBulkOrderShape(args: { count: number; staticTicketCount: numb
 /**
  * Total USDC cost for a purchase. Mirrors the protocol's cost formula:
  *   - one-time: ticketPriceUsdcRaw × count
- *   - subscribe: ticketPriceUsdcRaw × totalDays × ticketsPerDrawing
  *
  * @returns bigint in raw 6-decimal USDC units (multiply by 10**-6 for display).
  */
 export function totalCost(args: {
   ticketPriceUsdcRaw: bigint;
   count: number;
-  totalDays?: number;
 }): bigint {
-  const days = BigInt(args.totalDays ?? 1);
-  return args.ticketPriceUsdcRaw * BigInt(args.count) * days;
+  return args.ticketPriceUsdcRaw * BigInt(args.count);
 }
 
 /** Generate one random custom ticket — 5 unique normals + 1 bonusball. */

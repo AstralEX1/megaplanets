@@ -11,6 +11,7 @@ import type { PlanetMiningSnapshot } from '@/hooks/useWalletMining';
 import { PlanetMiningOverlay } from './PlanetMiningOverlay';
 import { PlanetGif } from './PlanetGif';
 import { PlanetTicketStatusLabel } from './PlanetTicketStatusLabel';
+import { claimBeforeRevealMessage } from '@/lib/ticketLifecycle';
 
 type PlanetInventoryDetailProps = {
   preview: PlanetPreview;
@@ -62,14 +63,26 @@ function TicketCoordinates({ preview }: { preview: PlanetPreview }) {
 
 function TicketLifecycle({
   status,
+  revealed,
   onClaim,
   pending,
 }: {
   status: PlanetTicketStatus;
+  revealed: boolean;
   onClaim?: () => void;
   pending: boolean;
 }) {
   if (status.kind === 'claim') {
+    if (!revealed) {
+      return (
+        <div
+          data-ticket-lifecycle="claim-before-reveal"
+          className="flex min-h-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] px-3 text-center text-sm text-[var(--text-secondary)]"
+        >
+          {claimBeforeRevealMessage()}
+        </div>
+      );
+    }
     return (
       <Button variant="primary" size="lg" className="w-full" disabled={pending} onClick={onClaim}>
         <PlanetTicketStatusLabel status={status} />
@@ -114,7 +127,7 @@ export function PlanetInventoryDetail({
           <span className="mt-3 inline-flex rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]">Ticket lifecycle</span>
         </div>
         <div className="mt-5"><TicketCoordinates preview={preview} /></div>
-        <div className="mt-5"><TicketLifecycle status={ticketStatus} onClaim={onClaim} pending={statusPending} /></div>
+        <div className="mt-5"><TicketLifecycle status={ticketStatus} revealed={false} onClaim={onClaim} pending={statusPending} /></div>
         <div className="mt-5 grid"><ExplorerLink href={ticketExplorerUrl} label="Ticket BaseScan" /></div>
         <div className="mt-5 [&>div>p]:hidden [&>div>button]:w-full">{mintAction}</div>
       </section>
@@ -150,7 +163,7 @@ export function PlanetInventoryDetail({
           <span className="rounded-full border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-primary)]">Ticket lifecycle</span>
         </div>
         <div className="mt-3"><TicketCoordinates preview={preview} /></div>
-        <div className="mt-3"><TicketLifecycle status={ticketStatus} onClaim={onClaim} pending={statusPending} /></div>
+        <div className="mt-3"><TicketLifecycle status={ticketStatus} revealed onClaim={onClaim} pending={statusPending} /></div>
       </section>
 
       <section className="mt-4">

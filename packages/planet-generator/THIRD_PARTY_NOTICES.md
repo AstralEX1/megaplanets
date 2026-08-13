@@ -47,3 +47,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## webm-wasm 0.4.1
+
+Apache License 2.0. The package bundles WebM Project libvpx/libwebm/libyuv WASM
+artifacts and is used by `renderPlanetWebM` for server-side VP8/WebM encoding. Keep
+the package version pinned and retain its upstream `LICENSE` notice in deployments.

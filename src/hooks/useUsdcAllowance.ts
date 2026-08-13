@@ -1,12 +1,10 @@
 /**
  * ---
  * @skill      https://llms.megapot.io/tasks/buy-tickets
- *             https://llms.megapot.io/tasks/claim-winnings
- *             https://llms.megapot.io/tasks/lp-deposit
  * @contract   USDC.allowance
  * @customize  Read the user's USDC allowance for a specific spender. Used by
  *             ERC-20 approval flows to decide whether an `approve` tx is
- *             needed before the next write (buy tickets, lp deposit, etc.).
+ *             needed before the next ticket purchase or batch order write.
  *             Pair with `useUsdcBalance` when both balance + allowance are
  *             needed; the two queries dedupe via wagmi/TanStack query keys.
  * ---

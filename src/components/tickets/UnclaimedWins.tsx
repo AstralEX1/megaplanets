@@ -49,6 +49,7 @@ import { useRound } from '@/hooks/useRound';
 import { useWalletWins, type WinsByRound } from '@/hooks/useWalletWins';
 import { formatApiError } from '@/lib/api';
 import { MAX_CLAIM_BATCH } from '@/lib/tickets';
+import { hasPartialTicketHistory } from '@/lib/ticketHistory';
 
 function fmtDate(iso: string | null) {
   if (!iso) return '';
@@ -73,11 +74,11 @@ export function UnclaimedWins() {
         <DataApiCredit />
       </header>
 
-      {error ? (
+      {error && grouped.length === 0 ? (
         <p className="text-sm text-rose-600 dark:text-rose-400">
           Couldn't load wins — {formatApiError(error)}
         </p>
-      ) : isLoading ? (
+      ) : isLoading && grouped.length === 0 ? (
         <p className="text-sm text-zinc-500">Loading wins…</p>
       ) : grouped.length === 0 ? (
         <p className="text-sm text-zinc-500">
@@ -88,6 +89,11 @@ export function UnclaimedWins() {
           {grouped.map((row) => (
             <UnclaimedRoundRow key={row.roundId} row={row} onClaimed={refetch} />
           ))}
+          {hasPartialTicketHistory(error, grouped.length) && (
+            <p className="text-xs text-amber-600 dark:text-amber-300">
+              Some older wins could not be loaded — {formatApiError(error)}.
+            </p>
+          )}
         </div>
       )}
 

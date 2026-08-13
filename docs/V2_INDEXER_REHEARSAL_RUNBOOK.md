@@ -10,7 +10,8 @@ MegaPlanets ERC721A V2 while runtime activation stays disabled.
 - Deployment transaction: `0xe29aa681e25ba222df04a1acdb2d2e48d2c47ac7cc1d46da0f2e8920ea9f9b6c`
 - Deployment block: `45,347,860`
 - Ticket source: `MEGAPLANETS_V1`
-- Ticket launch block: `44,997,183`
+- Ticket activation start: `44,996,796`
+- Ticket launch gate: `44,997,183`
 - Sourcify status: `exact_match`
 - BaseScan status: verified on 2026-08-11 using the local gitignored rehearsal
   environment; that status alone does not authorize runtime activation
@@ -48,7 +49,7 @@ used during setup is capped at 50 blocks and is unsuitable for the default runne
 
 The API defaults to `127.0.0.1:8787`; override with `MEGAPLANETS_API_HOST` and
 `MEGAPLANETS_API_PORT`. It may start with incomplete secrets so liveness remains visible,
-but readiness, auth, mining, and voucher routes fail closed until configuration is valid.
+but readiness, mining, and voucher routes fail closed until configuration is valid.
 
 ## Operations checklist
 
@@ -56,6 +57,8 @@ but readiness, auth, mining, and voucher routes fail closed until configuration 
   `MEGAPLANETS_METADATA_SIGNER_PRIVATE_KEY` in the host secret manager only.
 - Set the V2 address and deployment block atomically in API/indexer/frontend environments;
   keep checked-in defaults empty and keep `MEGAPLANETS_LAUNCH_BLOCK=44997183`.
+  The ticket indexer and eligibility decoder start at activation block `44,996,796`
+  to retain the first canonical MegaPlanets purchases.
 - Scrape or poll health/readiness from the hosting platform and forward structured process
   logs. Alert on readiness failure, repeated indexer failures, stale cycles, reorg flags,
   and database connection errors.

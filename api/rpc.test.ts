@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getLogsAdaptive } from './rpc';
+import { getLogsAdaptive, readWithRpcFallback } from './rpc';
 
 describe('getLogsAdaptive', () => {
   it('shrinks a rejected range and grows after recovery', async () => {
@@ -12,5 +12,30 @@ describe('getLogsAdaptive', () => {
     expect(logs).toEqual([0, 4, 8]);
     expect(calls[0]).toEqual([0n, 7n]);
     expect(calls).toContainEqual([0n, 3n]);
+  });
+});
+
+describe('readWithRpcFallback', () => {
+  it('uses the next endpoint when the primary endpoint cannot serve history', async () => {
+    const calls: string[] = [];
+    const result = await readWithRpcFallback(
+      ['primary', 'archive'],
+      async (url) => {
+        calls.push(url);
+        if (url === 'primary') throw new Error('receipt not found');
+        return { status: 'success' };
+      },
+    );
+
+    expect(result).toEqual({ status: 'success' });
+    expect(calls).toEqual(['primary', 'archive']);
+  });
+
+  it('reports the final provider error when every endpoint fails', async () => {
+    await expect(
+      readWithRpcFallback(['primary', 'archive'], async (url) => {
+        throw new Error(`${url} failed`);
+      }),
+    ).rejects.toThrow('archive failed');
   });
 });

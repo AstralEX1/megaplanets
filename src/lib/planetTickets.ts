@@ -1,6 +1,6 @@
 import type { PurchasedTicket } from './purchaseReceipt';
 
-/** Prefers read-only on-chain provenance, while preserving local confirmations if RPC is unavailable. */
+/** Prefers receipt-verified/server-proof provenance, while preserving local confirmations if RPC is unavailable. */
 export function mergePlanetTickets(
   localTickets: readonly PurchasedTicket[],
   onChainTickets: readonly PurchasedTicket[],

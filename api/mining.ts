@@ -27,8 +27,27 @@ export type MiningRateSegment = {
   endedAt: Date;
 };
 
+export type LifetimeMiningInput = {
+  baseMineralsPerDay: bigint;
+  mintedAt: Date;
+  asOf: Date;
+};
+
 function assertNonNegative(name: string, value: bigint) {
   if (value < 0n) throw new Error(`${name} cannot be negative.`);
+}
+
+/** Calculates the immutable lifetime Planet value at a point in time. */
+export function calculateLifetimeMinerals(input: LifetimeMiningInput): bigint {
+  assertNonNegative('baseMineralsPerDay', input.baseMineralsPerDay);
+  const elapsed = input.asOf.getTime() - input.mintedAt.getTime();
+  if (elapsed < 0) throw new Error('Mining timestamp cannot be before mint time.');
+  return accrueMinerals({
+    baseMineralsPerDay: input.baseMineralsPerDay,
+    multiplierBps: BASIS_POINTS,
+    elapsedMilliseconds: BigInt(elapsed),
+    remainder: 0n,
+  }).minerals;
 }
 
 /** Converts an elapsed production interval into microminerals without losing fractions. */
@@ -39,8 +58,11 @@ export function accrueMinerals(input: MiningAccrualInput): MiningAccrual {
   assertNonNegative('remainder', input.remainder);
 
   const denominator = MILLISECONDS_PER_DAY * BASIS_POINTS;
-  if (input.remainder >= denominator) throw new Error('remainder must be smaller than one mining denominator.');
-  const numerator = input.baseMineralsPerDay * MINERAL_SCALE * input.multiplierBps * input.elapsedMilliseconds + input.remainder;
+  if (input.remainder >= denominator)
+    throw new Error('remainder must be smaller than one mining denominator.');
+  const numerator =
+    input.baseMineralsPerDay * MINERAL_SCALE * input.multiplierBps * input.elapsedMilliseconds +
+    input.remainder;
   return { minerals: numerator / denominator, remainder: numerator % denominator };
 }
 
@@ -73,16 +95,20 @@ export function getSameTypeBonusBps(planetCount: number): bigint {
 }
 
 /** Assigns each planet its base multiplier plus the current wallet same-type bonus. */
-export function getSameTypeMultipliers(members: readonly PlanetTypeMember[]): Record<string, bigint> {
+export function getSameTypeMultipliers(
+  members: readonly PlanetTypeMember[],
+): Record<string, bigint> {
   const counts = new Map<string, number>();
   const result: Record<string, bigint> = {};
   for (const member of members) {
-    if (!member.planetId.trim() || !member.planetType.trim()) throw new Error('Planet ID and type are required for mining.');
+    if (!member.planetId.trim() || !member.planetType.trim())
+      throw new Error('Planet ID and type are required for mining.');
     if (member.planetId in result) throw new Error(`Duplicate Planet ID ${member.planetId}.`);
     counts.set(member.planetType, (counts.get(member.planetType) ?? 0) + 1);
   }
   for (const member of members) {
-    result[member.planetId] = BASIS_POINTS + getSameTypeBonusBps(counts.get(member.planetType) ?? 0);
+    result[member.planetId] =
+      BASIS_POINTS + getSameTypeBonusBps(counts.get(member.planetType) ?? 0);
   }
   return result;
 }

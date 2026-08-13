@@ -31,19 +31,28 @@ import { useJackpotState } from '@/hooks/useJackpotState';
 import { useRound } from '@/hooks/useRound';
 import { useWalletTickets, type WalletTicketsByRound } from '@/hooks/useWalletTickets';
 import { formatApiError, type Ticket } from '@/lib/api';
+import { hasPartialTicketHistory } from '@/lib/ticketHistory';
 
 export function PastRoundTickets() {
   const { address } = useAccount();
   const { drawingId } = useJackpotState();
-  const { groupedByRound, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } =
+  const {
+    visibleGroupedByRound,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    error,
+  } =
     useWalletTickets(address, {
       excludeRoundId: drawingId?.toString(),
+      initialRoundCount: 10,
     });
 
   if (!address) return null;
   // Hide section entirely for wallets that haven't played a past round.
   // Matches the `<WalletStatsCard>` empty-wallet pattern.
-  if (!isLoading && !error && groupedByRound.length === 0) return null;
+  if (!isLoading && !error && visibleGroupedByRound.length === 0) return null;
 
   return (
     <section className="card-pad space-y-3">
@@ -52,17 +61,23 @@ export function PastRoundTickets() {
         <DataApiCredit />
       </header>
 
-      {error ? (
+      {error && visibleGroupedByRound.length === 0 ? (
         <p className="text-sm text-rose-600 dark:text-rose-400">
           Couldn't load past tickets — {formatApiError(error)}
         </p>
-      ) : isLoading ? (
+      ) : isLoading && visibleGroupedByRound.length === 0 ? (
         <p className="text-sm text-zinc-500">Loading past tickets…</p>
       ) : (
         <div className="space-y-2">
-          {groupedByRound.map((row) => (
+          {visibleGroupedByRound.map((row) => (
             <PastRoundCard key={row.roundId} row={row} />
           ))}
+          {hasPartialTicketHistory(error, visibleGroupedByRound.length) && (
+            <p className="text-xs text-amber-600 dark:text-amber-300">
+              Some older rounds could not be loaded — {formatApiError(error)}. Try loading older
+              rounds again later.
+            </p>
+          )}
         </div>
       )}
 

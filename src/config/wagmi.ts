@@ -26,11 +26,17 @@
  */
 import { connectorsForWallets, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { coinbaseWallet, injectedWallet } from '@rainbow-me/rainbowkit/wallets';
+import { fallback, http } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
-import { createConfig, http } from 'wagmi';
+import { createConfig } from 'wagmi';
 import { VIEM_CHAIN } from './contracts';
 
 const RPC_URL = import.meta.env.VITE_RPC_URL;
+const RPC_FALLBACK_URLS = (import.meta.env.VITE_RPC_FALLBACK_URLS ?? '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean)
+  .filter((value, index, values) => value !== RPC_URL && values.indexOf(value) === index);
 const WALLETCONNECT_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ?? '';
 const APP_NAME = import.meta.env.VITE_APP_NAME ?? 'MegaPlanets';
 
@@ -38,7 +44,10 @@ const APP_NAME = import.meta.env.VITE_APP_NAME ?? 'MegaPlanets';
 // HTTP POST (batchSize = max calls per batch, wait = ms to coalesce).
 // Reduces public-RPC round-trips so per-method hooks stay simple without
 // a hot-path penalty.
-const transport = http(RPC_URL, { batch: { batchSize: 100, wait: 16 } });
+const transport = fallback([
+  http(RPC_URL, { batch: { batchSize: 100, wait: 16 } }),
+  ...RPC_FALLBACK_URLS.map((url) => http(url, { batch: { batchSize: 100, wait: 16 } })),
+]);
 
 // Transports keyed by both possible chain IDs. wagmi's `createConfig`
 // types `chains: [VIEM_CHAIN]` as `[Base | BaseSepolia]` (the union of

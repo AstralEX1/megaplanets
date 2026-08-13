@@ -45,6 +45,20 @@ export const GENERATOR_CONFIG = Object.freeze({
   starCount: { min: 22, maxExclusive: 37 },
 });
 
+/**
+ * NFT media is intentionally shorter than the legacy twelve-second GIF. The
+ * encoder consumes a fixed number of deterministic frames, so retries produce
+ * byte-identical WebM artifacts.
+ */
+export const WEBM_CONFIG = Object.freeze({
+  frameRate: 12,
+  frameCount: 36,
+  durationMs: 3_000,
+  bitrateKbps: 200,
+  maxDurationMs: 5_000,
+  maxBytes: 2 * 1024 * 1024,
+});
+
 /** Bonus ball selects a rotated weight profile; the seed selects within it. */
 export function getPaletteWeights(bonusBall: number): readonly number[] {
   if (!Number.isInteger(bonusBall) || bonusBall < 1 || bonusBall > 255) {

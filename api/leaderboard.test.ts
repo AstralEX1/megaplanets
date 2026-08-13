@@ -1,39 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import {
-  getDistanceToNextRank,
-  getLeaderboardPeriod,
-  rankLeaderboardRows,
-} from './leaderboard';
+import { getDistanceToNextRank, getLeaderboardPeriod, rankLeaderboardRows } from './leaderboard';
 
 const ADDRESS_A = '0x1111111111111111111111111111111111111111';
 const ADDRESS_B = '0x2222222222222222222222222222222222222222';
 const ADDRESS_C = '0x3333333333333333333333333333333333333333';
 
 describe('weekly leaderboard periods', () => {
-  it('uses Monday 00:00 UTC boundaries in the middle of a week', () => {
+  it('uses UTC calendar-day boundaries in the middle of a day', () => {
     expect(getLeaderboardPeriod(new Date('2026-08-12T12:00:00.000Z'))).toEqual({
-      id: '2026-08-10',
-      startsAt: new Date('2026-08-10T00:00:00.000Z'),
-      endsAt: new Date('2026-08-17T00:00:00.000Z'),
+      id: '2026-08-12',
+      startsAt: new Date('2026-08-12T00:00:00.000Z'),
+      endsAt: new Date('2026-08-13T00:00:00.000Z'),
     });
   });
 
-  it('starts a new period at the exact Monday boundary', () => {
+  it('starts a new period at the exact UTC midnight boundary', () => {
     expect(getLeaderboardPeriod(new Date('2026-08-17T00:00:00.000Z'))).toEqual({
       id: '2026-08-17',
       startsAt: new Date('2026-08-17T00:00:00.000Z'),
-      endsAt: new Date('2026-08-24T00:00:00.000Z'),
+      endsAt: new Date('2026-08-18T00:00:00.000Z'),
     });
   });
 });
 
 describe('weekly leaderboard ranking', () => {
   it('sorts score descending and resolves ties by normalized wallet address', () => {
-    expect(rankLeaderboardRows([
-      { walletAddress: ADDRESS_B.toUpperCase(), scoreMicros: 10n, effectiveMineralsPerDayMicros: 2n },
-      { walletAddress: ADDRESS_C, scoreMicros: 20n, effectiveMineralsPerDayMicros: 3n },
-      { walletAddress: ADDRESS_A, scoreMicros: 10n, effectiveMineralsPerDayMicros: 1n },
-    ])).toEqual([
+    expect(
+      rankLeaderboardRows([
+        {
+          walletAddress: ADDRESS_B.toUpperCase(),
+          scoreMicros: 10n,
+          effectiveMineralsPerDayMicros: 2n,
+        },
+        { walletAddress: ADDRESS_C, scoreMicros: 20n, effectiveMineralsPerDayMicros: 3n },
+        { walletAddress: ADDRESS_A, scoreMicros: 10n, effectiveMineralsPerDayMicros: 1n },
+      ]),
+    ).toEqual([
       { rank: 1, walletAddress: ADDRESS_C, scoreMicros: 20n, effectiveMineralsPerDayMicros: 3n },
       { rank: 2, walletAddress: ADDRESS_A, scoreMicros: 10n, effectiveMineralsPerDayMicros: 1n },
       { rank: 3, walletAddress: ADDRESS_B, scoreMicros: 10n, effectiveMineralsPerDayMicros: 2n },

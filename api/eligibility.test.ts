@@ -1,10 +1,12 @@
-import { encodeAbiParameters, encodeEventTopics, stringToHex, type Log } from 'viem';
+import { encodeAbiParameters, encodeEventTopics, getAddress, stringToHex, type Log, type TransactionReceipt } from 'viem';
 import { describe, expect, it } from 'vitest';
-import { MEGAPLANETS_LAUNCH_BLOCK, MEGAPLANETS_SOURCE } from './config';
+import { MEGAPLANETS_LAUNCH_BLOCK, MEGAPLANETS_SOURCE, MEGAPLANETS_TICKET_START_BLOCK } from './config';
 import {
   BASE_SEPOLIA_JACKPOT,
   decodeEligibleTicket,
   findEligibleTicket,
+  MegasteraVerifier,
+  normalizeMegasteraProof,
   TICKET_PURCHASED_ABI,
 } from './eligibility';
 
@@ -50,15 +52,81 @@ describe('MegaPlanets eligibility', () => {
     });
   });
 
-  it('rejects purchases before the configured launch block', () => {
-    expect(() => decodeEligibleTicket(ticketLog({ blockNumber: MEGAPLANETS_LAUNCH_BLOCK - 1n }))).toThrow(
+  it('rejects purchases before the canonical activation boundary', () => {
+    expect(() => decodeEligibleTicket(ticketLog({ blockNumber: MEGAPLANETS_TICKET_START_BLOCK - 1n }))).toThrow(
       'outside the eligible MegaPlanets range',
     );
   });
 
+  it('accepts the canonical activation boundary before the Planet launch block', () => {
+    expect(
+      decodeEligibleTicket(ticketLog({ blockNumber: MEGAPLANETS_TICKET_START_BLOCK })).ticketId,
+    ).toBe(456n);
+  });
   it('locates the requested log index before decoding it', () => {
     const otherLog = ticketLog({ logIndex: 3 });
     expect(findEligibleTicket([otherLog, ticketLog()], 4).ticketId).toBe(456n);
     expect(() => findEligibleTicket([otherLog], 4)).toThrow('was not found in the receipt');
+  });
+
+  it('normalizes a receipt-backed Megastera proof without changing the Ethereum receipt type', () => {
+    const source = stringToHex(MEGAPLANETS_SOURCE, { size: 32 });
+    const proof = normalizeMegasteraProof({
+      ...decodeEligibleTicket(ticketLog()),
+      chainId: 84_532,
+      jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase() as `0x${string}`,
+      source,
+    });
+
+    expect(proof).toMatchObject({
+      chainId: 84_532,
+      jackpotAddress: BASE_SEPOLIA_JACKPOT,
+      recipient: getAddress(recipient),
+      source,
+      ticketId: 456n,
+    });
+  });
+
+  it('rejects a reverted, non-canonical, or wrong-recipient receipt', () => {
+    const blockHash = `0x${'cd'.repeat(32)}` as `0x${string}`;
+    const receipt = {
+      status: 'success',
+      transactionHash,
+      blockHash,
+      blockNumber: MEGAPLANETS_LAUNCH_BLOCK,
+      logs: [ticketLog({ blockHash, transactionHash })],
+    } as unknown as TransactionReceipt;
+    const verifier = new MegasteraVerifier();
+
+    expect(verifier.verifyReceipt(receipt, { logIndex: 4, recipient })).toMatchObject({ ticketId: 456n });
+    expect(() => verifier.verifyReceipt({ ...receipt, status: 'reverted' }, { logIndex: 4, recipient })).toThrow(/did not succeed/i);
+    expect(() => verifier.verifyReceipt({ ...receipt, blockHash: undefined } as unknown as TransactionReceipt, { logIndex: 4, recipient })).toThrow(/finalized block/i);
+    expect(() => verifier.verifyReceipt(receipt, { logIndex: 4, recipient: '0x2222222222222222222222222222222222222222' })).toThrow(/recipient/i);
+    expect(() => verifier.verifyReceipt(receipt, { logIndex: 99, recipient })).toThrow(/was not found/i);
+  });
+
+  it('rejects a source mismatch even when the receipt succeeded', () => {
+    const blockHash = `0x${'cd'.repeat(32)}` as `0x${string}`;
+    const log = ticketLog({
+      blockHash,
+      topics: encodeEventTopics({
+        abi: TICKET_PURCHASED_ABI,
+        eventName: 'TicketPurchased',
+        args: {
+          recipient,
+          currentDrawingId: 123n,
+          source: stringToHex('OTHER_SOURCE', { size: 32 }),
+        },
+      }) as Log['topics'],
+    });
+    const receipt = {
+      status: 'success',
+      transactionHash,
+      blockHash,
+      blockNumber: MEGAPLANETS_LAUNCH_BLOCK,
+      logs: [log],
+    } as unknown as TransactionReceipt;
+
+    expect(() => new MegasteraVerifier().verifyReceipt(receipt, { logIndex: 4, recipient })).toThrow(/MEGAPLANETS_V1/i);
   });
 });

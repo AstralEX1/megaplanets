@@ -1,19 +1,6 @@
 import type { Address } from 'viem';
 import type { PrismaClient } from './generated/prisma/client';
 
-export type AuthNonceRecord = {
-  nonceHash: string;
-  walletAddress: Address;
-  message: string;
-  expiresAt: Date;
-};
-
-export type AuthSessionRecord = {
-  tokenHash: string;
-  walletAddress: Address;
-  expiresAt: Date;
-};
-
 export type PlanetScope = { chainId: number; contractAddress: Address };
 
 export type IndexedPlanetRecord = {
@@ -49,13 +36,6 @@ function planetKey(planet: IndexedPlanetRecord): string {
 }
 
 export type Stage2Store = {
-  cleanupExpired?(now: Date): Promise<void>;
-  saveNonce(record: AuthNonceRecord): Promise<void>;
-  findNonce(nonceHash: string, walletAddress: Address, now: Date): Promise<AuthNonceRecord | undefined>;
-  consumeNonce(nonceHash: string, walletAddress: Address, now: Date): Promise<boolean>;
-  createSession(record: AuthSessionRecord): Promise<void>;
-  findSession(tokenHash: string, now: Date): Promise<AuthSessionRecord | undefined>;
-  revokeSession(tokenHash: string, now: Date): Promise<void>;
   listPlanets(ownerAddress: Address, scope: PlanetScope): Promise<IndexedPlanetRecord[]>;
   getPlanet(tokenId: string, scope: PlanetScope): Promise<IndexedPlanetRecord | undefined>;
 };
@@ -121,64 +101,6 @@ function serializePlanet(planet: {
 export class PrismaStage2Store implements Stage2Store {
   public constructor(private readonly prisma: PrismaClient) {}
 
-  async cleanupExpired(now: Date): Promise<void> {
-    await Promise.all([
-      this.prisma.authNonce.deleteMany({ where: { expiresAt: { lte: now } } }),
-      this.prisma.walletSession.deleteMany({ where: { OR: [{ expiresAt: { lte: now } }, { revokedAt: { lte: now } }] } }),
-    ]);
-  }
-
-  async saveNonce(record: AuthNonceRecord): Promise<void> {
-    await this.prisma.authNonce.create({ data: record });
-  }
-
-  async findNonce(nonceHash: string, walletAddress: Address, now: Date) {
-    const record = await this.prisma.authNonce.findFirst({
-      where: { nonceHash, walletAddress, consumedAt: null, expiresAt: { gt: now } },
-    });
-    return record
-      ? { nonceHash: record.nonceHash, walletAddress: record.walletAddress as Address, message: record.message, expiresAt: record.expiresAt }
-      : undefined;
-  }
-
-  async consumeNonce(nonceHash: string, walletAddress: Address, now: Date): Promise<boolean> {
-    const result = await this.prisma.authNonce.updateMany({
-      where: { nonceHash, walletAddress, consumedAt: null, expiresAt: { gt: now } },
-      data: { consumedAt: now },
-    });
-    return result.count === 1;
-  }
-
-  async createSession(record: AuthSessionRecord): Promise<void> {
-    await this.prisma.$transaction(async (transaction) => {
-      const user = await transaction.user.upsert({
-        where: { walletAddress: record.walletAddress },
-        update: {},
-        create: { walletAddress: record.walletAddress },
-      });
-      await transaction.walletSession.create({
-        data: { userId: user.id, tokenHash: record.tokenHash, expiresAt: record.expiresAt },
-      });
-    });
-  }
-
-  async findSession(tokenHash: string, now: Date) {
-    const session = await this.prisma.walletSession.findFirst({
-      where: { tokenHash, revokedAt: null, expiresAt: { gt: now } },
-      include: { user: true },
-    });
-    return session
-      ? { tokenHash: session.tokenHash, walletAddress: session.user.walletAddress as Address, expiresAt: session.expiresAt }
-      : undefined;
-  }
-
-  async revokeSession(tokenHash: string, now: Date): Promise<void> {
-    await this.prisma.walletSession.updateMany({
-      where: { tokenHash, revokedAt: null },
-      data: { revokedAt: now },
-    });
-  }
-
   async listPlanets(ownerAddress: Address, scope: PlanetScope): Promise<IndexedPlanetRecord[]> {
     const planets = await this.prisma.planet.findMany({
       where: { ownerAddress, chainId: scope.chainId, contractAddress: scope.contractAddress.toLowerCase() },
@@ -198,47 +120,7 @@ export class PrismaStage2Store implements Stage2Store {
 }
 
 export class MemoryStage2Store implements Stage2Store {
-  private readonly nonces = new Map<string, AuthNonceRecord & { consumedAt?: Date }>();
-  private readonly sessions = new Map<string, AuthSessionRecord & { revokedAt?: Date }>();
   private readonly planets = new Map<string, IndexedPlanetRecord>();
-
-  async cleanupExpired(now: Date) {
-    for (const [key, record] of this.nonces) if (record.expiresAt <= now) this.nonces.delete(key);
-    for (const [key, record] of this.sessions) if (record.expiresAt <= now || record.revokedAt && record.revokedAt <= now) this.sessions.delete(key);
-  }
-
-  async saveNonce(record: AuthNonceRecord) {
-    if (this.nonces.has(record.nonceHash)) throw new Error('Duplicate nonce.');
-    this.nonces.set(record.nonceHash, record);
-  }
-
-  async findNonce(nonceHash: string, walletAddress: Address, now: Date) {
-    const record = this.nonces.get(nonceHash);
-    return record && !record.consumedAt && record.walletAddress === walletAddress && record.expiresAt > now
-      ? record
-      : undefined;
-  }
-
-  async consumeNonce(nonceHash: string, walletAddress: Address, now: Date) {
-    const record = await this.findNonce(nonceHash, walletAddress, now);
-    if (!record) return false;
-    this.nonces.set(nonceHash, { ...record, consumedAt: now });
-    return true;
-  }
-
-  async createSession(record: AuthSessionRecord) {
-    this.sessions.set(record.tokenHash, record);
-  }
-
-  async findSession(tokenHash: string, now: Date) {
-    const record = this.sessions.get(tokenHash);
-    return record && !record.revokedAt && record.expiresAt > now ? record : undefined;
-  }
-
-  async revokeSession(tokenHash: string, now: Date) {
-    const record = this.sessions.get(tokenHash);
-    if (record) this.sessions.set(tokenHash, { ...record, revokedAt: now });
-  }
 
   async listPlanets(ownerAddress: Address, scope: PlanetScope) {
     return [...this.planets.values()].filter((planet) =>

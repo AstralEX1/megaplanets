@@ -289,6 +289,11 @@ export function Play() {
     setAutomaticQuickPick(session.automaticQuickPick);
     setStaticTickets(session.coordinates);
     setFlowActive(true);
+    if (session.purchaseTxHash) return;
+    if (session.purchaseMode === 'bulk') void bulk.createOrder();
+    else if (bounds) {
+      void direct.buy({ customTickets: session.coordinates, count: session.quantity, bounds });
+    }
   };
   const retry = () => {
     purchase.reset();

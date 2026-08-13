@@ -1,7 +1,7 @@
-import { getAddress, stringToHex, type Address, type Hex } from 'viem';
+import { getAddress, isHash, stringToHex, type Address, type Hex } from 'viem';
 import type { PrismaClient } from './generated/prisma/client';
 import { BASE_SEPOLIA_CHAIN_ID, MEGAPLANETS_SOURCE } from './config';
-import { BASE_SEPOLIA_JACKPOT } from './eligibility';
+import { BASE_SEPOLIA_JACKPOT, normalizeMegasteraProof, type MegasteraProof, type MegasteraProofReference } from './eligibility';
 import type { DailySnapshot } from './scoring';
 import {
   deserializeDailySnapshot,
@@ -10,13 +10,64 @@ import {
   type IndexedTicket,
   type PersistedSnapshot,
   type PersistedVoucher,
+  type PlanetArtifact,
   type PreparedVoucher,
   serializeDailySnapshot,
   serializePreparedVoucher,
 } from './store';
 
+/** Versioned cursor stream so a previously launch-block-only cursor is replayed from activation. */
+export const TICKET_INDEX_STREAM = 'megapot-tickets-v2-activation';
+const LEGACY_TICKET_INDEX_STREAM = 'megapot-tickets';
+
 function jsonValue(value: unknown): object {
   return JSON.parse(JSON.stringify(value)) as object;
+}
+
+function serializeArtifact(record: {
+  artifactKey: string;
+  ticketId: { toFixed: (digits?: number) => string };
+  recipient: string;
+  seed: string;
+  traitsHash: string;
+  metadataHash: string;
+  metadataUri: string;
+  mediaUri: string;
+  mediaHash: string;
+}): PlanetArtifact {
+  return {
+    key: record.artifactKey,
+    ticketId: record.ticketId.toFixed(0),
+    recipient: getAddress(record.recipient),
+    seed: record.seed as Hex,
+    traitsHash: record.traitsHash as Hex,
+    metadataHash: record.metadataHash as Hex,
+    metadataURI: record.metadataUri,
+    mediaURI: record.mediaUri,
+    mediaHash: record.mediaHash as Hex,
+  };
+}
+
+function sameArtifact(left: PlanetArtifact, right: PlanetArtifact): boolean {
+  return left.key === right.key
+    && left.ticketId === right.ticketId
+    && left.recipient.toLowerCase() === right.recipient.toLowerCase()
+    && left.seed.toLowerCase() === right.seed.toLowerCase()
+    && left.traitsHash.toLowerCase() === right.traitsHash.toLowerCase()
+    && left.metadataHash.toLowerCase() === right.metadataHash.toLowerCase()
+    && left.metadataURI === right.metadataURI
+    && left.mediaURI === right.mediaURI
+    && left.mediaHash.toLowerCase() === right.mediaHash.toLowerCase();
+}
+
+function parseArtifactKey(key: string): { originTxHash: Hex; logIndex: number } {
+  const separator = key.lastIndexOf(':');
+  const originTxHash = key.slice(0, separator);
+  const logIndex = Number(key.slice(separator + 1));
+  if (separator <= 0 || !isHash(originTxHash) || !Number.isSafeInteger(logIndex) || logIndex < 0) {
+    throw new Error('Planet artifact key is invalid.');
+  }
+  return { originTxHash: originTxHash as Hex, logIndex };
 }
 
 /** PostgreSQL-backed eligibility, voucher, cursor, and legacy snapshot boundary. */
@@ -55,6 +106,137 @@ export class PrismaEligibilityStore implements EligibilityStore {
         logIndex: Number(ticket.logIndex),
         purchasedAt: ticket.purchasedAt,
       },
+    });
+  }
+
+  /** Persists a receipt-verified proof in the existing TicketPurchase table. */
+  async saveProof(proof: MegasteraProof): Promise<void> {
+    const normalized = normalizeMegasteraProof(proof);
+    const existing = await this.getProof({ transactionHash: normalized.originTxHash, logIndex: normalized.logIndex });
+    if (existing) {
+      if (
+        existing.ticketId !== normalized.ticketId ||
+        existing.recipient.toLowerCase() !== normalized.recipient.toLowerCase() ||
+        existing.drawingId !== normalized.drawingId
+      ) {
+        throw new Error(`Megastera proof ${normalized.originTxHash}:${normalized.logIndex} conflicts with existing provenance.`);
+      }
+      return;
+    }
+    await this.saveTicket(normalized);
+  }
+
+  async getProof(reference: MegasteraProofReference | Hex, logIndexOverride?: bigint | number): Promise<MegasteraProof | undefined> {
+    const normalizedReference = typeof reference === 'string'
+      ? { transactionHash: reference, logIndex: logIndexOverride }
+      : reference;
+    const transactionHash = normalizedReference.transactionHash ?? normalizedReference.originTxHash;
+    if (!transactionHash || normalizedReference.logIndex === undefined) throw new Error('Megastera proof reference is incomplete.');
+    const logIndex = typeof normalizedReference.logIndex === 'bigint' ? Number(normalizedReference.logIndex) : normalizedReference.logIndex;
+    if (!Number.isSafeInteger(logIndex) || logIndex < 0) throw new Error('Megastera proof log index is invalid.');
+    const record = await this.prisma.ticketPurchase.findUnique({
+      where: {
+        chainId_originTxHash_logIndex: {
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          originTxHash: transactionHash.toLowerCase(),
+          logIndex,
+        },
+      },
+    });
+    if (!record) return undefined;
+    return normalizeMegasteraProof({
+      recipient: getAddress(record.recipient),
+      ticketId: BigInt(record.ticketId.toFixed(0)),
+      drawingId: BigInt(record.drawingId.toFixed(0)),
+      normals: record.normals,
+      bonusBall: record.bonusBall,
+      originTxHash: record.originTxHash as Hex,
+      blockNumber: record.blockNumber,
+      logIndex: BigInt(record.logIndex),
+      blockHash: record.blockHash as Hex,
+      purchasedAt: record.purchasedAt,
+      chainId: record.chainId,
+      jackpotAddress: getAddress(record.jackpotAddress),
+      source: record.source as Hex,
+    });
+  }
+
+  async listProofs(recipient: Address, pagination: { offset: number; limit: number }) {
+    const normalizedRecipient = getAddress(recipient).toLowerCase();
+    const where = {
+      chainId: BASE_SEPOLIA_CHAIN_ID,
+      jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
+      source: stringToHex(MEGAPLANETS_SOURCE, { size: 32 }),
+      recipient: normalizedRecipient,
+    } as const;
+    const [total, records] = await Promise.all([
+      this.prisma.ticketPurchase.count({ where }),
+      this.prisma.ticketPurchase.findMany({
+        where,
+        orderBy: [{ blockNumber: 'desc' }, { logIndex: 'desc' }],
+        skip: pagination.offset,
+        take: pagination.limit,
+      }),
+    ]);
+    const proofs = records.map((record) => normalizeMegasteraProof({
+      recipient: getAddress(record.recipient),
+      ticketId: BigInt(record.ticketId.toFixed(0)),
+      drawingId: BigInt(record.drawingId.toFixed(0)),
+      normals: record.normals,
+      bonusBall: record.bonusBall,
+      originTxHash: record.originTxHash as Hex,
+      blockNumber: record.blockNumber,
+      logIndex: BigInt(record.logIndex),
+      blockHash: record.blockHash as Hex,
+      purchasedAt: record.purchasedAt,
+      chainId: record.chainId,
+      jackpotAddress: getAddress(record.jackpotAddress),
+      source: record.source as Hex,
+    }));
+    return { total, offset: pagination.offset, limit: pagination.limit, proofs };
+  }
+
+  async getArtifact(key: string): Promise<PlanetArtifact | undefined> {
+    const record = await this.prisma.planetArtifact.findUnique({ where: { artifactKey: key } });
+    return record ? serializeArtifact(record) : undefined;
+  }
+
+  async saveArtifact(artifact: PlanetArtifact): Promise<void> {
+    const { originTxHash, logIndex } = parseArtifactKey(artifact.key);
+    await this.prisma.$transaction(async (transaction) => {
+      const existing = await transaction.planetArtifact.findUnique({ where: { artifactKey: artifact.key } });
+      if (existing) {
+        const persisted = serializeArtifact(existing);
+        if (!sameArtifact(persisted, artifact)) throw new Error(`Planet artifact ${artifact.key} conflicts with immutable content.`);
+        return;
+      }
+      const ticket = await transaction.ticketPurchase.findUnique({
+        where: {
+          chainId_originTxHash_logIndex: {
+            chainId: BASE_SEPOLIA_CHAIN_ID,
+            originTxHash: originTxHash.toLowerCase(),
+            logIndex,
+          },
+        },
+      });
+      if (!ticket) throw new Error('Planet artifact ticket proof is not persisted.');
+      if (ticket.ticketId.toFixed(0) !== artifact.ticketId || ticket.recipient !== getAddress(artifact.recipient).toLowerCase()) {
+        throw new Error('Planet artifact does not match the persisted ticket proof.');
+      }
+      await transaction.planetArtifact.create({
+        data: {
+          ticketPurchaseId: ticket.id,
+          artifactKey: artifact.key,
+          ticketId: artifact.ticketId,
+          recipient: getAddress(artifact.recipient).toLowerCase(),
+          seed: artifact.seed.toLowerCase(),
+          traitsHash: artifact.traitsHash.toLowerCase(),
+          metadataHash: artifact.metadataHash.toLowerCase(),
+          metadataUri: artifact.metadataURI,
+          mediaUri: artifact.mediaURI,
+          mediaHash: artifact.mediaHash.toLowerCase(),
+        },
+      });
     });
   }
 
@@ -117,7 +299,7 @@ export class PrismaEligibilityStore implements EligibilityStore {
         chainId_contractAddress_stream: {
           chainId: BASE_SEPOLIA_CHAIN_ID,
           contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
-          stream: 'megapot-tickets',
+          stream: TICKET_INDEX_STREAM,
         },
       },
     });
@@ -139,7 +321,7 @@ export class PrismaEligibilityStore implements EligibilityStore {
       create: {
         chainId: BASE_SEPOLIA_CHAIN_ID,
         contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(),
-        stream: 'megapot-tickets',
+        stream: TICKET_INDEX_STREAM,
         nextBlock,
         lastBlockHash,
       },
@@ -152,35 +334,18 @@ export class PrismaEligibilityStore implements EligibilityStore {
     await this.prisma.$transaction(async (transaction) => {
       // Daily snapshots are legacy, deployment-agnostic records. Leave them
       // untouched here; the snapshot job owns their canonicality policy.
-      const historicalMiningPlanets = await transaction.planet.findMany({
-        where: {
-          chainId: BASE_SEPOLIA_CHAIN_ID,
-          contractAddress: planetContractAddress,
-          mintBlockNumber: { lt: fromBlock },
-          ownershipHistory: { some: { blockNumber: { gte: fromBlock } } },
-        },
-        select: { id: true },
-      });
-      if (historicalMiningPlanets.length > 0) {
-        throw new Error('Reorg intersects historical Planet mining state; a full derived-state rebuild is required.');
-      }
-      const scopedPlanet = {
-        chainId: BASE_SEPOLIA_CHAIN_ID,
-        contractAddress: planetContractAddress,
-        mintBlockNumber: { gte: fromBlock },
-      };
-      await transaction.mineralLedgerEntry.deleteMany({ where: { planet: scopedPlanet } });
-      await transaction.planetAccrualState.deleteMany({ where: { planet: scopedPlanet } });
       await transaction.planetOwnershipHistory.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, blockNumber: { gte: fromBlock } } });
       await transaction.processedBlockchainEvent.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, blockNumber: { gte: fromBlock } } });
       await transaction.planet.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, contractAddress: planetContractAddress, mintBlockNumber: { gte: fromBlock } } });
+      await transaction.planetArtifact.deleteMany({ where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: fromBlock } } } });
       await transaction.mintVoucherRecord.deleteMany({ where: { ticketPurchase: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: fromBlock } } } });
       await transaction.ticketPurchase.deleteMany({ where: { chainId: BASE_SEPOLIA_CHAIN_ID, jackpotAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), blockNumber: { gte: fromBlock } } });
       await transaction.indexerCursor.updateMany({
         where: {
           chainId: BASE_SEPOLIA_CHAIN_ID,
           OR: [
-            { contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), stream: 'megapot-tickets' },
+            { contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), stream: TICKET_INDEX_STREAM },
+            { contractAddress: BASE_SEPOLIA_JACKPOT.toLowerCase(), stream: LEGACY_TICKET_INDEX_STREAM },
             { contractAddress: planetContractAddress, stream: 'megaplanets-v2' },
           ],
         },

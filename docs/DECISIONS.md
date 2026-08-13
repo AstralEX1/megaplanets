@@ -13,7 +13,7 @@
 | D-006 | The generator seed includes generator version and origin transaction hash | Identical picks remain distinct while the versioned ABI encoding remains explicit. |
 | D-007 | IPFS metadata is immutable at mint | Keeps token metadata independent of application hosting. |
 | D-008 | Backend signs canonical individual and batch mint vouchers | Prevents arbitrary attributes while allowing the contract to validate live ownership. |
-| D-009 | Normal eligibility requires `MEGAPLANETS_V1` after the launch block | Excludes legacy and unrelated third-party tickets. Verified referral-bonus eligibility is deferred pending Megapot confirmation. |
+| D-009 | Normal eligibility requires `MEGAPLANETS_V1` from the canonical activation boundary `44,996,796` | The first MegaPlanets activation purchases precede the Planet launch gate at `44,997,183`; the bounded grandfather window preserves those tickets while excluding unrelated legacy tickets. Verified referral-bonus eligibility is deferred pending Megapot confirmation. |
 | D-010 | Claimed or burned tickets never mint | The mint contract verifies that the ticket is live and currently owned by the recipient. |
 | D-011 | Lazy mineral production follows current Planet ownership | Transfers settle earned minerals for the previous owner at the transfer timestamp, then start production for the new owner. |
 | D-012 | Vercel + Supabase + Pinata | Minimizes MVP infrastructure operations. |
@@ -21,7 +21,7 @@
 | D-014 | The generator uses Keccak-256 of standard ABI encoding | Browser, backend, and Solidity tooling share one unambiguous seed representation locked by golden fixtures. |
 | D-015 | Generator random streams are namespaced | Artwork changes cannot accidentally change minerals or unrelated traits. |
 | D-016 | Canonical Planet media is a 128×128 pixel-art GIF | The native logical canvas is pinned without resampling; clients scale it with nearest-neighbor rendering. |
-| D-017 | Superseded: early previews read local confirmed purchases only | The current implementation discovers candidates from wallet history plus a bounded recent-chain scan and revalidates canonical receipts. |
+| D-017 | Superseded: early previews read local confirmed purchases only | The current implementation discovers candidates from wallet history plus a bounded recent-chain scan and revalidates Megastera Proofs against Base RPC. |
 | D-018 | Normal Planet minting is free and supports batches | Users pay Base gas only; the contract accepts multiple valid vouchers atomically. |
 | D-019 | Same-Type Planet holdings apply configurable, capped production bonuses | This is the only MVP collection-combination mechanic. |
 | D-020 | No special-edition minting in the MVP | The collection contract is intentionally limited to ticket-backed procedural Planets. |

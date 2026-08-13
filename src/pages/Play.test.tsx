@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   buy: vi.fn(),
+  bulkCreateOrder: vi.fn(),
   directTickets: [] as Array<Record<string, unknown>>,
   eligibleTickets: [] as Array<Record<string, unknown>>,
   indexedPlanets: [] as Array<{ ticketId: string | null }>,
@@ -105,7 +106,7 @@ vi.mock('@/hooks/useBulkPurchase', () => ({
   useBulkPurchase: () => ({
     minimumTicketCount: undefined,
     hasActiveOrder: false,
-    createOrder: vi.fn(),
+    createOrder: mocks.bulkCreateOrder,
     cancelOrder: vi.fn(),
     create: {
       isReady: false,
@@ -130,6 +131,7 @@ describe('Play', () => {
     cleanup();
     localStorage.clear();
     mocks.buy.mockReset();
+    mocks.bulkCreateOrder.mockReset();
     mocks.directTickets = [];
     mocks.eligibleTickets = [];
     mocks.indexedPlanets = [];
@@ -253,7 +255,62 @@ describe('Play', () => {
     render(<Play />);
 
     await user.click(await screen.findByRole('button', { name: 'Resume' }));
+    expect(mocks.buy).not.toHaveBeenCalled();
     expect(screen.getByRole('heading', { name: 'You found 1 planet!' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'REVEAL (1)' })).toBeInTheDocument();
+  });
+
+  it('re-submits a direct purchase when Resume restores an unsigned session', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(
+      'megaplanets:expedition:v1:84532:0x0000000000000000000000000000000000000001',
+      JSON.stringify({
+        version: 1,
+        account: '0x0000000000000000000000000000000000000001',
+        chainId: 84532,
+        purchaseMode: 'direct',
+        drawingId: '218',
+        quantity: 1,
+        automaticQuickPick: true,
+        coordinates: [],
+        purchaseTxHash: null,
+        bulkOrderReference: null,
+        createdAt: 123,
+      }),
+    );
+    render(<Play />);
+
+    await user.click(await screen.findByRole('button', { name: 'Resume' }));
+
+    expect(mocks.buy).toHaveBeenCalledWith({
+      count: 1,
+      bounds: { ballMax: 50, bonusballMax: 10 },
+      customTickets: [],
+    });
+  });
+
+  it('restarts a bulk purchase when Resume restores an unsigned session', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(
+      'megaplanets:expedition:v1:84532:0x0000000000000000000000000000000000000001',
+      JSON.stringify({
+        version: 1,
+        account: '0x0000000000000000000000000000000000000001',
+        chainId: 84532,
+        purchaseMode: 'bulk',
+        drawingId: '218',
+        quantity: 14,
+        automaticQuickPick: true,
+        coordinates: [],
+        purchaseTxHash: null,
+        bulkOrderReference: null,
+        createdAt: 123,
+      }),
+    );
+    render(<Play />);
+
+    await user.click(await screen.findByRole('button', { name: 'Resume' }));
+
+    expect(mocks.bulkCreateOrder).toHaveBeenCalledTimes(1);
   });
 });

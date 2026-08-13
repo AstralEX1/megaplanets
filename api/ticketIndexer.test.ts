@@ -16,7 +16,6 @@ describe('ticket indexer cursor hashing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
-
   it('replays from the launch block when the stored cursor hash no longer matches canon', async () => {
     const client = {
       getBlockNumber: vi.fn().mockResolvedValue(MEGAPLANETS_LAUNCH_BLOCK + 8n),

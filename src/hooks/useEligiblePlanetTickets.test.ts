@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Ticket } from '@/lib/api';
+import type { SerializedMegasteraProof } from '@/lib/backendApi';
 import type { PurchasedTicket } from '@/lib/purchaseReceipt';
 import {
+  mergeEligibleTickets,
+  readActivationEligibleTicketsFromChain,
+  readEligiblePlanetTickets,
   readEligibleTicketsFromWalletHistory,
+  readMegasteraProofsFromServer,
   readRecentEligibleTicketsFromChain,
 } from './useEligiblePlanetTickets';
 
@@ -30,7 +35,11 @@ function historyTicket(ticketId: string, transactionHash: `0x${string}`): Ticket
   };
 }
 
-function confirmedTicket(ticketId: bigint, transactionHash: `0x${string}`, logIndex = 4n): PurchasedTicket {
+function confirmedTicket(
+  ticketId: bigint,
+  transactionHash: `0x${string}`,
+  logIndex = 4n,
+): PurchasedTicket {
   return {
     ticketId,
     drawingId: 218n,
@@ -38,6 +47,27 @@ function confirmedTicket(ticketId: bigint, transactionHash: `0x${string}`, logIn
     bonusBall: 66,
     originTxHash: transactionHash,
     logIndex,
+  };
+}
+
+function serverProof(
+  ticketId: string,
+  transactionHash: `0x${string}`,
+  logIndex = '4',
+): SerializedMegasteraProof {
+  return {
+    recipient: ACCOUNT,
+    ticketId,
+    drawingId: '218',
+    normals: [4, 11, 17, 26, 39],
+    bonusBall: 66,
+    originTxHash: transactionHash,
+    blockNumber: '45000000',
+    blockHash: `0x${'b'.repeat(64)}`,
+    logIndex,
+    chainId: 84532,
+    jackpotAddress: '0x465dA3c859f193A3807386387bEE941B2A4c3279',
+    source: `0x${Buffer.from('MEGAPLANETS_V1').toString('hex').padEnd(64, '0')}`,
   };
 }
 
@@ -50,8 +80,16 @@ describe('readEligibleTicketsFromWalletHistory', () => {
     const getLogs = vi.fn();
     const listWalletTickets = vi
       .fn()
-      .mockResolvedValueOnce({ data: [historyTicket('7', HASH_A)], has_more: true, next_cursor: 'next' })
-      .mockResolvedValueOnce({ data: [historyTicket('8', HASH_B)], has_more: false, next_cursor: null });
+      .mockResolvedValueOnce({
+        data: [historyTicket('7', HASH_A)],
+        has_more: true,
+        next_cursor: 'next',
+      })
+      .mockResolvedValueOnce({
+        data: [historyTicket('8', HASH_B)],
+        has_more: false,
+        next_cursor: null,
+      });
     const readReceiptTickets = vi
       .fn()
       .mockReturnValueOnce([confirmedTicket(7n, HASH_A), confirmedTicket(999n, HASH_A)])
@@ -64,7 +102,10 @@ describe('readEligibleTicketsFromWalletHistory', () => {
     );
 
     expect(tickets.map((ticket) => ticket.ticketId)).toEqual([8n, 7n]);
-    expect(listWalletTickets).toHaveBeenNthCalledWith(1, ACCOUNT, { limit: 100, cursor: undefined });
+    expect(listWalletTickets).toHaveBeenNthCalledWith(1, ACCOUNT, {
+      limit: 100,
+      cursor: undefined,
+    });
     expect(listWalletTickets).toHaveBeenNthCalledWith(2, ACCOUNT, { limit: 100, cursor: 'next' });
     expect(getTransactionReceipt).toHaveBeenCalledTimes(2);
     expect(getLogs).not.toHaveBeenCalled();
@@ -72,11 +113,13 @@ describe('readEligibleTicketsFromWalletHistory', () => {
 
   it('recovers recent canonical purchases before the Data API indexes them', async () => {
     const getBlockNumber = vi.fn().mockResolvedValue(45_341_720n);
-    const getLogs = vi.fn().mockResolvedValue([
-      { transactionHash: HASH_A },
-      { transactionHash: HASH_A },
-      { transactionHash: HASH_B },
-    ]);
+    const getLogs = vi
+      .fn()
+      .mockResolvedValue([
+        { transactionHash: HASH_A },
+        { transactionHash: HASH_A },
+        { transactionHash: HASH_B },
+      ]);
     const getTransactionReceipt = vi
       .fn()
       .mockResolvedValueOnce({ transactionHash: HASH_A })
@@ -97,5 +140,115 @@ describe('readEligibleTicketsFromWalletHistory', () => {
     expect(getLogs).toHaveBeenCalledWith(
       expect.objectContaining({ fromBlock: 45_339_721n, toBlock: 45_341_720n }),
     );
+  });
+});
+
+describe('readMegasteraProofsFromServer', () => {
+  it('recovers paginated proofs and dedupes repeated ticket IDs', async () => {
+    const listMegasteraProofs = vi
+      .fn()
+      .mockResolvedValueOnce({
+        proofs: [serverProof('7', HASH_A)],
+        total: 2,
+        offset: 0,
+        limit: 100,
+      })
+      .mockResolvedValueOnce({
+        proofs: [serverProof('7', HASH_A), serverProof('8', HASH_B, '5')],
+        total: 3,
+        offset: 1,
+        limit: 100,
+      });
+
+    const tickets = await readMegasteraProofsFromServer(ACCOUNT, { listMegasteraProofs });
+
+    expect(tickets.map((ticket) => ticket.ticketId)).toEqual([8n, 7n]);
+    expect(listMegasteraProofs).toHaveBeenNthCalledWith(1, ACCOUNT, { offset: 0, limit: 100 });
+    expect(listMegasteraProofs).toHaveBeenNthCalledWith(2, ACCOUNT, { offset: 1, limit: 100 });
+  });
+
+  it('rejects a proof that is not for the canonical wallet or protocol', async () => {
+    await expect(
+      readMegasteraProofsFromServer(ACCOUNT, {
+        listMegasteraProofs: async () => ({
+          proofs: [
+            {
+              ...serverProof('7', HASH_A),
+              recipient: '0x0000000000000000000000000000000000000002',
+            },
+          ],
+          total: 1,
+          offset: 0,
+          limit: 100,
+        }),
+      }),
+    ).rejects.toThrow(/recipient/i);
+  });
+});
+
+describe('mergeEligibleTickets', () => {
+  it('lets receipt-verified RPC provenance override a stale server proof', () => {
+    const proof = confirmedTicket(7n, HASH_A, 4n);
+    const receipt = confirmedTicket(7n, HASH_B, 5n);
+    expect(mergeEligibleTickets([proof], [receipt])).toEqual([receipt]);
+  });
+});
+
+describe('readEligiblePlanetTickets', () => {
+  it('keeps durable server proofs when the optional chain history sources are unavailable', async () => {
+    const tickets = await readEligiblePlanetTickets(
+      {
+        getBlockNumber: vi.fn().mockRejectedValue(new Error('RPC unavailable')),
+        getLogs: vi.fn().mockRejectedValue(new Error('RPC unavailable')),
+        getTransactionReceipt: vi.fn().mockRejectedValue(new Error('RPC unavailable')),
+      } as never,
+      ACCOUNT,
+      {
+        listMegasteraProofs: async () => ({
+          proofs: [serverProof('7', HASH_A)],
+          total: 1,
+          offset: 0,
+          limit: 100,
+        }),
+        listWalletTickets: async () => {
+          throw new Error('Data API unavailable');
+        },
+      },
+    );
+
+    expect(tickets.map((ticket) => ticket.ticketId)).toEqual([7n]);
+  });
+});
+
+describe('readActivationEligibleTicketsFromChain', () => {
+  it('recovers the canonical pre-launch activation window from receipts', async () => {
+    const getLogs = vi
+      .fn()
+      .mockResolvedValue([{ transactionHash: HASH_A }, { transactionHash: HASH_A }]);
+    const getTransactionReceipt = vi.fn().mockResolvedValue({ transactionHash: HASH_A });
+    const readReceiptTickets = vi
+      .fn()
+      .mockReturnValue([
+        confirmedTicket(90187820829801269348n, HASH_A),
+        confirmedTicket(71845936741832571838n, HASH_A, 8n),
+      ]);
+
+    const tickets = await readActivationEligibleTicketsFromChain(
+      { getLogs, getTransactionReceipt } as never,
+      ACCOUNT,
+      { readReceiptTickets },
+    );
+
+    expect(tickets.map((ticket) => ticket.ticketId)).toEqual([
+      71845936741832571838n,
+      90187820829801269348n,
+    ]);
+    expect(getLogs).toHaveBeenCalledWith(
+      expect.objectContaining({ fromBlock: 44_996_796n, toBlock: 44_996_845n }),
+    );
+    expect(getLogs).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fromBlock: 44_997_146n, toBlock: 44_997_183n }),
+    );
+    expect(getTransactionReceipt).toHaveBeenCalledTimes(1);
   });
 });

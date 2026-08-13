@@ -7,7 +7,7 @@ This document is the current implementation snapshot. Product intent remains in
 [`ARCHITECTURE.md`](./ARCHITECTURE.md), and future work is ordered in
 [`ROADMAP.md`](./ROADMAP.md).
 
-The public game overview, local setup, deployment gate, and golden Planet GIF gallery
+The public game overview, local setup, deployment gate, and legacy golden Planet GIF gallery
 are maintained in the repository root [`README.md`](../README.md). The renderer fixtures
 live in [`packages/planet-generator/tests/fixtures/`](../packages/planet-generator/tests/fixtures/)
 and are verified byte-for-byte by the focused generator suite.
@@ -15,9 +15,9 @@ and are verified byte-for-byte by the focused generator suite.
 ## Executive summary
 
 MegaPlanets has a substantial local MVP implementation: Megapot ticket purchases,
-canonical receipt provenance, deterministic Planet generation, individual and batch
-voucher mint flows, a PostgreSQL indexer, lazy mining, same-Type bonuses, weekly
-leaderboards, and the corresponding frontend surfaces all exist and are covered by unit
+Megastera Proof provenance, deterministic Planet generation, individual and batch
+voucher mint flows, direct on-chain holdings, a minimal PostgreSQL Planet projector,
+lifetime mining, daily leaderboard snapshots, and the corresponding frontend surfaces all exist and are covered by unit
 tests. USDC uses an intentional unlimited-approval policy: each route checks the exact
 required allowance and only requests `approve(spender, maxUint256)` when insufficient.
 
@@ -63,19 +63,22 @@ activation gate remains env-only: do not check in defaults, and do not set front
 backend `MEGAPLANETS_CONTRACT_ADDRESS=0x7a29bfD9d1A7a243A212d4E81bc9A52bE50fb9f2` and
 `MEGAPLANETS_PLANET_DEPLOYMENT_BLOCK=45347860` until the remaining production operations
 gate passes; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
-`TICKET_SOURCE=MEGAPLANETS_V1` unchanged.
+`TICKET_SOURCE=MEGAPLANETS_V1` unchanged. The canonical ticket eligibility boundary is
+the first activation-window purchase at block `44,996,796`; the bounded recovery scan
+covers that activation window through launch, while normal post-launch purchases remain
+eligible. This is intentionally narrower than an unrestricted legacy scan.
 
 ## Layer-by-layer state
 
 | Layer | Implemented now | Readiness |
 | --- | --- | --- |
 | Megapot purchases | Direct 1-10 custom/quick-pick purchases, all-random keeper bulk orders for 11-50, allowance-gated unlimited USDC approvals, dynamic draw bounds, `MEGAPLANETS_V1`, and canonical `TicketPurchased` receipt decoding | Implemented and unit-tested; real wallet and keeper execution still need an end-to-end rehearsal |
-| Planet generator | DOM-free deterministic V3 generator, namespaced randomness, seasonless metadata, 128x128 GIF renderer, web worker, serialization/integrity checks, and regenerated golden fixtures | Complete local checkpoint; final art/economy parameters still require product sign-off |
+| Planet generator | DOM-free deterministic V3 generator, namespaced randomness, seasonless metadata, browser previews/legacy GIF fixtures, server-only short WebM encoder, serialization, and integrity checks | Complete local checkpoint; final art/economy parameters still require product sign-off |
 | Contract V2 | Seasonless ERC721A, sequential token IDs from 1, bidirectional ticket/Planet mappings, atomic batches up to 50, EIP-712 v2 vouchers, live ticket ownership checks, and Foundry unit/fuzz/invariant tests | Deployed to Base Sepolia at `0x7a29...f9f2`; Sourcify exact match; BaseScan verified; runtime activation remains pending |
-| Voucher service | Hono endpoint validates the canonical purchase receipt, derives metadata, pins to Pinata, signs EIP-712 vouchers, caches results, and rate-limits/coalesces requests | Standalone Node API process, health/readiness/metrics probes, and local split-stack commands are implemented; production secrets, shared rate limiting, hosting, and ownership are not complete |
-| PostgreSQL/indexer | Prisma migrations for tickets, vouchers, Planets, ownership, processed events, cursors, mining ledger, and leaderboard; separate finalized-log runner with adaptive ranges, deployment-scoped idempotency, and bounded ticket/Planet reorg rewinds | Disposable DB rehearsal, 462-ticket backfill, post-mint convergence, repeat idempotency, readiness/metrics probes, and standalone API/indexer processes verified; production reorg-window monitoring remains required |
-| Mining | Lazy fixed-point accrual, immutable ledger segments, same-Type multipliers of 0/5/10/15%, per-Planet and wallet snapshots | Transfer sender/receiver repricing, burn state removal, remainder persistence, and same-tx mint ordering are covered by tests; no live transfer/burn performed |
-| Leaderboard | Monday-to-Monday periods, deterministic rank/tie rules, live and archived APIs, history, wallet position, frontend, and explicit worker finalization route | Implemented locally; the worker still needs a deployed scheduler and shared database operations owner |
+| Voucher service | Hono endpoints validate Megastera Proof, create or reuse immutable WebM/IPFS artifacts, sign EIP-712 vouchers, and rate-limit/coalesce requests | Standalone Node API process, signer/readiness probes, and local split-stack commands are implemented; production secrets, shared rate limiting, hosting, and ownership are not complete |
+| PostgreSQL/projector | Durable Megastera Proofs, artifact pointers, Planets, current owners, processed events, cursor, and daily leaderboard snapshots; continuous Ticket scanning is removed | Finalized Planet-only projection, idempotency, and bounded reorg recovery are tested; production monitoring remains required |
+| Mining | `baseMineralsPerDay × elapsedSinceMint`; current owner receives the Planet's full lifetime value; burned Planets are excluded | Per-Planet and wallet reads are covered without accrual/ledger runtime writes |
+| Leaderboard | Completed UTC-day snapshots, deterministic rank/tie rules, live/archive APIs, history, wallet position, frontend, and explicit worker finalization route | Implemented locally; schedule the worker once daily in production |
 | Frontend | Responsive Play, My Planets list/detail and reveal batches, live mining overlays, leaderboard, wallet integration, deep links, and deterministic GIF previews | Polished local UI; production backend routing, live-wallet flows, and mobile/desktop E2E smoke coverage remain |
 
 ## Current frontend behavior
@@ -85,7 +88,13 @@ gate passes; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 - LP code remains available but `LP_ENABLED` is false.
 - Lab is development-only and is omitted from production navigation.
 - My Planets merges canonical eligible Megapot tickets with backend-indexed minted Planets.
+- Ticket discovery includes the bounded activation window (`44,996,796..44,997,183`) and
+  uses RPC fallbacks for historical receipts, so the original activation tickets do not
+  disappear when the Data API or primary RPC is incomplete.
 - Unrevealed tickets intentionally hide generated identity and traits until reveal.
+- Reveal preflights current ownership in `JackpotTicketNFT`; burned or transferred tickets
+  are skipped with an explicit explanation, while every currently-held ticket continues
+  through voucher preparation and contract simulation.
 - Planet index, mining, leaderboard, and voucher requests share
   `VITE_BACKEND_API_BASE_URL` (with the legacy voucher variable as a compatibility
   fallback), so split frontend/API deployments use one tested base adapter.
@@ -102,23 +111,23 @@ gate passes; keep `MEGAPLANETS_LAUNCH_BLOCK=44997183` and
 3. Deploy PostgreSQL, apply all Prisma migrations, configure the API and a long-running
    indexer, then backfill from the correct V2 deployment block.
 4. Expand controlled Base Sepolia rehearsal coverage to direct purchase, keeper bulk
-   purchase, batch mint, transfer, mining, same-Type bonus changes, and leaderboard.
+   purchase, batch mint, transfer, burn, lifetime mining, and daily leaderboard.
 5. Keep V2 runtime activation env-only until monitoring, backups, and an explicit
    production operations owner are in place.
 
-### P1 - required before calling indexed scores production-ready
+### P1 - required before calling daily scores production-ready
 
 1. Add an automated reconciliation/restore test proving that a full reorg replay rebuilds
-   mining accrual state, ledger entries, and leaderboard rows from canonical events.
-2. Keep the ticket and Planet block-hash/reorg handling under scheduled monitoring and
+   Planet mint timestamps/current owners and leaderboard rows from canonical events.
+2. Keep Planet block-hash/reorg handling under scheduled monitoring and
    add alerting for lag or repeated reorgs.
 3. Deploy and schedule the explicit leaderboard worker/cron; public reads no longer trigger
    overdue-period finalization.
 4. Add external indexer lag metrics, structured logs, retry policy, alerting, database
    backups, restore tests, and a rollback runbook; the current readiness/metrics probes
    cover local configuration and process counters only.
-5. Use durable distributed voucher rate limiting in production and decide whether voucher
-   preparation must require the existing wallet-session authentication flow.
+5. Use durable distributed voucher rate limiting in production; voucher preparation is
+   authorized by Megastera Proof and does not require a wallet session.
 6. Operate the shared backend API-base configuration consistently across frontend services;
    the code-level abstraction and separate-origin tests are complete.
 

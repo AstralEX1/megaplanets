@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { getAddress, isAddress } from 'viem';
 import { z } from 'zod';
-import { createAuthRoutes, resolveSession } from './auth';
 import { getPrismaClient } from './database';
 import { loadStage2Config, type Stage2Config } from './stage2Config';
 import { PrismaStage2Store, type PlanetScope, type Stage2Store } from './stage2Store';
@@ -13,7 +12,6 @@ export type Stage2Dependencies = {
   getMining: typeof getPlanetMiningSnapshot;
   getWalletMining: typeof getWalletMiningSnapshot;
   now: () => Date;
-  random?: (bytes: number) => Buffer;
 };
 
 const defaultDependencies: Stage2Dependencies = {
@@ -33,58 +31,6 @@ export function createStage2Routes(overrides: Partial<Stage2Dependencies> = {}) 
     if (!config.planetContractAddress) throw new Error('MegaPlanets contract configuration is required for indexed Planet reads.');
     return { chainId: config.chainId, contractAddress: config.planetContractAddress };
   };
-
-  app.route(
-    '/auth',
-    createAuthRoutes({
-      loadConfig: dependencies.loadConfig,
-      getStore: dependencies.getStore,
-      now: dependencies.now,
-      random: dependencies.random,
-    }),
-  );
-
-  app.get('/me', async (c) => {
-    try {
-      const config = dependencies.loadConfig();
-      const store = dependencies.getStore(config);
-      const session = await resolveSession(store, c.req, dependencies.now());
-      if (!session) return c.json({ error: 'Wallet authentication is required.' }, 401);
-      return c.json({ address: getAddress(session.walletAddress), expiresAt: session.expiresAt.toISOString() });
-    } catch {
-      return c.json({ error: 'The Stage 2 API is not configured.' }, 503);
-    }
-  });
-
-  app.get('/me/mining', async (c) => {
-    try {
-      const config = dependencies.loadConfig();
-      const store = dependencies.getStore(config);
-      const session = await resolveSession(store, c.req, dependencies.now());
-      if (!session) return c.json({ error: 'Wallet authentication is required.' }, 401);
-      const mining = await dependencies.getWalletMining(
-        getPrismaClient(config.databaseUrl),
-        session.walletAddress,
-        dependencies.now(),
-        scopeFor(config),
-      );
-      return c.json({ mining });
-    } catch {
-      return c.json({ error: 'The mining API is not configured.' }, 503);
-    }
-  });
-
-  app.get('/me/planets', async (c) => {
-    try {
-      const config = dependencies.loadConfig();
-      const store = dependencies.getStore(config);
-      const session = await resolveSession(store, c.req, dependencies.now());
-      if (!session) return c.json({ error: 'Wallet authentication is required.' }, 401);
-      return c.json({ planets: await store.listPlanets(session.walletAddress, scopeFor(config)) });
-    } catch {
-      return c.json({ error: 'The Stage 2 API is not configured.' }, 503);
-    }
-  });
 
   app.get('/wallets/:address/mining', async (c) => {
     const address = c.req.param('address');

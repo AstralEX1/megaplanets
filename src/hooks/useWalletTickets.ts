@@ -26,8 +26,12 @@
  */
 
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL, api, apiQueryRetry, QK, type Ticket } from '@/lib/api';
+import {
+  DEFAULT_TICKET_HISTORY_ROUNDS,
+  visibleTicketHistoryRounds,
+} from '@/lib/ticketHistory';
 
 const ONE_MINUTE = 60 * 1000;
 
@@ -42,12 +46,27 @@ export type WalletTicketsByRound = {
   totalWinnings: bigint;
 };
 
+export function shouldLoadOlderTicketRounds(
+  loadedRoundCount: number,
+  visibleRoundCount: number,
+  hasNextPage: boolean,
+): boolean {
+  return loadedRoundCount > visibleRoundCount || hasNextPage;
+}
+
 export function useWalletTickets(
   address: `0x${string}` | undefined,
-  opts: { pageSize?: number; excludeRoundId?: string } = {},
+  opts: {
+    pageSize?: number;
+    excludeRoundId?: string;
+    initialRoundCount?: number;
+  } = {},
 ) {
   const pageSize = opts.pageSize ?? 50;
   const excludeRoundId = opts.excludeRoundId;
+  const initialRoundCount = opts.initialRoundCount ?? DEFAULT_TICKET_HISTORY_ROUNDS;
+  const resetKey = `${address ?? ''}:${pageSize}`;
+  const [visibleRoundCount, setVisibleRoundCount] = useState(initialRoundCount);
   const query = useInfiniteQuery({
     queryKey: [QK.NS, API_BASE_URL, QK.walletTickets, address, pageSize],
     queryFn: ({ pageParam, signal }) =>
@@ -106,11 +125,31 @@ export function useWalletTickets(
       });
   }, [tickets, excludeRoundId]);
 
+  // Reset the visible prefix when the wallet or page-size cache changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resetKey captures the query identity used for this local UI state.
+  useEffect(() => {
+    setVisibleRoundCount(initialRoundCount);
+  }, [initialRoundCount, resetKey]);
+
+  const hasOlderRounds = shouldLoadOlderTicketRounds(
+    groupedByRound.length,
+    visibleRoundCount,
+    query.hasNextPage,
+  ) || (query.error !== null && groupedByRound.length > 0);
+  const loadOlderRounds = async () => {
+    if (groupedByRound.length > visibleRoundCount) {
+      setVisibleRoundCount((current) => current + initialRoundCount);
+      return;
+    }
+    await query.fetchNextPage();
+  };
+
   return {
     tickets,
     groupedByRound,
-    fetchNextPage: query.fetchNextPage,
-    hasNextPage: query.hasNextPage,
+    visibleGroupedByRound: visibleTicketHistoryRounds(groupedByRound, visibleRoundCount),
+    fetchNextPage: loadOlderRounds,
+    hasNextPage: hasOlderRounds,
     isFetchingNextPage: query.isFetchingNextPage,
     isLoading: query.isLoading,
     error: query.error,
