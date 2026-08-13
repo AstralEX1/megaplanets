@@ -248,7 +248,7 @@ vi.mock('@/components/planets/MintPlanetBatchButton', () => ({
   ),
 }));
 
-import { Planets } from './Planets';
+import { mergeIndexedTicketsWithCanonical, Planets } from './Planets';
 
 describe('Planets', () => {
   beforeEach(() => {
@@ -316,6 +316,20 @@ describe('Planets', () => {
   });
 
   afterEach(cleanup);
+
+  it('preserves canonical receipt logIndex over indexed fallback provenance', () => {
+    const canonical = {
+      ticketId: 24n,
+      drawingId: 218n,
+      normals: [4, 11, 17, 26, 39],
+      bonusBall: 66,
+      originTxHash: `0x${'1'.repeat(64)}` as `0x${string}`,
+      logIndex: 17n,
+    };
+    const indexedFallback = { ...canonical, logIndex: 0n };
+
+    expect(mergeIndexedTicketsWithCanonical([canonical], [indexedFallback])).toEqual([canonical]);
+  });
 
   it('shows collection totals and all working sort choices', () => {
     render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);

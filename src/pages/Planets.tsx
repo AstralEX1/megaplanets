@@ -27,6 +27,7 @@ import {
 } from '@/lib/planetInventory';
 import type { RevealUnavailable } from '@/lib/planetReveal';
 import { mergePlanetTickets } from '@/lib/planetTickets';
+import type { PurchasedTicket } from '@/lib/purchaseReceipt';
 import {
   PURCHASED_TICKETS_UPDATED_EVENT,
   readPersistedPurchasedTickets,
@@ -37,6 +38,18 @@ type PlanetsProps = {
   onViewPlanet: (tokenId: string) => void;
   routePlanetId?: string;
 };
+
+/**
+ * Indexed Planet rows are display/provenance fallback only: Stage2 currently
+ * omits TicketPurchase.logIndex, so its synthetic position must never replace
+ * receipt-verified ticket provenance recovered from RPC/server proofs.
+ */
+export function mergeIndexedTicketsWithCanonical(
+  canonicalTickets: readonly PurchasedTicket[],
+  indexedTickets: readonly PurchasedTicket[],
+): readonly PurchasedTicket[] {
+  return mergePlanetTickets(canonicalTickets, indexedTickets);
+}
 
 function isMobileViewport() {
   return window.matchMedia?.('(max-width: 767px)').matches ?? false;
@@ -151,7 +164,7 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
     [indexed.planets],
   );
   const tickets = useMemo(
-    () => mergePlanetTickets(eligibleTickets, indexedTickets),
+    () => mergeIndexedTicketsWithCanonical(eligibleTickets, indexedTickets),
     [eligibleTickets, indexedTickets],
   );
   const ticketRefs = useMemo(

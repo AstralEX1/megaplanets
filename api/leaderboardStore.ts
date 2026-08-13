@@ -149,7 +149,13 @@ export async function finalizeLeaderboardPeriod(
       $queryRaw?: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
     };
     if (transactionWithQueryRaw.$queryRaw) {
-      await transactionWithQueryRaw.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended('megaplanets:leaderboard-finalization', 0))`;
+      // pg_advisory_xact_lock returns PostgreSQL's `void` type. Selecting that
+      // value directly makes Prisma fail while decoding the raw query result;
+      // keep the transaction-scoped lock but expose only a scalar column.
+      await transactionWithQueryRaw.$queryRaw`SELECT 1 AS locked
+        FROM (
+          SELECT pg_advisory_xact_lock(hashtextextended('megaplanets:leaderboard-finalization', 0)) AS acquired
+        ) AS lock_result`;
     }
     const existing = await transaction.leaderboardPeriod.findUnique({ where: { id: period.id } });
     if (existing?.finalizedAt) {
