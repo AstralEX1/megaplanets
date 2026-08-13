@@ -61,6 +61,12 @@ const state = vi.hoisted(() => ({
   mintedTicketIds: new Set<string>(),
   provenanceLoading: false,
   provenanceError: undefined as Error | undefined,
+  mintUnavailableReason: undefined as
+    | 'already-minted'
+    | 'burned'
+    | 'transferred'
+    | 'unreadable'
+    | undefined,
   mining: {
     ownerAddress: '0x0000000000000000000000000000000000000001',
     asOf: '2026-08-10T00:00:01.000Z',
@@ -192,8 +198,35 @@ vi.mock('@/components/planets/PlanetGif', () => ({
   ),
 }));
 vi.mock('@/components/planets/MintPlanetButton', () => ({
-  MintPlanetButton: ({ buttonLabel }: { buttonLabel?: string }) => (
-    <button type="button">{buttonLabel}</button>
+  MintPlanetButton: ({
+    buttonLabel,
+    preview,
+    onUnavailable,
+    onStateChange,
+  }: {
+    buttonLabel?: string;
+    preview: { descriptor: { input: { ticketId: bigint } } };
+    onUnavailable?: (ticket: {
+      planet: { ticketId: bigint; logIndex: bigint };
+      reason: 'already-minted' | 'burned' | 'transferred' | 'unreadable';
+    }) => void;
+    onStateChange?: (state: 'wallet-confirmation' | 'idle') => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => {
+        const reason = state.mintUnavailableReason;
+        if (reason) {
+          onUnavailable?.({
+            planet: { ticketId: preview.descriptor.input.ticketId, logIndex: 0n },
+            reason,
+          });
+        }
+        onStateChange?.('wallet-confirmation');
+      }}
+    >
+      {buttonLabel}
+    </button>
   ),
 }));
 vi.mock('@/components/planets/MintPlanetBatchButton', () => ({
@@ -272,6 +305,7 @@ describe('Planets', () => {
     state.mintedTicketIds = new Set();
     state.provenanceLoading = false;
     state.provenanceError = undefined;
+    state.mintUnavailableReason = undefined;
     state.statuses = new Map([
       ['24', { kind: 'claim', amount: 12_500_000n, ticketId: 24n }],
       ['25', { kind: 'drawn' }],
@@ -463,6 +497,55 @@ describe('Planets', () => {
 
     expect(screen.queryByRole('button', { name: 'Reveal' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'My Planets' })).toBeInTheDocument();
+  });
+
+  it('renders already-minted as already revealed and never leaves a Reveal action', () => {
+    state.planets = [];
+    state.tickets = [state.tickets[0]];
+    state.mintUnavailableReason = 'already-minted';
+
+    render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    const card = screen
+      .getByRole('button', { name: 'Select unrevealed Ticket #24' })
+      .closest('article');
+    expect(card).not.toBeNull();
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: 'Reveal' }));
+
+    expect(
+      within(card as HTMLElement).getByText('This ticket has already revealed a Planet.'),
+    ).toBeInTheDocument();
+    expect(
+      within(card as HTMLElement).queryByRole('button', { name: 'Reveal' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps a transferred ticket retryable and clears its stale unavailable state on retry', () => {
+    state.planets = [];
+    state.tickets = [state.tickets[0]];
+    state.mintUnavailableReason = 'transferred';
+
+    render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    const card = screen
+      .getByRole('button', { name: 'Select unrevealed Ticket #24' })
+      .closest('article');
+    expect(card).not.toBeNull();
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: 'Reveal' }));
+    expect(
+      within(card as HTMLElement).getByText('This ticket NFT is no longer owned by this wallet.'),
+    ).toBeInTheDocument();
+    expect(
+      within(card as HTMLElement).getByRole('button', { name: 'Retry reveal' }),
+    ).toBeInTheDocument();
+
+    state.mintUnavailableReason = undefined;
+    fireEvent.click(within(card as HTMLElement).getByRole('button', { name: 'Retry reveal' }));
+
+    expect(
+      within(card as HTMLElement).queryByText('This ticket NFT is no longer owned by this wallet.'),
+    ).not.toBeInTheDocument();
+    expect(within(card as HTMLElement).getByRole('button', { name: 'Reveal' })).toBeInTheDocument();
   });
 
   it('shows the existing wallet connect action when disconnected', () => {

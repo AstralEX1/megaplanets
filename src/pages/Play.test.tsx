@@ -233,8 +233,7 @@ describe('Play', () => {
     expect(screen.getByRole('button', { name: /^Explore 3/ })).toBeInTheDocument();
   });
 
-  it('offers Resume after reload and verifies the saved direct transaction before Reveal', async () => {
-    const user = userEvent.setup();
+  it('does not resume a saved expedition after reload', () => {
     const purchaseHash = `0x${'a'.repeat(64)}`;
     localStorage.setItem(
       'megaplanets:expedition:v1:84532:0x0000000000000000000000000000000000000001',
@@ -252,121 +251,15 @@ describe('Play', () => {
         createdAt: 123,
       }),
     );
-    mocks.eligibleTickets = [
-      {
-        ticketId: 34n,
-        drawingId: 218n,
-        normals: [1, 2, 3, 4, 5],
-        bonusBall: 1,
-        originTxHash: purchaseHash,
-        logIndex: 0n,
-      },
-    ];
     render(<Play />);
 
-    await user.click(await screen.findByRole('button', { name: 'Resume' }));
-    expect(mocks.buy).not.toHaveBeenCalled();
-    expect(screen.getByRole('heading', { name: 'You found 1 planet!' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'REVEAL (1)' })).toBeInTheDocument();
-  });
-
-  it('uses only exact bulk execution tickets instead of older same-drawing recovery history', async () => {
-    const user = userEvent.setup();
-    const executionHash = `0x${'c'.repeat(64)}`;
-    localStorage.setItem(
-      'megaplanets:expedition:v1:84532:0x0000000000000000000000000000000000000001',
-      JSON.stringify({
-        version: 1,
-        account: '0x0000000000000000000000000000000000000001',
-        chainId: 84532,
-        purchaseMode: 'bulk',
-        drawingId: '218',
-        quantity: 14,
-        automaticQuickPick: true,
-        coordinates: [],
-        purchaseTxHash: executionHash,
-        bulkOrderReference: executionHash,
-        createdAt: 123,
-      }),
-    );
-    mocks.bulkTickets = Array.from({ length: 14 }, (_, index) => ({
-      ticketId: BigInt(90 + index),
-      drawingId: 218n,
-      normals: [1, 2, 3, 4, 5],
-      bonusBall: 1,
-      originTxHash: executionHash,
-      logIndex: BigInt(index),
-    }));
-    mocks.eligibleTickets = [
-      {
-        ticketId: 12n,
-        drawingId: 218n,
-        normals: [1, 2, 3, 4, 5],
-        bonusBall: 1,
-        originTxHash: `0x${'1'.repeat(64)}`,
-        logIndex: 0n,
-      },
-    ];
-    render(<Play />);
-
-    await user.click(await screen.findByRole('button', { name: 'Resume' }));
-
-    expect(screen.getByRole('heading', { name: 'You found 14 planets!' })).toBeInTheDocument();
-    expect(screen.queryByText('Planet artwork 12')).not.toBeInTheDocument();
-  });
-
-  it('re-submits a direct purchase when Resume restores an unsigned session', async () => {
-    const user = userEvent.setup();
-    localStorage.setItem(
-      'megaplanets:expedition:v1:84532:0x0000000000000000000000000000000000000001',
-      JSON.stringify({
-        version: 1,
-        account: '0x0000000000000000000000000000000000000001',
-        chainId: 84532,
-        purchaseMode: 'direct',
-        drawingId: '218',
-        quantity: 1,
-        automaticQuickPick: true,
-        coordinates: [],
-        purchaseTxHash: null,
-        bulkOrderReference: null,
-        createdAt: 123,
-      }),
-    );
-    render(<Play />);
-
-    await user.click(await screen.findByRole('button', { name: 'Resume' }));
-
-    expect(mocks.buy).toHaveBeenCalledWith({
-      count: 1,
-      bounds: { ballMax: 50, bonusballMax: 10 },
-      customTickets: [],
-    });
-  });
-
-  it('restarts a bulk purchase when Resume restores an unsigned session', async () => {
-    const user = userEvent.setup();
-    localStorage.setItem(
-      'megaplanets:expedition:v1:84532:0x0000000000000000000000000000000000000001',
-      JSON.stringify({
-        version: 1,
-        account: '0x0000000000000000000000000000000000000001',
-        chainId: 84532,
-        purchaseMode: 'bulk',
-        drawingId: '218',
-        quantity: 14,
-        automaticQuickPick: true,
-        coordinates: [],
-        purchaseTxHash: null,
-        bulkOrderReference: null,
-        createdAt: 123,
-      }),
-    );
-    render(<Play />);
-
-    await user.click(await screen.findByRole('button', { name: 'Resume' }));
-
-    expect(mocks.bulkCreateOrder).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Resume' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Explore 3/ })).toBeInTheDocument();
+    expect(
+      localStorage.getItem(
+        'megaplanets:expedition:v1:84532:0x0000000000000000000000000000000000000001',
+      ),
+    ).toBeNull();
   });
 
   it('does not carry a completed reveal into a different wallet or network', async () => {

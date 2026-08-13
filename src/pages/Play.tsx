@@ -34,7 +34,6 @@ import {
 import {
   clearExpeditionSession,
   type ExpeditionSessionV1,
-  readExpeditionSession,
   writeExpeditionSession,
 } from '@/lib/expeditionSession';
 import { selectRevealTickets } from '@/lib/revealPlan';
@@ -118,18 +117,6 @@ export function Play() {
       session?.purchaseTxHash,
     ],
   );
-  const sessionCandidateCount = useMemo(() => {
-    if (!session) return 0;
-    if (session.purchaseMode === 'direct' && session.purchaseTxHash) {
-      return recovered.tickets.filter(
-        (ticket) =>
-          ticket.drawingId.toString() === session.drawingId &&
-          ticket.originTxHash.toLowerCase() === session.purchaseTxHash?.toLowerCase(),
-      ).length;
-    }
-    return recovered.tickets.filter((ticket) => ticket.drawingId.toString() === session.drawingId)
-      .length;
-  }, [recovered.tickets, session]);
   const confirmedTickets = useMemo(() => {
     if (!flowActive) return [];
     return candidateTickets.slice(0, expectedCount);
@@ -144,7 +131,8 @@ export function Play() {
       setRevealState('idle');
       return;
     }
-    setSession(readExpeditionSession(address, chainId));
+    clearExpeditionSession(address, chainId);
+    setSession(null);
     setFlowActive(false);
     setRevealedTicketIds(new Set());
     setRevealState('idle');
@@ -292,19 +280,6 @@ export function Play() {
       void direct.buy({ customTickets: staticTickets, count, bounds });
     }
   };
-  const resume = () => {
-    if (!session) return;
-    setCount(session.quantity);
-    setAutomaticQuickPick(session.automaticQuickPick);
-    setStaticTickets(session.coordinates);
-    setFlowActive(true);
-    if (session.purchaseTxHash) return;
-    if (session.purchaseMode === 'bulk') void bulk.createOrder();
-    else if (bounds) {
-      direct.reset();
-      void direct.buy({ customTickets: session.coordinates, count: session.quantity, bounds });
-    }
-  };
   const retry = () => {
     purchase.reset();
     launch();
@@ -352,42 +327,23 @@ export function Play() {
   let content: ReactNode;
   if (purchaseInline) {
     content = (
-      <>
-        {session && !flowActive ? (
-          <section className="mx-auto mb-4 flex max-w-[720px] flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--primary)]/50 bg-[var(--surface-raised)] px-4 py-3">
-            <div>
-              <p className="font-hud font-bold text-[var(--text-primary)]">
-                {sessionCandidateCount >= session.quantity
-                  ? `${session.quantity} planets ready to reveal`
-                  : 'Expedition in progress'}
-              </p>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                Progress will be verified from Base Sepolia before continuing.
-              </p>
-            </div>
-            <Button size="sm" onClick={resume}>
-              Resume
-            </Button>
-          </section>
-        ) : null}
-        <ExpeditionConfigurator
-          quantity={count}
-          total={total}
-          jackpotAmount={state?.prizePool}
-          bounds={bounds}
-          manuallyEditedTickets={staticTickets}
-          automaticQuickPick={automaticQuickPick}
-          disabled={flowActive && !inlineRetry ? true : checkoutDisabled}
-          exploreLabel={exploreLabel}
-          approvalSpender={approvalSpender}
-          approvalAmount={approvalAmount}
-          onApproved={refetchJackpot}
-          onQuantityChange={setQuantity}
-          onAutomaticQuickPickChange={setAutomaticQuickPick}
-          onTicketsChange={setStaticTickets}
-          onExplore={inlineRetry ? retry : launch}
-        />
-      </>
+      <ExpeditionConfigurator
+        quantity={count}
+        total={total}
+        jackpotAmount={state?.prizePool}
+        bounds={bounds}
+        manuallyEditedTickets={staticTickets}
+        automaticQuickPick={automaticQuickPick}
+        disabled={flowActive && !inlineRetry ? true : checkoutDisabled}
+        exploreLabel={exploreLabel}
+        approvalSpender={approvalSpender}
+        approvalAmount={approvalAmount}
+        onApproved={refetchJackpot}
+        onQuantityChange={setQuantity}
+        onAutomaticQuickPickChange={setAutomaticQuickPick}
+        onTicketsChange={setStaticTickets}
+        onExplore={inlineRetry ? retry : launch}
+      />
     );
   } else if (mysteryVisible) {
     content = (

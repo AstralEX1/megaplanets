@@ -77,12 +77,16 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   const [unavailableRevealTickets, setUnavailableRevealTickets] = useState<
     readonly RevealUnavailable[]
   >([]);
+  const [revealRetryGenerations, setRevealRetryGenerations] = useState<ReadonlyMap<string, number>>(
+    () => new Map(),
+  );
 
   useEffect(() => {
     if (!address) {
       setStored({ tickets: [], invalidKeys: [] });
       setRevealedTicketIds(new Set());
       setUnavailableRevealTickets([]);
+      setRevealRetryGenerations(new Map());
       return;
     }
     if (!Number.isSafeInteger(chainId) || chainId <= 0) return;
@@ -93,6 +97,7 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
     };
     setRevealedTicketIds(new Set());
     setUnavailableRevealTickets([]);
+    setRevealRetryGenerations(new Map());
     syncStoredTickets();
     window.addEventListener(PURCHASED_TICKETS_UPDATED_EVENT, onTicketsUpdated);
     return () => window.removeEventListener(PURCHASED_TICKETS_UPDATED_EVENT, onTicketsUpdated);
@@ -291,6 +296,20 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
 
   const markRevealed = (ticketIds: readonly bigint[]) => {
     setRevealedTicketIds((current) => new Set([...current, ...ticketIds.map(String)]));
+    setUnavailableRevealTickets((current) =>
+      current.filter(({ planet }) => !ticketIds.some((ticketId) => ticketId === planet.ticketId)),
+    );
+  };
+  const clearUnavailableRevealTicket = (ticketId: bigint) => {
+    const key = ticketId.toString();
+    setUnavailableRevealTickets((current) =>
+      current.filter(({ planet }) => planet.ticketId !== ticketId),
+    );
+    setRevealRetryGenerations((current) => {
+      const next = new Map(current);
+      next.set(key, (next.get(key) ?? 0) + 1);
+      return next;
+    });
   };
   const rememberUnavailableRevealTickets = (ticketsToAdd: readonly RevealUnavailable[]) => {
     if (ticketsToAdd.length === 0) return;
@@ -303,21 +322,41 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
     });
   };
   const blockedRevealTickets = unavailableRevealTickets.filter(
-    ({ reason }) => reason !== 'unreadable',
+    ({ reason }) => reason === 'transferred' || reason === 'burned',
   );
   const mintAction = (preview: PlanetPreview) => {
     const unavailable = unavailableRevealTickets.find(
       ({ planet }) => planet.ticketId === preview.descriptor.input.ticketId,
     );
     if (unavailable) {
+      const ticketId = preview.descriptor.input.ticketId;
+      if (unavailable.reason === 'already-minted') {
+        return <p className="text-xs text-amber-200">This ticket has already revealed a Planet.</p>;
+      }
+      if (unavailable.reason === 'burned') {
+        return (
+          <p className="text-xs text-amber-200">This ticket NFT was burned and cannot reveal.</p>
+        );
+      }
       return (
-        <p className="text-xs text-amber-200">
-          {unavailable.reason === 'burned'
-            ? 'This ticket NFT was burned and cannot reveal.'
-            : unavailable.reason === 'transferred'
+        <div className="space-y-1">
+          <p className="text-xs text-amber-200">
+            {unavailable.reason === 'transferred'
               ? 'This ticket NFT is no longer owned by this wallet.'
               : 'Ticket ownership could not be read. Retry when the RPC is available.'}
-        </p>
+          </p>
+          <MintPlanetButton
+            key={`retry-${ticketId.toString()}-${revealRetryGenerations.get(ticketId.toString()) ?? 0}`}
+            preview={preview}
+            logIndex={tickets.find((ticket) => ticket.ticketId === ticketId)?.logIndex}
+            buttonLabel="Retry reveal"
+            onMinted={(mintedTicketId) => markRevealed([mintedTicketId])}
+            onUnavailable={(ticket) => rememberUnavailableRevealTickets([ticket])}
+            onStateChange={(state) => {
+              if (state === 'wallet-confirmation') clearUnavailableRevealTicket(ticketId);
+            }}
+          />
+        </div>
       );
     }
     return (
