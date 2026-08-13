@@ -1,5 +1,5 @@
 import { derivePlanetPreview, type PlanetPreview } from '@megaplanets/planet-generator';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
 import { Button } from '@/components/common/Button';
 import { TxStatus } from '@/components/common/TxStatus';
@@ -33,11 +33,11 @@ import {
 } from '@/lib/expeditionFlow';
 import {
   clearExpeditionSession,
+  type ExpeditionSessionV1,
   readExpeditionSession,
   writeExpeditionSession,
-  type ExpeditionSessionV1,
 } from '@/lib/expeditionSession';
-import { mergePlanetTickets } from '@/lib/planetTickets';
+import { selectRevealTickets } from '@/lib/revealPlan';
 import { BULK_THRESHOLD, type CustomTicket, isValidTicket, totalCost } from '@/lib/tickets';
 
 type DiscoveredPlanet = { preview: PlanetPreview; logIndex: bigint | undefined };
@@ -94,22 +94,28 @@ export function Play() {
     [indexed.planets],
   );
   const expectedCount = session?.quantity ?? count;
+  const revealPurchaseMode = session?.purchaseMode ?? (isBulk ? 'bulk' : 'direct');
   const candidateTickets = useMemo(
     () =>
-      mergePlanetTickets(
-        isBulk ? bulk.confirmedTickets : direct.purchasedTickets,
-        recovered.tickets.filter(
-          (ticket) =>
-            ticket.drawingId === drawingId && !indexedTicketIds.has(ticket.ticketId.toString()),
-        ),
-      ),
+      selectRevealTickets({
+        exactTickets:
+          revealPurchaseMode === 'bulk' ? bulk.confirmedTickets : direct.purchasedTickets,
+        recoveredTickets: recovered.tickets,
+        mode: revealPurchaseMode,
+        drawingId,
+        purchaseTxHash: session?.purchaseTxHash,
+        expectedCount,
+        indexedTicketIds,
+      }),
     [
       bulk.confirmedTickets,
       direct.purchasedTickets,
       drawingId,
+      expectedCount,
       indexedTicketIds,
-      isBulk,
+      revealPurchaseMode,
       recovered.tickets,
+      session?.purchaseTxHash,
     ],
   );
   const sessionCandidateCount = useMemo(() => {
@@ -126,25 +132,22 @@ export function Play() {
   }, [recovered.tickets, session]);
   const confirmedTickets = useMemo(() => {
     if (!flowActive) return [];
-    if (session?.purchaseMode === 'direct' && session.purchaseTxHash) {
-      return candidateTickets
-        .filter(
-          (ticket) => ticket.originTxHash.toLowerCase() === session.purchaseTxHash?.toLowerCase(),
-        )
-        .slice(0, expectedCount);
-    }
-    return candidateTickets.slice(-expectedCount);
-  }, [candidateTickets, expectedCount, flowActive, session]);
+    return candidateTickets.slice(0, expectedCount);
+  }, [candidateTickets, expectedCount, flowActive]);
   const activeBatch = bulk.orderInfo?.[0];
 
   useEffect(() => {
     if (!address) {
       setSession(null);
       setFlowActive(false);
+      setRevealedTicketIds(new Set());
+      setRevealState('idle');
       return;
     }
     setSession(readExpeditionSession(address, chainId));
     setFlowActive(false);
+    setRevealedTicketIds(new Set());
+    setRevealState('idle');
   }, [address, chainId]);
 
   useEffect(() => {
@@ -282,7 +285,12 @@ export function Play() {
     setFlowActive(true);
     setRevealState('idle');
     if (isBulk) void bulk.createOrder();
-    else if (bounds) void direct.buy({ customTickets: staticTickets, count, bounds });
+    else if (bounds) {
+      // A new expedition must never reuse receipt tickets from a prior wallet
+      // or expedition while the new purchase is still being confirmed.
+      direct.reset();
+      void direct.buy({ customTickets: staticTickets, count, bounds });
+    }
   };
   const resume = () => {
     if (!session) return;
@@ -293,6 +301,7 @@ export function Play() {
     if (session.purchaseTxHash) return;
     if (session.purchaseMode === 'bulk') void bulk.createOrder();
     else if (bounds) {
+      direct.reset();
       void direct.buy({ customTickets: session.coordinates, count: session.quantity, bounds });
     }
   };

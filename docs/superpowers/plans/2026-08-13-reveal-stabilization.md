@@ -33,7 +33,7 @@
 - [ ] Add failing route tests for fallback canonical reads, wrong owner, burned/claimed ticket, already minted ticket, stage code, and request ID.
 - [ ] Run `pnpm exec vitest run api/index.test.ts` and record the expected failures.
 - [ ] Implement the smallest injected chain-validation boundary and safe error mapping; do not expose raw provider errors.
-- [ ] Make `/vouchers/batch` preserve input order while returning per-item success/failure results for deterministic ticket failures; infrastructure/unreadable authority failures remain fail-closed.
+- [ ] Preserve the existing ordered/atomic `/vouchers/batch` compatibility contract; defer per-item partial results until after the hackathon.
 - [ ] Run the focused tests until GREEN and lint/typecheck the owned files.
 
 ### Task 2: Artifact integrity and expired voucher regeneration
@@ -49,9 +49,9 @@
 - Existing artifacts are accepted only when all immutable derived fields match the proof and canonical descriptor.
 - An expired voucher reuses the verified artifact and receives a new expiry/signature without repinning.
 
-- [ ] Add failing tests for seed/traits/URI/media conflicts, expired voucher regeneration, and concurrent pin-once behavior.
+- [ ] Add failing tests for seed/traits/URI/media conflicts and expired voucher regeneration without repinning.
 - [ ] Run the focused tests and record RED.
-- [ ] Implement full immutable comparisons and preserve the current in-flight coalescing boundary.
+- [ ] Implement full immutable comparisons and preserve the current process-local in-flight coalescing boundary; defer cross-replica pin coordination.
 - [ ] Run focused tests until GREEN and lint/typecheck the owned files.
 
 ### Task 3: Exact candidate selection and chunked reveal

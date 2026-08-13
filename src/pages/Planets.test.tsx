@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
     address: '0x0000000000000000000000000000000000000001' as `0x${string}` | undefined,
     isConnected: true,
   },
+  chainId: 84532,
   tickets: [
     {
       ticketId: 24n,
@@ -84,6 +85,7 @@ const state = vi.hoisted(() => ({
 
 vi.mock('wagmi', () => ({
   useAccount: () => state.account,
+  useChainId: () => state.chainId,
 }));
 vi.mock('@rainbow-me/rainbowkit', () => ({
   ConnectButton: {
@@ -216,6 +218,7 @@ describe('Planets', () => {
       value: vi.fn().mockReturnValue({ matches: false }),
     });
     state.account = { address: '0x0000000000000000000000000000000000000001', isConnected: true };
+    state.chainId = 84532;
     state.tickets = [
       {
         ticketId: 24n,
@@ -438,5 +441,19 @@ describe('Planets', () => {
 
     expect(screen.getByText('Connect your wallet to view your planets')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Connect wallet' })).toBeInTheDocument();
+  });
+
+  it('clears optimistic reveal state after a wallet or network switch', () => {
+    state.planets = [];
+    const view = render(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reveal all (2)' }));
+    expect(screen.queryByRole('button', { name: 'Reveal all (2)' })).not.toBeInTheDocument();
+
+    state.account = { address: '0x0000000000000000000000000000000000000002', isConnected: true };
+    state.chainId = 84533;
+    view.rerender(<Planets onNavigate={vi.fn()} onViewPlanet={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'Reveal all (2)' })).toBeInTheDocument();
   });
 });

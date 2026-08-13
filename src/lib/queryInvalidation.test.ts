@@ -19,6 +19,7 @@ describe('post-write query invalidation', () => {
         ['megapot-api', 'eligible-planet-tickets'],
         ['megapot-api', 'direct-planet-holdings'],
         ['megapot-api', expect.any(String), 'indexed-planets'],
+        ['megaplanets-backend', expect.any(String), 'wallet-mining'],
       ]),
     );
   });

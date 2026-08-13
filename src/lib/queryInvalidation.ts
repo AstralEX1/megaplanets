@@ -19,6 +19,7 @@ export async function invalidatePostWriteQueries(
     [QK.NS, 'eligible-planet-tickets'],
     [QK.NS, 'direct-planet-holdings'],
     [QK.NS, BACKEND_API_BASE_URL, 'indexed-planets'],
+    ['megaplanets-backend', BACKEND_API_BASE_URL, 'wallet-mining'],
   ] as const;
 
   await Promise.all(

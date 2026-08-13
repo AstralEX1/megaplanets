@@ -1,7 +1,7 @@
 import { derivePlanetPreview, type PlanetPreview } from '@megaplanets/planet-generator';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useEffect, useMemo, useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useChainId } from 'wagmi';
 import mineralIcon from '@/assets/mineral-icon.png';
 import { Button } from '@/components/common/Button';
 import { TxStatus } from '@/components/common/TxStatus';
@@ -65,6 +65,7 @@ function ConnectWalletPrompt() {
 
 export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProps) {
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const [stored, setStored] = useState(() => ({
     tickets: [] as ReturnType<typeof readPersistedPurchasedTickets>['tickets'],
     invalidKeys: [] as readonly string[],
@@ -80,19 +81,22 @@ export function Planets({ onNavigate, onViewPlanet, routePlanetId }: PlanetsProp
   useEffect(() => {
     if (!address) {
       setStored({ tickets: [], invalidKeys: [] });
+      setRevealedTicketIds(new Set());
       setUnavailableRevealTickets([]);
       return;
     }
+    if (!Number.isSafeInteger(chainId) || chainId <= 0) return;
     const syncStoredTickets = () => setStored(readPersistedPurchasedTickets(address));
     const onTicketsUpdated = (event: Event) => {
       const account = (event as CustomEvent<{ account?: string }>).detail?.account;
       if (account === address.toLowerCase()) syncStoredTickets();
     };
+    setRevealedTicketIds(new Set());
     setUnavailableRevealTickets([]);
     syncStoredTickets();
     window.addEventListener(PURCHASED_TICKETS_UPDATED_EVENT, onTicketsUpdated);
     return () => window.removeEventListener(PURCHASED_TICKETS_UPDATED_EVENT, onTicketsUpdated);
-  }, [address]);
+  }, [address, chainId]);
 
   const onChain = useEligiblePlanetTickets(address);
   const indexed = useIndexedPlanets(address);

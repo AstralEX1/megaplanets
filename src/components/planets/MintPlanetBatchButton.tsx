@@ -1,17 +1,30 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useAccount, useChainId, usePublicClient, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import type { PlanetPreview } from '@megaplanets/planet-generator';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { baseSepolia } from 'viem/chains';
+import {
+  useAccount,
+  useChainId,
+  usePublicClient,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi';
 import { Button } from '@/components/common/Button';
 import { TxStatus } from '@/components/common/TxStatus';
-import { CHAIN, JACKPOT_TICKET_NFT_ADDRESS, MEGAPLANETS_CONTRACT_ADDRESS } from '@/config/contracts';
+import {
+  CHAIN,
+  JACKPOT_TICKET_NFT_ADDRESS,
+  MEGAPLANETS_CONTRACT_ADDRESS,
+} from '@/config/contracts';
 import { megaPlanetsAbi } from '@/lib/megaPlanets';
-import { isPlanetVoucherServiceConfigured, requestPlanetVoucher } from '@/lib/planetVoucher';
-import { getTransactionReceiptError, isSuccessfulTransactionReceipt } from '@/lib/transactionReceipt';
 import { getPlanetAvailability } from '@/lib/planetAvailability';
 import { getLiveRevealCandidates, type RevealUnavailable } from '@/lib/planetReveal';
+import { isPlanetVoucherServiceConfigured, requestPlanetVoucher } from '@/lib/planetVoucher';
 import { invalidatePostWriteQueries } from '@/lib/queryInvalidation';
-import { baseSepolia } from 'viem/chains';
+import {
+  getTransactionReceiptError,
+  isSuccessfulTransactionReceipt,
+} from '@/lib/transactionReceipt';
 
 type MintablePlanet = { preview: PlanetPreview; logIndex: bigint | undefined };
 
@@ -39,6 +52,7 @@ export function MintPlanetBatchButton({
   const receiptSucceeded = isSuccessfulTransactionReceipt(receipt.data);
   const receiptError = getTransactionReceiptError(receipt.data);
   const hasNotifiedMint = useRef(false);
+  const submissionInFlight = useRef(false);
   const [preparationError, setPreparationError] = useState<Error | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
   const submittedPlanets = useRef<readonly MintablePlanet[]>([]);
@@ -63,6 +77,16 @@ export function MintPlanetBatchButton({
     isPlanetVoucherServiceConfigured;
 
   useEffect(() => {
+    void address;
+    void walletChainId;
+    submissionInFlight.current = false;
+  }, [address, walletChainId]);
+
+  useEffect(() => {
+    if (write.error || receipt.error || receiptError) submissionInFlight.current = false;
+  }, [receipt.error, receiptError, write.error]);
+
+  useEffect(() => {
     if (!receiptSucceeded) {
       hasNotifiedMint.current = false;
       return;
@@ -75,7 +99,8 @@ export function MintPlanetBatchButton({
 
   useEffect(() => {
     if (receiptSucceeded) onStateChange?.('complete');
-    else if (preparationError || write.error || receipt.error || receiptError) onStateChange?.('error');
+    else if (preparationError || write.error || receipt.error || receiptError)
+      onStateChange?.('error');
     else if (receipt.isLoading) onStateChange?.('confirming');
     else if (isPreparing || write.isPending) onStateChange?.('wallet-confirmation');
     else onStateChange?.('idle');
@@ -93,6 +118,8 @@ export function MintPlanetBatchButton({
 
   const mintBatch = async () => {
     if (!canMint || !address || !publicClient || !MEGAPLANETS_CONTRACT_ADDRESS) return;
+    if (submissionInFlight.current) return;
+    submissionInFlight.current = true;
     setPreparationError(null);
     setIsPreparing(true);
     try {
@@ -104,15 +131,28 @@ export function MintPlanetBatchButton({
           logIndex: logIndex as bigint,
         })),
         JACKPOT_TICKET_NFT_ADDRESS,
+        MEGAPLANETS_CONTRACT_ADDRESS,
       );
       if (availabilityCheck.unavailable.length > 0) {
-        onUnavailable?.(availabilityCheck.unavailable.filter(({ reason }) => reason !== 'unreadable'));
+        onUnavailable?.(
+          availabilityCheck.unavailable.filter(({ reason }) => reason !== 'unreadable'),
+        );
       }
-      const unreadable = availabilityCheck.unavailable.filter(({ reason }) => reason === 'unreadable');
-      if (unreadable.length > 0) throw new Error('Ticket ownership could not be read. Check the Base Sepolia RPC and retry.');
-      const liveTicketIds = new Set(availabilityCheck.live.map(({ ticketId }) => ticketId.toString()));
-      const livePlanets = validPlanets.filter(({ preview }) => liveTicketIds.has(preview.descriptor.input.ticketId.toString()));
-      if (livePlanets.length === 0) throw new Error('No revealable ticket is currently owned by this wallet.');
+      const unreadable = availabilityCheck.unavailable.filter(
+        ({ reason }) => reason === 'unreadable',
+      );
+      if (unreadable.length > 0)
+        throw new Error(
+          'Ticket ownership could not be read. Check the Base Sepolia RPC and retry.',
+        );
+      const liveTicketIds = new Set(
+        availabilityCheck.live.map(({ ticketId }) => ticketId.toString()),
+      );
+      const livePlanets = validPlanets.filter(({ preview }) =>
+        liveTicketIds.has(preview.descriptor.input.ticketId.toString()),
+      );
+      if (livePlanets.length === 0)
+        throw new Error('No revealable ticket is currently owned by this wallet.');
       submittedPlanets.current = livePlanets;
       const prepared = await Promise.all(
         livePlanets.map(({ preview, logIndex }) =>
@@ -136,6 +176,7 @@ export function MintPlanetBatchButton({
       setPreparationError(
         error instanceof Error ? error : new Error('Planet batch mint preparation failed.'),
       );
+      submissionInFlight.current = false;
     } finally {
       setIsPreparing(false);
     }
@@ -143,11 +184,21 @@ export function MintPlanetBatchButton({
 
   if (planets.length < 2) return null;
   if (availability === 'unsupported-mainnet')
-    return <p className="text-xs text-zinc-500">Planet reveals are not supported on Base mainnet.</p>;
+    return (
+      <p className="text-xs text-zinc-500">Planet reveals are not supported on Base mainnet.</p>
+    );
   if (availability === 'missing-contract')
-    return <p className="text-xs text-rose-400">Planet reveal is unavailable: contract configuration is missing.</p>;
+    return (
+      <p className="text-xs text-rose-400">
+        Planet reveal is unavailable: contract configuration is missing.
+      </p>
+    );
   if (availability === 'wrong-chain')
-    return <p className="text-xs text-amber-200">Switch your wallet to Base Sepolia to reveal these planets.</p>;
+    return (
+      <p className="text-xs text-amber-200">
+        Switch your wallet to Base Sepolia to reveal these planets.
+      </p>
+    );
   if (!isPlanetVoucherServiceConfigured)
     return (
       <p className="text-xs text-zinc-500">

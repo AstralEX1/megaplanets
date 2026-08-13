@@ -4,6 +4,11 @@
 
 Make receipt discovery, voucher preparation, and single/batch Planet reveal reliable for old and newly purchased Base Sepolia tickets without changing the deployed contract or adding a continuous Ticket indexer.
 
+This is a one-day hackathon stabilization pass. The release-critical path is exact
+execution-ticket selection, wallet isolation, fail-closed server authority checks,
+artifact revalidation, and duplicate-submission protection. A richer partial-result
+batch protocol and exhaustive UI state taxonomy are explicitly deferred.
+
 ## Boundaries
 
 - Megapot receipts and Base Sepolia RPC remain the eligibility authority.
@@ -15,13 +20,13 @@ Make receipt discovery, voucher preparation, and single/batch Planet reveal reli
 
 ## Design
 
-The backend exposes a small typed error boundary with a safe stage code and request ID. Receipt lookup, canonical block lookup, and live contract reads share bounded RPC fallback behavior. Voucher preparation stays idempotent through the existing proof/artifact/voucher stores; the server validates an existing artifact before reuse and never pins it twice during concurrent work.
+The backend exposes a small typed error boundary with a safe stage code and request ID. Receipt lookup, canonical block lookup, and live contract reads share bounded RPC fallback behavior. Voucher preparation stays idempotent through the existing proof/artifact/voucher stores; the server validates an existing artifact before reuse. Cross-replica pin-once coordination is deferred because it requires infrastructure beyond the one-day MVP gate.
 
 The frontend preserves the exact `TicketPurchased` references recovered from each direct or keeper execution receipt. It deduplicates by ticket ID and receipt position, checks current ownership, removes unavailable tickets with a visible reason, and submits only a valid group of at most 50. After a confirmed mint it invalidates all ticket, ownership, Planet, and mining queries; if more valid tickets remain, the next group is offered without recreating the purchase session.
 
 ## Error model
 
-Expected API failures use stable stages such as `receipt`, `finality`, `proof`, `ownership`, `already_minted`, `artifact`, `pinata`, `signer`, and `database`. Responses contain a user-safe message and request ID, never secrets or raw provider payloads. Unknown failures use the generic stage and request ID. The browser preserves this information in the displayed error.
+Expected singular voucher failures use a small stable stage/code pair plus a request ID. Responses contain a user-safe message, never secrets or raw provider payloads. The batch endpoint keeps its existing atomic compatibility behavior for the hackathon MVP; ordered per-item partial results are deferred.
 
 ## Verification
 

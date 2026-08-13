@@ -1,23 +1,26 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   buy: vi.fn(),
   bulkCreateOrder: vi.fn(),
+  account: {
+    address: '0x0000000000000000000000000000000000000001',
+    isConnected: true,
+  },
+  chainId: 84532,
   directTickets: [] as Array<Record<string, unknown>>,
+  bulkTickets: [] as Array<Record<string, unknown>>,
   eligibleTickets: [] as Array<Record<string, unknown>>,
   indexedPlanets: [] as Array<{ ticketId: string | null }>,
 }));
 
 vi.mock('wagmi', () => ({
-  useChainId: () => 84532,
-  useAccount: () => ({
-    address: '0x0000000000000000000000000000000000000001',
-    isConnected: true,
-  }),
+  useChainId: () => mocks.chainId,
+  useAccount: () => mocks.account,
 }));
 vi.mock('@megaplanets/planet-generator', () => ({
   createPlanetConfig: () => ({}),
@@ -86,6 +89,7 @@ vi.mock('@/hooks/useBuyTickets', () => ({
     isPending: false,
     purchasedTickets: mocks.directTickets,
     buy: mocks.buy,
+    reset: vi.fn(),
   }),
 }));
 vi.mock('@/hooks/useEligiblePlanetTickets', () => ({
@@ -119,7 +123,7 @@ vi.mock('@/hooks/useBulkPurchase', () => ({
       reset: vi.fn(),
     },
     cancel: { isPending: false },
-    confirmedTickets: [],
+    confirmedTickets: mocks.bulkTickets,
     orderInfo: [],
   }),
 }));
@@ -132,7 +136,13 @@ describe('Play', () => {
     localStorage.clear();
     mocks.buy.mockReset();
     mocks.bulkCreateOrder.mockReset();
+    mocks.account = {
+      address: '0x0000000000000000000000000000000000000001',
+      isConnected: true,
+    };
+    mocks.chainId = 84532;
     mocks.directTickets = [];
+    mocks.bulkTickets = [];
     mocks.eligibleTickets = [];
     mocks.indexedPlanets = [];
   });
@@ -260,6 +270,51 @@ describe('Play', () => {
     expect(screen.getByRole('button', { name: 'REVEAL (1)' })).toBeInTheDocument();
   });
 
+  it('uses only exact bulk execution tickets instead of older same-drawing recovery history', async () => {
+    const user = userEvent.setup();
+    const executionHash = `0x${'c'.repeat(64)}`;
+    localStorage.setItem(
+      'megaplanets:expedition:v1:84532:0x0000000000000000000000000000000000000001',
+      JSON.stringify({
+        version: 1,
+        account: '0x0000000000000000000000000000000000000001',
+        chainId: 84532,
+        purchaseMode: 'bulk',
+        drawingId: '218',
+        quantity: 14,
+        automaticQuickPick: true,
+        coordinates: [],
+        purchaseTxHash: executionHash,
+        bulkOrderReference: executionHash,
+        createdAt: 123,
+      }),
+    );
+    mocks.bulkTickets = Array.from({ length: 14 }, (_, index) => ({
+      ticketId: BigInt(90 + index),
+      drawingId: 218n,
+      normals: [1, 2, 3, 4, 5],
+      bonusBall: 1,
+      originTxHash: executionHash,
+      logIndex: BigInt(index),
+    }));
+    mocks.eligibleTickets = [
+      {
+        ticketId: 12n,
+        drawingId: 218n,
+        normals: [1, 2, 3, 4, 5],
+        bonusBall: 1,
+        originTxHash: `0x${'1'.repeat(64)}`,
+        logIndex: 0n,
+      },
+    ];
+    render(<Play />);
+
+    await user.click(await screen.findByRole('button', { name: 'Resume' }));
+
+    expect(screen.getByRole('heading', { name: 'You found 14 planets!' })).toBeInTheDocument();
+    expect(screen.queryByText('Planet artwork 12')).not.toBeInTheDocument();
+  });
+
   it('re-submits a direct purchase when Resume restores an unsigned session', async () => {
     const user = userEvent.setup();
     localStorage.setItem(
@@ -312,5 +367,42 @@ describe('Play', () => {
     await user.click(await screen.findByRole('button', { name: 'Resume' }));
 
     expect(mocks.bulkCreateOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not carry a completed reveal into a different wallet or network', async () => {
+    const user = userEvent.setup();
+    mocks.directTickets = [
+      {
+        ticketId: 34n,
+        drawingId: 218n,
+        normals: [1, 2, 3, 4, 5],
+        bonusBall: 1,
+        originTxHash: '0x1234',
+        logIndex: 0n,
+      },
+    ];
+    const view = render(<Play />);
+
+    await user.click(screen.getByRole('button', { name: 'Custom quantity' }));
+    await user.type(screen.getByLabelText('Custom planet count'), '1{enter}');
+    await user.click(screen.getByRole('button', { name: /^Explore 1/ }));
+    await user.click(screen.getByText('Complete reveal'));
+    expect(
+      screen.getByRole('heading', { name: 'Your new planets are ready.' }),
+    ).toBeInTheDocument();
+
+    mocks.account = {
+      address: '0x0000000000000000000000000000000000000002',
+      isConnected: true,
+    };
+    mocks.chainId = 84533;
+    view.rerender(<Play />);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('heading', { name: 'Your new planets are ready.' }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Explore 1/ })).toBeInTheDocument();
+    });
   });
 });
