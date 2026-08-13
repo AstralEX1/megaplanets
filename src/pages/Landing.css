@@ -1,0 +1,1133 @@
+.landing {
+  --landing-void: var(--background);
+  --landing-basalt: var(--surface);
+  --landing-graphite: var(--surface-raised);
+  --landing-dust: var(--text-primary);
+  --landing-haze: var(--text-secondary);
+  --landing-mineral: var(--accent);
+  --landing-rare: var(--rare);
+  --landing-success: var(--success);
+  --landing-border: var(--border);
+  --landing-border-strong: var(--border-strong);
+  --landing-container: min(1180px, calc(100vw - 48px));
+  min-height: 100vh;
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
+  background: var(--landing-void);
+  color: var(--landing-dust);
+  font-family: Sora, ui-sans-serif, system-ui, sans-serif;
+}
+
+.landing::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: radial-gradient(circle at 82% 12%, rgb(174 185 255 / 0.07), transparent 22rem);
+  content: "";
+  pointer-events: none;
+}
+
+.landing > * {
+  position: relative;
+  z-index: 1;
+}
+
+.landing * {
+  box-sizing: border-box;
+}
+
+.landing a {
+  color: inherit;
+}
+
+.landing-container {
+  width: var(--landing-container);
+  margin-inline: auto;
+}
+
+.landing-skip-link {
+  position: fixed;
+  z-index: 10;
+  top: 10px;
+  left: 10px;
+  padding: 10px 14px;
+  background: var(--landing-mineral);
+  color: var(--landing-void);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-transform: uppercase;
+  transform: translateY(-150%);
+  transition: transform 160ms ease;
+}
+
+.landing-skip-link:focus {
+  transform: translateY(0);
+}
+
+.landing-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: var(--landing-container);
+  min-height: 76px;
+  margin-inline: auto;
+  border-bottom: 1px solid rgb(244 247 255 / 0.13);
+}
+
+.landing-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--landing-dust);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.landing-wordmark-mark {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 1px solid var(--landing-mineral);
+  color: var(--landing-mineral);
+  font-family: Bitram, Sora, sans-serif;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.landing-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 52px;
+  padding: 0 22px;
+  border: 1px solid var(--landing-mineral);
+  background: var(--landing-mineral);
+  color: var(--landing-void);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: transform 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.landing a.landing-button {
+  color: var(--landing-void);
+}
+
+.landing-button:hover {
+  background: var(--landing-dust);
+  border-color: var(--landing-dust);
+  transform: translateY(-2px);
+}
+
+.landing-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.landing-button-small {
+  min-height: 38px;
+  padding-inline: 16px;
+  font-size: 0.62rem;
+}
+
+.landing :where(a, button):focus-visible {
+  outline: 2px solid var(--landing-dust);
+  outline-offset: 4px;
+}
+
+.landing-kicker,
+.landing-micro-label {
+  margin: 0;
+  color: var(--landing-mineral);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.landing h1,
+.landing h2,
+.landing h3,
+.landing p {
+  margin-top: 0;
+}
+
+.landing h2 {
+  margin-bottom: 0;
+  font-size: clamp(2.7rem, 5vw, 5.5rem);
+  font-weight: 500;
+  letter-spacing: -0.075em;
+  line-height: 0.95;
+}
+
+.landing h1 em,
+.landing h2 em {
+  color: var(--landing-mineral);
+  font-family: Bitram, Sora, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: -0.045em;
+}
+
+.landing p {
+  color: var(--landing-haze);
+  font-size: 0.92rem;
+  line-height: 1.75;
+}
+
+.landing-hero {
+  position: relative;
+  display: grid;
+  grid-template-areas:
+    "copy visual"
+    "live live";
+  grid-template-columns: minmax(0, 0.88fr) minmax(420px, 1.12fr);
+  gap: clamp(32px, 6vw, 96px);
+  align-items: center;
+  min-height: min(980px, calc(100dvh - 76px));
+  padding-block: 66px 92px;
+}
+
+.landing-hero-lightfall {
+  position: absolute;
+  z-index: 0;
+  inset: -76px -4vw 0;
+  pointer-events: none;
+  opacity: 0.82;
+  mask-image: linear-gradient(to bottom, black 0%, black 72%, transparent 100%);
+}
+
+.landing-hero-copy,
+.landing-hero-visual {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-hero-copy {
+  grid-area: copy;
+}
+
+.landing-hero h1 {
+  max-width: 680px;
+  margin-bottom: 28px;
+  font-size: clamp(3.45rem, 5.6vw, 5.3rem);
+  font-weight: 500;
+  letter-spacing: -0.075em;
+  line-height: 0.92;
+  perspective: 900px;
+}
+
+.landing-hero-title .landing-split-line {
+  width: fit-content;
+  transform-origin: 50% 100%;
+}
+
+.landing-hero-title .landing-split-line-accent {
+  color: var(--landing-mineral);
+  font-family: Bitram, Sora, sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.045em;
+}
+
+.landing-mechanics-heading .landing-split-line-accent {
+  color: var(--landing-mineral);
+  font-family: Bitram, Sora, sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.045em;
+}
+
+.landing-hero-subtitle {
+  max-width: 420px;
+  margin-bottom: 11px;
+  color: var(--landing-haze);
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  line-height: 1.65;
+}
+
+.landing-hero-powered-by {
+  display: block;
+  margin-bottom: 34px;
+  color: var(--landing-mineral);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.landing-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.landing-hero-visual {
+  grid-area: visual;
+  display: grid;
+  min-height: min(680px, 54vw);
+  place-items: center;
+}
+
+.landing-hero-live {
+  position: relative;
+  z-index: 1;
+  grid-area: live;
+}
+
+.landing-planet-card {
+  overflow: hidden;
+  border: 1px solid rgb(244 247 255 / 0.18);
+  background: var(--landing-basalt);
+}
+
+.landing-live-jackpot {
+  width: 100%;
+  margin-top: 0;
+  padding-top: 20px;
+  border-top: 1px solid rgb(244 247 255 / 0.18);
+}
+
+.landing-live-jackpot-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.34fr);
+  align-items: end;
+  gap: clamp(26px, 5vw, 80px);
+}
+
+.landing-live-jackpot-main {
+  min-width: 0;
+}
+
+.landing-live-jackpot-header,
+.landing-live-jackpot-footer {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.landing-live-jackpot-status,
+.landing-live-jackpot-drawing {
+  color: var(--landing-haze);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.landing-live-jackpot-status {
+  color: var(--landing-success);
+  text-align: right;
+}
+
+.landing-live-jackpot-echo {
+  min-width: 0;
+  padding: 24px 0 18px;
+  overflow: visible;
+}
+
+.landing-live-jackpot-echo .depth-text {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  filter: saturate(1.08) drop-shadow(0 20px 34px rgb(0 0 0 / 0.24));
+}
+
+.landing-live-jackpot-echo .depth-text__layer {
+  filter: saturate(1.08) brightness(0.95);
+}
+
+.landing-live-jackpot-echo .depth-text__face {
+  letter-spacing: -0.07em;
+}
+
+.landing-live-jackpot-footer {
+  align-items: end;
+  min-height: 126px;
+  padding: 18px 0 12px 28px;
+  border-top: 0;
+  border-left: 1px solid rgb(244 247 255 / 0.16);
+}
+
+.landing-live-jackpot-footer > div {
+  display: grid;
+  gap: 5px;
+}
+
+.landing-live-jackpot-footer [role="timer"] {
+  margin: 0;
+  color: var(--landing-dust);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: clamp(1.25rem, 2.7vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.landing-live-jackpot-drawing-panel {
+  display: grid;
+  align-content: end;
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.landing-live-generator {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 100%;
+  min-height: 100%;
+  place-items: center;
+  gap: clamp(20px, 3vw, 34px);
+  overflow: visible;
+}
+
+.landing-live-generator-art {
+  display: grid;
+  width: min(100%, 580px);
+  min-width: 0;
+  aspect-ratio: 1;
+  place-items: center;
+  padding: 0;
+  background: transparent;
+}
+
+.landing-live-generator-art > * {
+  width: 100%;
+  min-width: 0;
+}
+
+.landing-live-generator-art img,
+.landing-live-generator-art canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.landing-live-generator-button {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(100%, 360px);
+  min-height: 68px;
+  padding: 0 21px 0 24px;
+  overflow: hidden;
+  border: 0;
+  background: var(--landing-mineral);
+  color: var(--landing-void);
+  cursor: pointer;
+  font-family: Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+  box-shadow: 0 0 0 1px rgb(197 215 107 / 0.52), 0 0 28px rgb(197 215 107 / 0.26);
+  transition: transform 180ms ease, box-shadow 180ms ease, color 180ms ease;
+  animation: landing-generator-pulse 2.8s ease-in-out infinite;
+}
+
+.landing-live-generator-button::before {
+  position: absolute;
+  z-index: -1;
+  top: -80%;
+  left: -25%;
+  width: 35%;
+  height: 260%;
+  background: rgb(242 241 233 / 0.54);
+  content: "";
+  transform: rotate(24deg);
+  transition: left 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.landing-live-generator-button:hover {
+  color: var(--landing-void);
+  box-shadow: 0 0 0 1px rgb(242 241 233 / 0.62), 0 0 42px rgb(197 215 107 / 0.48);
+  transform: translateY(-4px) scale(1.015);
+}
+
+.landing-live-generator-button:hover::before {
+  left: 110%;
+}
+
+.landing-live-generator-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.landing-live-generator-button-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgb(8 11 9 / 0.34);
+  place-items: center;
+  font-size: 1rem;
+  line-height: 1;
+  transition: transform 180ms ease;
+}
+
+.landing-live-generator-button:hover .landing-live-generator-button-icon {
+  transform: rotate(45deg);
+}
+
+@keyframes landing-generator-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgb(197 215 107 / 0.52), 0 0 28px rgb(197 215 107 / 0.26);
+  }
+
+  50% {
+    box-shadow: 0 0 0 1px rgb(197 215 107 / 0.68), 0 0 44px rgb(197 215 107 / 0.42);
+  }
+}
+
+.landing-section {
+  padding-block: clamp(66px, 8vw, 112px);
+}
+
+.landing-mechanics {
+  border-top: 1px solid rgb(244 247 255 / 0.13);
+}
+
+.landing-mechanics-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 40px;
+  padding-bottom: 54px;
+}
+
+.landing-mechanics-heading > p {
+  max-width: 380px;
+  margin-bottom: 4px;
+}
+
+.landing-mechanics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px minmax(0, 1fr);
+  align-items: stretch;
+  border-top: 1px solid rgb(244 247 255 / 0.16);
+  border-bottom: 1px solid rgb(244 247 255 / 0.16);
+}
+
+.landing-mechanic {
+  min-width: 0;
+  min-height: 470px;
+  padding: 22px 24px 28px;
+  border-right: 1px solid rgb(244 247 255 / 0.13);
+}
+
+.landing-ticket-mechanic {
+  border-left: 1px solid rgb(244 247 255 / 0.13);
+  background: rgb(174 185 255 / 0.035);
+}
+
+.landing-planet-mechanic {
+  background: rgb(80 210 160 / 0.035);
+  border-right: 0;
+}
+
+.landing-ticket-visual {
+  display: grid;
+  min-height: 270px;
+  margin-block: 48px 34px;
+  padding: 28px;
+  border: 1px solid rgb(174 185 255 / 0.35);
+  background:
+    linear-gradient(135deg, transparent 0 49.8%, rgb(174 185 255 / 0.15) 50%, transparent 50.2%),
+    var(--landing-graphite);
+  place-items: center;
+  transform: rotate(-2deg);
+}
+
+.landing-megapot-ticket {
+  display: grid;
+  width: 100%;
+  min-height: 212px;
+  gap: 18px;
+  padding: 20px 21px 16px;
+  border: 1px solid rgb(197 215 107 / 0.48);
+  background: var(--landing-void);
+  transform: rotate(1deg);
+}
+
+.landing-megapot-ticket-head,
+.landing-megapot-ticket-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.landing-megapot-ticket-price,
+.landing-megapot-ticket-id {
+  color: var(--landing-dust);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.landing-megapot-ticket-id {
+  color: var(--landing-mineral);
+}
+
+.landing-ticket-balls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.landing-ticket-ball {
+  display: grid;
+  width: clamp(31px, 4vw, 44px);
+  height: clamp(31px, 4vw, 44px);
+  border: 1px solid rgb(242 241 233 / 0.2);
+  border-radius: 50%;
+  background: var(--landing-graphite);
+  color: var(--landing-dust);
+  place-items: center;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.landing-ticket-ball-bonus {
+  margin-left: auto;
+  border-color: var(--landing-mineral);
+  background: var(--landing-mineral);
+  color: var(--landing-void);
+}
+
+.landing-ticket-visual strong {
+  color: var(--landing-dust);
+  font-family: Bitram, Sora, sans-serif;
+  font-size: clamp(3.1rem, 6vw, 5.7rem);
+  font-weight: 400;
+  letter-spacing: -0.06em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.landing-ticket-visual-top,
+.landing-ticket-visual-bottom {
+  color: var(--landing-mineral);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.landing-ticket-visual-bottom {
+  color: var(--landing-haze);
+}
+
+.landing-mechanic h3 {
+  margin-bottom: 12px;
+  color: var(--landing-dust);
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+
+.landing-mechanic > p {
+  max-width: 390px;
+  margin-bottom: 0;
+}
+
+.landing-mechanics-connection {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 13px;
+  color: var(--landing-mineral);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.53rem;
+  letter-spacing: 0.1em;
+  line-height: 1.35;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.landing-mechanics-connection i {
+  font-size: 1.8rem;
+  font-style: normal;
+}
+
+.landing-mechanic-planet-stack {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 270px;
+  margin-block: 48px 34px;
+  align-items: end;
+}
+
+.landing-my-planet-card {
+  min-width: 0;
+  aspect-ratio: 0.78;
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 1rem;
+  background: var(--landing-graphite);
+  box-shadow: 0 18px 42px rgb(0 0 0 / 0.52);
+  transition: transform 200ms ease, background-color 200ms ease, box-shadow 200ms ease, filter 200ms ease;
+}
+
+.landing-my-planet-card:hover {
+  background: var(--landing-basalt);
+  box-shadow: 0 26px 58px rgb(0 0 0 / 0.64);
+  transform: translateY(-4px);
+}
+
+.landing-my-planet-card--common {
+  border-color: #71717a;
+  filter: drop-shadow(0 0 10px rgb(161 161 170 / 0.25));
+}
+
+.landing-my-planet-card--uncommon {
+  border-color: #34d399;
+  filter: drop-shadow(0 0 12px rgb(52 211 153 / 0.34));
+}
+
+.landing-my-planet-card--epic {
+  border-color: #a78bfa;
+  filter: drop-shadow(0 0 14px rgb(167 139 250 / 0.42));
+}
+
+.landing-my-planet-card--legendary {
+  border-color: #fcd34d;
+  filter: drop-shadow(0 0 16px rgb(252 211 77 / 0.46));
+}
+
+.landing-my-planet-card-media {
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #050610;
+}
+
+.landing-my-planet-card-media > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.landing-my-planet-card-body {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.landing-my-planet-card-heading,
+.landing-my-planet-card-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.landing-planet-mechanic .landing-my-planet-card-name {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--landing-dust);
+  font-family: Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.landing-my-planet-card-id {
+  flex-shrink: 0;
+  color: var(--landing-haze);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.43rem;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.landing-my-planet-card-minerals {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--landing-dust);
+  font-family: Sora, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.landing-my-planet-card-minerals > img {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+  filter: invert(1);
+}
+
+.landing-my-planet-card-status {
+  color: var(--landing-haze);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.43rem;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.landing-my-planet-card:nth-child(2) {
+  transform: translateY(-16px);
+}
+
+.landing-mechanics-proof {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-top: 22px;
+  color: var(--landing-haze);
+  font-size: 0.76rem;
+}
+
+.landing-mechanics-proof .landing-button {
+  margin-left: auto;
+}
+
+.landing-how-it-works {
+  border-top: 1px solid rgb(244 247 255 / 0.13);
+}
+
+.landing-how-it-works-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 42px;
+  padding-bottom: 48px;
+}
+
+.landing-how-it-works-intro {
+  max-width: 420px;
+  margin-bottom: 4px;
+}
+
+.landing-faq-list {
+  border-top: 1px solid rgb(244 247 255 / 0.18);
+}
+
+.landing-faq-row {
+  border-bottom: 1px solid rgb(244 247 255 / 0.18);
+}
+
+.landing-faq-summary {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 18px;
+  min-height: 88px;
+  padding: 16px 0;
+  color: var(--landing-dust);
+  cursor: pointer;
+  list-style: none;
+}
+
+.landing-faq-summary::-webkit-details-marker {
+  display: none;
+}
+
+.landing-faq-summary:focus-visible {
+  outline: 2px solid var(--landing-mineral);
+  outline-offset: 7px;
+}
+
+.landing-faq-index {
+  color: var(--landing-mineral);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.61rem;
+  letter-spacing: 0.1em;
+}
+
+.landing-faq-question {
+  font-size: clamp(1rem, 1.8vw, 1.32rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.landing-faq-marker {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--landing-mineral);
+}
+
+.landing-faq-marker::before,
+.landing-faq-marker::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 1px;
+  background: var(--landing-mineral);
+  content: "";
+  transform: translate(-50%, -50%);
+  transition: transform 180ms ease;
+}
+
+.landing-faq-marker::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.landing-faq-row[open] .landing-faq-marker::after {
+  transform: translate(-50%, -50%) rotate(0deg);
+}
+
+.landing-faq-answer {
+  max-width: 720px;
+  margin: -2px 76px 28px 66px;
+  color: var(--landing-haze);
+  font-size: 0.9rem;
+  line-height: 1.8;
+}
+
+.landing-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 90px;
+  border-top: 1px solid rgb(244 247 255 / 0.13);
+  color: var(--landing-haze);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.57rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.landing-footer .landing-wordmark {
+  color: var(--landing-dust);
+  font-family: Sora, ui-sans-serif, sans-serif;
+  font-size: 0.7rem;
+}
+
+.landing-footer-meta {
+  color: var(--landing-mineral);
+  text-align: right;
+}
+
+@media (max-width: 1100px) {
+  .landing-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(400px, 0.95fr);
+    gap: 34px;
+  }
+
+  .landing-live-generator {
+    width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .landing-hero {
+    grid-template-areas:
+      "copy"
+      "visual"
+      "live";
+    grid-template-columns: 1fr;
+    min-height: auto;
+    gap: 22px;
+    padding-top: 64px;
+  }
+
+  .landing-hero-visual {
+    min-height: min(620px, 92vw);
+  }
+
+  .landing-mechanics-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 26px;
+  }
+
+  .landing-how-it-works-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 26px;
+  }
+
+  .landing-mechanics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-mechanic {
+    min-height: 0;
+    border-right: 0;
+  }
+
+  .landing-ticket-mechanic {
+    border-bottom: 1px solid rgb(244 247 255 / 0.13);
+    border-left: 0;
+  }
+
+  .landing-planet-mechanic {
+    border-top: 0;
+  }
+
+  .landing-mechanics-connection {
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    padding: 18px 24px;
+    border-bottom: 1px solid rgb(244 247 255 / 0.13);
+    border-top: 1px solid rgb(244 247 255 / 0.13);
+  }
+
+  .landing-mechanics-connection i {
+    transform: rotate(90deg);
+  }
+}
+
+@media (max-width: 700px) {
+  .landing {
+    --landing-container: min(100% - 32px, 1180px);
+  }
+
+  .landing-header {
+    min-height: 66px;
+  }
+
+  .landing-hero {
+    padding-block: 56px 70px;
+  }
+
+  .landing-hero-visual {
+    min-height: min(390px, 100vw);
+  }
+
+  .landing-hero h1 {
+    font-size: clamp(3.1rem, 15vw, 5rem);
+    white-space: normal;
+  }
+
+  .landing-live-jackpot {
+    margin-top: 0;
+  }
+
+  .landing-live-jackpot-layout {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .landing-live-jackpot-header,
+  .landing-live-jackpot-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .landing-live-jackpot-footer {
+    min-height: 0;
+    padding: 18px 0 0;
+    border-top: 1px solid rgb(244 247 255 / 0.12);
+    border-left: 0;
+  }
+
+  .landing-live-jackpot-status,
+  .landing-live-jackpot-drawing {
+    text-align: left;
+  }
+
+  .landing-live-jackpot-echo {
+    padding-block: 20px 22px;
+  }
+
+  .landing-live-generator {
+    width: 100%;
+    min-height: min(480px, 100vw);
+  }
+
+  .landing-section {
+    padding-block: 64px;
+  }
+
+  .landing-mechanics-heading {
+    padding-bottom: 40px;
+  }
+
+  .landing-mechanic {
+    padding: 20px 18px 24px;
+  }
+
+  .landing-ticket-visual,
+  .landing-mechanic-planet-stack {
+    min-height: 220px;
+    margin-block: 36px 28px;
+  }
+
+  .landing-faq-summary {
+    grid-template-columns: 34px minmax(0, 1fr) 24px;
+    gap: 12px;
+  }
+
+  .landing-faq-answer {
+    margin-left: 46px;
+    margin-right: 36px;
+  }
+
+  .landing-mechanics-proof {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 13px;
+  }
+
+  .landing-mechanics-proof .landing-button {
+    margin-left: 0;
+  }
+
+  .landing-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 160px;
+    padding-block: 28px;
+  }
+
+  .landing-footer-meta {
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing * {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+
+  .landing-live-generator-button {
+    animation: none;
+  }
+}

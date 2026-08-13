@@ -1,0 +1,18 @@
+.split-parent .split-char,
+.split-parent .split-word,
+.split-parent .split-line {
+  display: inline-block;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split-parent,
+  .split-parent .split-char,
+  .split-parent .split-word,
+  .split-parent .split-line {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
+}

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import type { PlanetPreview } from '@megaplanets/planet-generator';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PlanetGif } from './PlanetGif';
@@ -25,6 +25,7 @@ const preview = {
 describe('PlanetGif', () => {
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -51,5 +52,37 @@ describe('PlanetGif', () => {
     render(<PlanetGif preview={preview} />);
 
     await waitFor(() => expect(screen.getByRole('img', { name: 'Animated planet Kepler' })).toHaveAttribute('src', 'blob:planet-gif'));
+  });
+
+  it('defers optional GIF encoding until after the initial paint window', () => {
+    vi.useFakeTimers();
+    let workerCount = 0;
+
+    class FakeWorker {
+      onmessage: ((event: MessageEvent<{ requestId: string; gif: ArrayBuffer }>) => void) | null = null;
+      onerror: ((event: ErrorEvent) => void) | null = null;
+
+      constructor() {
+        workerCount += 1;
+      }
+
+      postMessage() {}
+      terminate() {}
+    }
+
+    vi.stubGlobal('Worker', FakeWorker);
+    render(<PlanetGif preview={preview} deferGeneration />);
+
+    expect(workerCount).toBe(0);
+    expect(screen.queryByText('Static planet fallback')).not.toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(449);
+    });
+    expect(workerCount).toBe(0);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(workerCount).toBe(1);
+    expect(screen.getByText('Static planet fallback')).toBeInTheDocument();
   });
 });

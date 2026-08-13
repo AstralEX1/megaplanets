@@ -9,7 +9,8 @@
   },
   "scripts": {
     "golden": "vitest run tests/generator.test.ts",
-    "golden:update": "tsx scripts/generate-golden.ts"
+    "golden:update": "tsx scripts/generate-golden.ts",
+    "landing:generate": "tsx scripts/generate-landing-previews.ts"
   },
   "dependencies": {
     "gifenc": "^1.0.3",

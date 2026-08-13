@@ -9,6 +9,7 @@ import type { NavKey } from '@/components/layout/Nav';
 import { navPath, parseAppRoute } from '@/lib/appRoute';
 import { Home } from '@/pages/Home';
 import { Leaderboard } from '@/pages/Leaderboard';
+import { Landing } from '@/pages/Landing';
 import { Play } from '@/pages/Play';
 import { Tickets } from '@/pages/Tickets';
 
@@ -43,11 +44,12 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
+  if (active === 'home') {
+    return <Landing />;
+  }
+
   let page: ReactNode;
   switch (active) {
-    case 'home':
-      page = <Home onNavigate={navigate} />;
-      break;
     case 'play':
       page = <Play />;
       break;
